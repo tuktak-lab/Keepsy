@@ -1,0 +1,57 @@
+# 백엔드 CI: PR과 main push에서 test · build (docs DEVELOPMENT 7장 「CI (개발 저장소)」).
+# job 이름 `backend`는 main 브랜치 보호의 필수 status check 이름과 같아야 한다.
+# DB가 필요한 테스트는 내장 DB 대신 MySQL 8.4 서비스 컨테이너로 돌린다 (compose.yaml과 같은 버전).
+# 프론트 lint · build job은 frontend/가 올라온 뒤 추가한다.
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.4
+        # CI 컨테이너 안에서만 쓰는 임시 값. 실제 비밀 값이 아니다.
+        env:
+          MYSQL_DATABASE: keepsy
+          MYSQL_USER: keepsy
+          MYSQL_PASSWORD: keepsy-ci
+          MYSQL_ROOT_PASSWORD: keepsy-ci-root
+          TZ: Asia/Seoul
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -ukeepsy -pkeepsy-ci"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+
+    # application.yaml이 읽는 값. 로컬의 ../.env 대신 환경 변수로 준다.
+    env:
+      MYSQL_HOST: 127.0.0.1
+      MYSQL_PORT: 3306
+      MYSQL_DATABASE: keepsy
+      MYSQL_USER: keepsy
+      MYSQL_PASSWORD: keepsy-ci
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Test and build
+        run: ./gradlew build
