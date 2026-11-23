@@ -15,17 +15,6 @@
   color: "cfd3d7"
   description: "Task 템플릿. type: docs, chore, refactor, test 중 맞는 것"
 
-# 우선순위 (요구사항명세서 1장)
-- name: "priority:p1"
-  color: "b60205"
-  description: "MVP 필수"
-- name: "priority:p2"
-  color: "fbca04"
-  description: "MVP 권장"
-- name: "priority:p3"
-  color: "c2e0c6"
-  description: "확장"
-
 # 영역 (요구사항명세서 ID 영역 코드)
 - name: "area:acc"
   color: "c5def5"
