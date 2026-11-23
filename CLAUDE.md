@@ -18,7 +18,9 @@
 - 배포 없음. 로컬에서 프론트(3000) · 백엔드(8080)를 따로 실행하고, 개발 모드에서만 Next.js가 `/api/**`를 8080으로 rewrites
 - 모의 데이터만 쓴다(실제 개인정보 금지). 메시지는 가상 발송기만 쓴다(실제 문자 없음, A6)
 - 스키마는 Flyway(`backend/src/main/resources/db/migration`, `V{n}__{설명}.sql`)로만 관리한다. `ddl-auto`는 `validate`
-- Lombok: Entity에는 `@Getter` + `@NoArgsConstructor(access = AccessLevel.PROTECTED)`만 쓴다. `@Data` 금지
+- Lombok: Entity에는 `@Getter` + `@NoArgsConstructor(access = AccessLevel.PROTECTED)`만 쓴다. `@Data` · `@Setter` 금지
+- 도메인(백엔드 패키지) 사이: 다른 도메인의 엔티티는 ID로 참조하고, 그 도메인의 엔티티 · Repository를 import하지 않는다. 필요한 값은 쓰는 쪽 `port` 인터페이스로, 화면용 횡단 조회는 조회 전용 Repository의 DTO Projection으로 가져온다 (docs `DEVELOPMENT.md` 4장 「도메인 연동」, 2026-11-23 팀 결정)
+- 코드 규칙(연관관계 · 주입 · 트랜잭션 · 로깅)은 docs `DEVELOPMENT.md` 4장을 따른다. 기준은 강사 코드 점검표다
 
 ## 로컬 환경 메모
 
