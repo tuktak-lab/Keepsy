@@ -44,7 +44,8 @@ class PredictionStatusClassifierTest {
     @Test
     void 이탈_신호_기간은_매장_상한으로_자른다() {
         NextVisitPrediction semiPermanent =
-                new NextVisitPrediction(LAST, 3, 400, LAST.plusDays(365), LAST.plusDays(430), false);
+                new NextVisitPrediction(
+                        LAST, 3, 400, LAST.plusDays(365), LAST.plusDays(430), false);
 
         assertThat(PredictionStatusClassifier.churnPeriodDays(semiPermanent, CAP)).isEqualTo(120);
         assertThat(statusOn(semiPermanent, 430 + 120)).contains(CHURN_SIGNAL);
@@ -62,25 +63,45 @@ class PredictionStatusClassifierTest {
 
     @Test
     void 다음_예약에_해당_카테고리가_있으면_관리_대상에서_빠진다() {
-        assertThat(PredictionStatusClassifier.classify(Optional.of(NAIL), true, CAP, LAST.plusDays(40))).isEmpty();
+        assertThat(
+                        PredictionStatusClassifier.classify(
+                                Optional.of(NAIL), true, CAP, LAST.plusDays(40)))
+                .isEmpty();
     }
 
     @Test
     void 예측_없음은_분류하지_않고_예측_없음() {
-        assertThat(PredictionStatusClassifier.classify(Optional.empty(), false, CAP, LAST)).contains(NO_PREDICTION);
+        assertThat(PredictionStatusClassifier.classify(Optional.empty(), false, CAP, LAST))
+                .contains(NO_PREDICTION);
     }
 
     @Test
     void 계산_결과를_그대로_받아_분류한다() {
         // 간격 20, 30 → 평균 25 → 마지막 방문 + 20~30, 이탈 신호 기간 25
-        Optional<NextVisitPrediction> p = NextVisitCalculator.calculate(List.of(
-                new CategoryVisit(LAST.minusDays(50), List.of(new VisitedMenu(PredictionAttribute.NORMAL, false, null))),
-                new CategoryVisit(LAST.minusDays(30), List.of(new VisitedMenu(PredictionAttribute.NORMAL, false, null))),
-                new CategoryVisit(LAST, List.of(new VisitedMenu(PredictionAttribute.NORMAL, false, null)))),
-                new CycleRange(21, 28));
+        Optional<NextVisitPrediction> p =
+                NextVisitCalculator.calculate(
+                        List.of(
+                                new CategoryVisit(
+                                        LAST.minusDays(50),
+                                        List.of(
+                                                new VisitedMenu(
+                                                        PredictionAttribute.NORMAL, false, null))),
+                                new CategoryVisit(
+                                        LAST.minusDays(30),
+                                        List.of(
+                                                new VisitedMenu(
+                                                        PredictionAttribute.NORMAL, false, null))),
+                                new CategoryVisit(
+                                        LAST,
+                                        List.of(
+                                                new VisitedMenu(
+                                                        PredictionAttribute.NORMAL, false, null)))),
+                        new CycleRange(21, 28));
 
-        assertThat(PredictionStatusClassifier.classify(p, false, CAP, LAST.plusDays(30 + 25))).contains(CHURN_SIGNAL);
-        assertThat(PredictionStatusClassifier.classify(p, false, CAP, LAST.plusDays(30 + 26))).contains(LONG_ABSENT);
+        assertThat(PredictionStatusClassifier.classify(p, false, CAP, LAST.plusDays(30 + 25)))
+                .contains(CHURN_SIGNAL);
+        assertThat(PredictionStatusClassifier.classify(p, false, CAP, LAST.plusDays(30 + 26)))
+                .contains(LONG_ABSENT);
     }
 
     @Test

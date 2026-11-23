@@ -77,7 +77,8 @@ class NextVisitCalculatorTest {
     @Test
     void 소수_범위는_시작_내림_종료_올림() {
         // 간격 20, 30, 23 → 평균 24.33, 표준편차 4.19 → 20.14~28.52 → 20~29
-        NextVisitPrediction p = calc(visit(0, nail()), visit(20, nail()), visit(50, nail()), visit(73, nail()));
+        NextVisitPrediction p =
+                calc(visit(0, nail()), visit(20, nail()), visit(50, nail()), visit(73, nail()));
 
         assertThat(p.startDate()).isEqualTo(DAY0.plusDays(73 + 20));
         assertThat(p.endDate()).isEqualTo(DAY0.plusDays(73 + 29));
@@ -87,9 +88,15 @@ class NextVisitCalculatorTest {
     @Test
     void 방문_6회_이상이면_최근_5개_간격만_쓴다() {
         // 첫 간격 100은 버리고 20 × 5 → 평균 20, 표준편차 0 → 17~23
-        NextVisitPrediction p = calc(
-                visit(0, nail()), visit(100, nail()), visit(120, nail()),
-                visit(140, nail()), visit(160, nail()), visit(180, nail()), visit(200, nail()));
+        NextVisitPrediction p =
+                calc(
+                        visit(0, nail()),
+                        visit(100, nail()),
+                        visit(120, nail()),
+                        visit(140, nail()),
+                        visit(160, nail()),
+                        visit(180, nail()),
+                        visit(200, nail()));
 
         assertThat(p.startDate()).isEqualTo(DAY0.plusDays(200 + 17));
         assertThat(p.endDate()).isEqualTo(DAY0.plusDays(200 + 23));
@@ -108,8 +115,11 @@ class NextVisitCalculatorTest {
     @Test
     void 주기_계산_제외_방문은_간격과_마지막_방문일과_방문_수에서_뺀다() {
         // 제외 방문(10일째)을 빼면 0, 30 → 2회, 간격 30 → (60+63-28)/4=23.75→23, (60+84-21)/4=30.75→31
-        NextVisitPrediction p = calc(
-                visit(0, nail()), visit(10, menu(EXCLUDE, new CycleRange(28, 42))), visit(30, nail()));
+        NextVisitPrediction p =
+                calc(
+                        visit(0, nail()),
+                        visit(10, menu(EXCLUDE, new CycleRange(28, 42))),
+                        visit(30, nail()));
 
         assertThat(p.visitCount()).isEqualTo(2);
         assertThat(p.lastVisitDate()).isEqualTo(DAY0.plusDays(30));
@@ -119,7 +129,8 @@ class NextVisitCalculatorTest {
 
     @Test
     void 방문별_주기_계산_제외_체크도_제외_방문으로_본다() {
-        NextVisitPrediction p = calc(visit(0, nail()), visit(10, new VisitedMenu(NORMAL, true, NAIL)));
+        NextVisitPrediction p =
+                calc(visit(0, nail()), visit(10, new VisitedMenu(NORMAL, true, NAIL)));
 
         assertThat(p.visitCount()).isEqualTo(1);
         assertThat(p.lastVisitDate()).isEqualTo(DAY0);
@@ -127,9 +138,13 @@ class NextVisitCalculatorTest {
 
     @Test
     void 모든_방문이_주기_계산_제외면_예측_없음() {
-        assertThat(NextVisitCalculator.calculate(
-                List.of(visit(0, menu(EXCLUDE, NAIL)), visit(30, new VisitedMenu(NORMAL, true, NAIL))),
-                NAIL)).isEmpty();
+        assertThat(
+                        NextVisitCalculator.calculate(
+                                List.of(
+                                        visit(0, menu(EXCLUDE, NAIL)),
+                                        visit(30, new VisitedMenu(NORMAL, true, NAIL))),
+                                NAIL))
+                .isEmpty();
     }
 
     @Test
@@ -139,7 +154,8 @@ class NextVisitCalculatorTest {
 
     @Test
     void 종료_신호_방문이_마지막이면_새_예측_없이_시작일_종료일이_그_방문일() {
-        NextVisitPrediction p = calc(visit(0, nail()), visit(25, nail()), visit(50, menu(END_SIGNAL, NAIL)));
+        NextVisitPrediction p =
+                calc(visit(0, nail()), visit(25, nail()), visit(50, menu(END_SIGNAL, NAIL)));
 
         assertThat(p.endSignal()).isTrue();
         assertThat(p.startDate()).isEqualTo(DAY0.plusDays(50));
@@ -150,7 +166,8 @@ class NextVisitCalculatorTest {
 
     @Test
     void 종료_신호와_주기_계산_제외가_섞인_방문도_종료_신호() {
-        NextVisitPrediction p = calc(visit(0, nail()), visit(30, menu(END_SIGNAL, NAIL), menu(EXCLUDE, NAIL)));
+        NextVisitPrediction p =
+                calc(visit(0, nail()), visit(30, menu(END_SIGNAL, NAIL), menu(EXCLUDE, NAIL)));
 
         assertThat(p.endSignal()).isTrue();
         assertThat(p.endDate()).isEqualTo(DAY0.plusDays(30));
@@ -167,8 +184,13 @@ class NextVisitCalculatorTest {
 
     @Test
     void 한_방문에_메뉴가_여럿이면_주기_계산_제외가_아닌_메뉴_중_가장_긴_주기() {
-        NextVisitPrediction p = calc(visit(0,
-                menu(NORMAL, NAIL), menu(NORMAL, new CycleRange(30, 40)), menu(EXCLUDE, new CycleRange(100, 200))));
+        NextVisitPrediction p =
+                calc(
+                        visit(
+                                0,
+                                menu(NORMAL, NAIL),
+                                menu(NORMAL, new CycleRange(30, 40)),
+                                menu(EXCLUDE, new CycleRange(100, 200))));
 
         assertThat(p.startDate()).isEqualTo(DAY0.plusDays(30));
         assertThat(p.endDate()).isEqualTo(DAY0.plusDays(40));
@@ -178,8 +200,11 @@ class NextVisitCalculatorTest {
     @Test
     void 메뉴_없는_가져온_방문은_카테고리_기본_주기() {
         CycleRange waxingDefault = new CycleRange(28, 42);
-        NextVisitPrediction p = NextVisitCalculator.calculate(
-                List.of(new CategoryVisit(DAY0, List.of(VisitedMenu.imported()))), waxingDefault).orElseThrow();
+        NextVisitPrediction p =
+                NextVisitCalculator.calculate(
+                                List.of(new CategoryVisit(DAY0, List.of(VisitedMenu.imported()))),
+                                waxingDefault)
+                        .orElseThrow();
 
         assertThat(p.startDate()).isEqualTo(DAY0.plusDays(28));
         assertThat(p.endDate()).isEqualTo(DAY0.plusDays(42));
@@ -187,7 +212,9 @@ class NextVisitCalculatorTest {
 
     @Test
     void 기본_주기는_0보다_크고_최소가_최대보다_클_수_없다() {
-        assertThatThrownBy(() -> new CycleRange(0, 10)).isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> new CycleRange(30, 20)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> new CycleRange(0, 10))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> new CycleRange(30, 20))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 }

@@ -43,7 +43,8 @@ class ManagementPriorityTest {
     void 종료_신호는_종료_신호_방문일을_종료일로_본다() {
         NextVisitPrediction endSignal = new NextVisitPrediction(END, 3, 20, END, END, true);
 
-        assertThat(ManagementPriority.elapsedRatio(endSignal, CAP, END.plusDays(5))).isEqualTo(0.25);
+        assertThat(ManagementPriority.elapsedRatio(endSignal, CAP, END.plusDays(5)))
+                .isEqualTo(0.25);
     }
 
     @Test
@@ -54,9 +55,12 @@ class ManagementPriorityTest {
         PriorityKey noConsentRich = new PriorityKey(0.5, false, 900_000);
         PriorityKey due = new PriorityKey(-0.2, true, 1_000_000);
 
-        List<PriorityKey> rows = new ArrayList<>(List.of(due, noConsentRich, consentPoor, nearChurnEnd, consentRich));
+        List<PriorityKey> rows =
+                new ArrayList<>(
+                        List.of(due, noConsentRich, consentPoor, nearChurnEnd, consentRich));
         rows.sort(ManagementPriority.ORDER);
 
-        assertThat(rows).containsExactly(nearChurnEnd, consentRich, consentPoor, noConsentRich, due);
+        assertThat(rows)
+                .containsExactly(nearChurnEnd, consentRich, consentPoor, noConsentRich, due);
     }
 }

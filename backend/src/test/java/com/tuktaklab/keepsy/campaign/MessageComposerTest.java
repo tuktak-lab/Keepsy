@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 class MessageComposerTest {
 
     private static final AdSender SHOP = new AdSender("키프네일", "02-0000-0000", "080-000-0000");
+
     /** "(광고)키프네일 02-0000-0000\n" 28바이트 + "\n무료수신거부 080-000-0000" 26바이트 */
     private static final int AD_LABEL_BYTES = 54;
 
@@ -19,10 +20,13 @@ class MessageComposerTest {
     void 광고는_D5_형식으로_앞뒤에_표기를_붙인다() {
         ComposedMessage m = MessageComposer.compose(AD, "고객님, 젤네일 받으신 지 24일 지났어요.", SHOP);
 
-        assertThat(m.text()).isEqualTo("""
-                (광고)키프네일 02-0000-0000
-                고객님, 젤네일 받으신 지 24일 지났어요.
-                무료수신거부 080-000-0000""");
+        assertThat(m.text())
+                .isEqualTo(
+                        """
+                        (광고)키프네일 02-0000-0000
+                        고객님, 젤네일 받으신 지 24일 지났어요.
+                        무료수신거부 080-000-0000\
+                        """);
     }
 
     @Test
@@ -43,7 +47,8 @@ class MessageComposerTest {
 
     @Test
     void 광고에_매장_정보가_없으면_만들_수_없다() {
-        assertThatThrownBy(() -> MessageComposer.compose(AD, "본문", null)).isInstanceOf(NullPointerException.class);
+        assertThatThrownBy(() -> MessageComposer.compose(AD, "본문", null))
+                .isInstanceOf(NullPointerException.class);
         assertThatThrownBy(() -> new AdSender("키프네일", " ", "080-000-0000"))
                 .isInstanceOf(IllegalArgumentException.class);
     }
@@ -60,7 +65,8 @@ class MessageComposerTest {
     @Test
     void 줄바꿈은_CRLF도_1바이트() {
         assertThat(MessageComposer.countBytes("가\r\n나\n다\r라")).isEqualTo(8 + 3);
-        assertThat(MessageComposer.compose(UNSUBSCRIBE_NOTICE, "가\r\n나", null).text()).isEqualTo("가\n나");
+        assertThat(MessageComposer.compose(UNSUBSCRIBE_NOTICE, "가\r\n나", null).text())
+                .isEqualTo("가\n나");
     }
 
     @Test
@@ -73,15 +79,15 @@ class MessageComposerTest {
 
     @Test
     void 경계_90바이트는_SMS_91바이트는_LMS() {
-        assertThat(notice("가".repeat(45)).messageType()).contains(MessageType.SMS);          // 90
-        assertThat(notice("가".repeat(44) + "a1").messageType()).contains(MessageType.SMS);   // 90
-        assertThat(notice("가".repeat(45) + "a").messageType()).contains(MessageType.LMS);    // 91
+        assertThat(notice("가".repeat(45)).messageType()).contains(MessageType.SMS); // 90
+        assertThat(notice("가".repeat(44) + "a1").messageType()).contains(MessageType.SMS); // 90
+        assertThat(notice("가".repeat(45) + "a").messageType()).contains(MessageType.LMS); // 91
     }
 
     @Test
     void 경계_2000바이트는_LMS_2001바이트는_발송_불가() {
-        ComposedMessage atLimit = notice("가".repeat(999) + "a1");   // 2000
-        ComposedMessage over = notice("가".repeat(1000) + "1");      // 2001
+        ComposedMessage atLimit = notice("가".repeat(999) + "a1"); // 2000
+        ComposedMessage over = notice("가".repeat(1000) + "1"); // 2001
 
         assertThat(atLimit.messageType()).contains(MessageType.LMS);
         assertThat(atLimit.sendable()).isTrue();
@@ -92,11 +98,13 @@ class MessageComposerTest {
 
     @Test
     void 광고는_표기_때문에_본문이_짧아도_LMS가_될_수_있다() {
-        String body36 = "가".repeat(18);   // 54 + 36 = 90
-        String body37 = body36 + "!";       // 91
+        String body36 = "가".repeat(18); // 54 + 36 = 90
+        String body37 = body36 + "!"; // 91
 
-        assertThat(MessageComposer.compose(AD, body36, SHOP).messageType()).contains(MessageType.SMS);
-        assertThat(MessageComposer.compose(AD, body37, SHOP).messageType()).contains(MessageType.LMS);
+        assertThat(MessageComposer.compose(AD, body36, SHOP).messageType())
+                .contains(MessageType.SMS);
+        assertThat(MessageComposer.compose(AD, body37, SHOP).messageType())
+                .contains(MessageType.LMS);
     }
 
     private static ComposedMessage notice(String body) {
