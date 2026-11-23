@@ -41,6 +41,9 @@ jobs:
       MYSQL_DATABASE: keepsy
       MYSQL_USER: keepsy
       MYSQL_PASSWORD: keepsy-ci
+      # 사진 저장소 (F16). CI에서만 쓰는 임시 값이다.
+      APP_STORAGE_DIR: build/ci-photos
+      APP_STORAGE_SIGNING_KEY: keepsy-ci-only-signing-key-not-a-secret
 
     defaults:
       run:
