@@ -8,7 +8,7 @@
 
 ```text
 backend/        Spring Boot 4.2.0 · Java 21 · Gradle (패키지 com.tuktaklab.keepsy)
-frontend/       Next.js 정적 빌드 (예정)
+frontend/       프론트 데모 (Keepsy-design@6ac161c, Vite). Next.js 정적 빌드로 전환 예정
 compose.yaml    로컬 MySQL 8.4
 .env.example    환경 변수 이름. 복사해서 .env를 만들고 값을 채웁니다 (.env는 커밋 금지)
 ```
