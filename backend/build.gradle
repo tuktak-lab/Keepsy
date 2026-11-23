@@ -48,6 +48,7 @@ tasks.named('test') {
 spotless {
     java {
         target 'src/*/java/**/*.java'
-        googleJavaFormat('1.37.0').aosp()
+        // Spotless 8.11.0은 google-java-format 2.x API에 맞춰져 있다 (1.x를 지정하면 포매터 호출이 실패함)
+        googleJavaFormat('2.0.0').aosp()
     }
 }
