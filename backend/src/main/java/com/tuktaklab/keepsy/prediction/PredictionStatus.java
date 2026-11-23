@@ -1,8 +1,7 @@
 package com.tuktaklab.keepsy.prediction;
 
 /**
- * 예측 상태 (FR-PRD-04, 기획서 9장 「상태 분류」). 값 이름은 CONTRACTS 3장 [제안]을 따른다.
- * 저장하지 않고 조회할 때 오늘 날짜로 계산한다 (A12).
+ * 예측 상태 (FR-PRD-04, 기획서 9장 「상태 분류」). 값 이름은 CONTRACTS 3장 [제안]을 따른다. 저장하지 않고 조회할 때 오늘 날짜로 계산한다 (A12).
  */
 public enum PredictionStatus {
     /** 예정: 오늘 &lt; 예측 시작일 */

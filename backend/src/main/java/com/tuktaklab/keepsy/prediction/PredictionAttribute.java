@@ -1,8 +1,6 @@
 package com.tuktaklab.keepsy.prediction;
 
-/**
- * 시술 메뉴의 예측 속성 (FR-SET-02, E5). 값 이름은 CONTRACTS 3장 [제안]을 따른다.
- */
+/** 시술 메뉴의 예측 속성 (FR-SET-02, E5). 값 이름은 CONTRACTS 3장 [제안]을 따른다. */
 public enum PredictionAttribute {
     /** 일반: 다음 방문 주기를 정하는 시술 */
     NORMAL,

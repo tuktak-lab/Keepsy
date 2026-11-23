@@ -5,7 +5,7 @@ import java.util.Optional;
 /**
  * 발송할 최종 본문과 바이트 수 (FR-CMP-05 미리보기에 그대로 보여 준다).
  *
- * @param text  광고 표기까지 붙은 최종 본문 (줄바꿈은 \n)
+ * @param text 광고 표기까지 붙은 최종 본문 (줄바꿈은 \n)
  * @param bytes 최종 본문의 바이트 수
  */
 public record ComposedMessage(String text, int bytes) {
