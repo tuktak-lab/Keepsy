@@ -90,6 +90,11 @@ public final class NextVisitCalculator {
         EXCLUDED
     }
 
+    /** 주기 계산 제외가 아닌 방문인지 (일반 · 종료 신호). 예측 스냅샷의 "다음 방문"도 같은 기준이다 (FR-PRD-08, F23) */
+    static boolean counts(CategoryVisit visit) {
+        return kindOf(visit) != Kind.EXCLUDED;
+    }
+
     /** 일반 시술이 하나라도 있으면 일반, 없고 종료 신호가 있으면 종료 신호, 모두 주기 계산 제외면 제외 (FR-PRD-01 ①②). */
     private static Kind kindOf(CategoryVisit visit) {
         List<VisitedMenu> counting =
