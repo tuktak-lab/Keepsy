@@ -4,11 +4,13 @@ import com.tuktaklab.keepsy.common.audit.AccessLogger;
 import com.tuktaklab.keepsy.common.audit.AccessLogger.Action;
 import com.tuktaklab.keepsy.common.error.ApiException;
 import com.tuktaklab.keepsy.common.error.ErrorCode;
+import com.tuktaklab.keepsy.common.error.GlobalExceptionHandler.FieldViolation;
 import com.tuktaklab.keepsy.common.security.FeatureKey;
 import com.tuktaklab.keepsy.common.web.PageResponse;
 import com.tuktaklab.keepsy.customer.query.ConsentHistoryQuery;
 import com.tuktaklab.keepsy.customer.query.CustomerDetailQuery;
 import com.tuktaklab.keepsy.customer.query.CustomerListQuery;
+import java.io.IOException;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -21,11 +23,16 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-/** 고객 등록 · 목록 · 상세 · 동의 조회 (FR-CUS-01 · 02 · 03 · 09, E3, C12) */
+/** 고객 등록 · 목록 · 상세 · 동의 조회 · 동의 받기와 철회 (FR-CUS-01 · 02 · 03 · 09, E3, C12) */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class CustomerService {
@@ -37,6 +44,8 @@ public class CustomerService {
     private final CustomerDetailQuery detailQuery;
     private final PreferenceTagRepository preferenceTagRepository;
     private final AccessLogger accessLogger;
+    private final PhotoStorage photoStorage;
+    private final NamedParameterJdbcTemplate jdbc;
     private final Clock clock;
 
     /**
@@ -114,9 +123,11 @@ public class CustomerService {
      */
     @Transactional
     public void changeCautions(long shopId, long customerId, String service, String health) {
+        // 건강 정보 동의 철회(changeConsent)와 같은 행 잠금으로 차례를 정해, 철회 뒤에 건강 주의사항이 남지 않게 한다
         Customer customer =
                 customerRepository
-                        .findByIdAndShopIdAndStatus(customerId, shopId, Customer.Status.ACTIVE)
+                        .findForUpdateByIdAndShopIdAndStatus(
+                                customerId, shopId, Customer.Status.ACTIVE)
                         .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND));
         String healthCaution = blankToNull(health);
         // 지우기는 동의 없이도 된다. 받은 적 없거나 철회했으면 최신 행이 없거나 agreed=false
@@ -127,10 +138,104 @@ public class CustomerService {
                         .orElse(false)) {
             throw new ApiException(ErrorCode.CONSENT_REQUIRED, "건강 정보 수집 동의가 필요합니다");
         }
-        // ponytail: 저장과 동시에 HEALTH 철회(#48)가 커밋되면 건강 주의사항이 남을 수 있다. #48에서 고객 행 잠금으로 막는다
         customer.changeCautions(blankToNull(service), healthCaution);
         accessLogger.record(
                 FeatureKey.CUSTOMER_WRITE, AccessLogger.CUSTOMER, customerId, Action.UPDATE);
+    }
+
+    /**
+     * 동의 받기 · 철회 (FR-CUS-09, FR-CMP-11, E8). 권한(CONSENT, 공용 고정)은 컨트롤러에서 검사한다. 지금 상태와 같아도 행을 쌓는다 (다시
+     * 받은 동의의 일시가 새 동의일, D1). 철회 부수효과와 접근 로그를 같은 트랜잭션에서 한다.
+     *
+     * @param staffId 처리 스탭 = 현재 근무자 (FR-ACC-10)
+     * @param withdrawalPath 철회일 때만. null이면 {@code DIRECT}
+     * @return 만든 이력 행 ID
+     * @throws ApiException 가져오기 방법 · 동의에 철회 경로 · 마케팅이 아닌 수신 거부 · 개인정보 동의 철회(F42)면 {@code invalid},
+     *     다른 매장 · 삭제된 고객이면 {@code not_found}
+     */
+    @Transactional
+    public long changeConsent(
+            long shopId,
+            long staffId,
+            long customerId,
+            Consent.Item item,
+            boolean agreed,
+            Consent.Method method,
+            Consent.WithdrawalPath withdrawalPath) {
+        if (method == Consent.Method.IMPORT) {
+            throw invalid("method", "가져오기 동의 방법은 CSV 등록에서만 씁니다");
+        }
+        if (agreed && withdrawalPath != null) {
+            throw invalid("withdrawalPath", "철회 경로는 철회할 때만 보냅니다");
+        }
+        if (!agreed && item == Consent.Item.PRIVACY) {
+            throw invalid("item", "개인정보 수집 · 이용 동의 철회는 고객 삭제로 처리합니다");
+        }
+        if (withdrawalPath == Consent.WithdrawalPath.UNSUBSCRIBE
+                && item != Consent.Item.MARKETING) {
+            throw invalid("withdrawalPath", "수신 거부는 마케팅 수신 동의에만 씁니다");
+        }
+        // 건강 주의사항 저장(changeCautions)과 차례를 정하려고 고객 행을 잠근다
+        Customer customer =
+                customerRepository
+                        .findForUpdateByIdAndShopIdAndStatus(
+                                customerId, shopId, Customer.Status.ACTIVE)
+                        .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND));
+        Consent.WithdrawalPath path =
+                agreed
+                        ? null
+                        : withdrawalPath == null ? Consent.WithdrawalPath.DIRECT : withdrawalPath;
+        Consent row =
+                consentRepository.save(
+                        Consent.of(
+                                customer,
+                                item,
+                                agreed,
+                                method,
+                                path,
+                                staffId,
+                                LocalDateTime.now(clock)));
+        // 마케팅 철회는 대상 계산 · 발송 재검사가 최신 동의 행을 읽으므로 따로 할 일이 없다
+        if (!agreed && item == Consent.Item.HEALTH) {
+            customer.changeCautions(customer.getServiceCaution(), null);
+        }
+        if (!agreed && item == Consent.Item.PHOTO) {
+            deletePhotos(shopId, customerId);
+        }
+        accessLogger.record(FeatureKey.CONSENT, AccessLogger.CUSTOMER, customerId, Action.UPDATE);
+        return row.getId();
+    }
+
+    /** 고객의 모든 방문 사진 행을 지우고, 파일은 커밋 뒤에 지운다 (FR-CUS-09, F16). 롤백되면 파일이 남아야 한다 */
+    private void deletePhotos(long shopId, long customerId) {
+        String where =
+                " FROM photo WHERE shop_id = :shopId"
+                        + " AND visit_id IN (SELECT id FROM visit WHERE customer_id = :customerId)";
+        Map<String, Object> p = Map.of("shopId", shopId, "customerId", customerId);
+        List<String> keys = jdbc.queryForList("SELECT storage_key" + where, p, String.class);
+        jdbc.update("DELETE" + where, p);
+        if (keys.isEmpty()) {
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(
+                new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        for (String key : keys) {
+                            try {
+                                photoStorage.delete(key);
+                            } catch (IOException e) {
+                                // DB는 이미 맞으니 기록만 남긴다
+                                log.warn("사진 파일 삭제 실패 customerId={}", customerId, e);
+                            }
+                        }
+                    }
+                });
+    }
+
+    private static ApiException invalid(String field, String reason) {
+        return new ApiException(
+                ErrorCode.INVALID, reason, List.of(new FieldViolation(field, reason)));
     }
 
     public record TagInput(String category, String tag) {}

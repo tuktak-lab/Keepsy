@@ -11,7 +11,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-/** 동의 이력 한 행 (명세서 5장 consent, E8). 고치지 않고 쌓으며 항목별 최신 행이 현재 상태다. 철회 경로는 동의 철회(#48)를 구현할 때 매핑한다. */
+/** 동의 이력 한 행 (명세서 5장 consent, E8). 고치지 않고 쌓으며 항목별 최신 행이 현재 상태다. */
 @Entity
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -32,6 +32,12 @@ public class Consent {
         PAPER,
         VERBAL,
         IMPORT
+    }
+
+    /** CONTRACTS 3장 「철회 경로」. 캠페인 제외 사유의 "수신 거부"와 "미동의"를 가른다 (FR-CMP-02) */
+    public enum WithdrawalPath {
+        UNSUBSCRIBE,
+        DIRECT
     }
 
     @Id
@@ -55,16 +61,35 @@ public class Consent {
     @Enumerated(EnumType.STRING)
     private Method method;
 
+    /** 철회 행에만 있다 */
+    @Enumerated(EnumType.STRING)
+    private WithdrawalPath withdrawalPath;
+
     static Consent agreed(
             Customer customer, Item item, Method method, long staffId, LocalDateTime now) {
+        return of(customer, item, true, method, null, staffId, now);
+    }
+
+    /**
+     * @param withdrawalPath 철회일 때만, 동의면 null
+     */
+    static Consent of(
+            Customer customer,
+            Item item,
+            boolean agreed,
+            Method method,
+            WithdrawalPath withdrawalPath,
+            long staffId,
+            LocalDateTime now) {
         Consent consent = new Consent();
         consent.shopId = customer.getShopId();
         consent.customerId = customer.getId();
         consent.item = item;
-        consent.agreed = true;
+        consent.agreed = agreed;
         consent.recordedAt = now;
         consent.staffId = staffId;
         consent.method = method;
+        consent.withdrawalPath = withdrawalPath;
         return consent;
     }
 }
