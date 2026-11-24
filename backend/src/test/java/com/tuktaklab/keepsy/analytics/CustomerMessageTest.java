@@ -63,6 +63,9 @@ class CustomerMessageTest {
     void seed() {
         data = new TestShopData(jdbc);
         shop = data.shop();
+        // 가상 발송기 스케줄러(3초마다)가 PENDING 행을 먼저 처리해도 결과가 같도록 실패 비율을 100%로 둔다 (PENDING → FAILED,
+        // VirtualPhoneInboxTest와 같은 방식)
+        jdbc.update("UPDATE shop SET virtual_failure_percent = 100 WHERE id = ?", shop);
         staff = data.staff(shop, "ACTIVE", false);
         nail = data.menu(shop, 60);
         long lash =
