@@ -87,6 +87,20 @@ class StaffController {
         commandService.resetPin(shopSession.shopId(), staffId, req.pin());
     }
 
+    /** 비밀번호는 형식을 보지 않는다. 맞는지는 서비스가 비교하고 틀리면 실패 횟수에 넣는다 (F11 · F14) */
+    record OwnerPinRequest(
+            @NotNull(message = "매장 계정 비밀번호를 입력해 주세요") String password,
+            @NotNull(message = "PIN을 입력해 주세요")
+                    @Pattern(regexp = "\\d{4,6}", message = "PIN은 숫자 4~6자리입니다")
+                    String pin) {}
+
+    /** 원장 PIN 재설정 (FR-ACC-09). 매장 세션만 필요하다 (원장 PIN을 잊은 경우라 근무자 · PIN 인증 없이) */
+    @PutMapping("/api/owner-pin")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    void resetOwnerPin(@Valid @RequestBody OwnerPinRequest req) {
+        commandService.resetOwnerPin(shopSession.shopId(), req.password(), req.pin());
+    }
+
     /** 스탭 비활성화 (FR-ACC-04, F34). 원장 PIN. 남은 확정 예약이 있으면 conflict와 그 목록 */
     @RequireFeature(FeatureKey.OWNER_PIN)
     @PostMapping("/api/staff/{staffId}/deactivate")

@@ -91,6 +91,32 @@ public class StaffCommandService {
         requireUniquePin(shopId, pin, staffId);
     }
 
+    /**
+     * 원장 PIN 재설정 (FR-ACC-09). 매장 계정 비밀번호를 다시 확인한다. 실패 횟수는 로그인과 같은 횟수에 넣고 저장해야 하므로 업무 예외로 롤백하지 않는다
+     * (F11 · F14). 그래서 PIN은 모든 검사를 통과한 뒤에만 바꾼다. 원장의 세션은 그대로 둔다.
+     *
+     * @throws ApiException 잠금 중이거나 이번 실패로 잠기면 {@code login_locked}, 비밀번호가 틀리면 {@code
+     *     password_mismatch}, 같은 매장 다른 스탭(비활성 포함)과 PIN이 같으면 {@code duplicate}
+     */
+    @Transactional(noRollbackFor = ApiException.class)
+    public void resetOwnerPin(long shopId, String password, String pin) {
+        // 매장 행을 잠가 실패 횟수와 PIN 중복 검사를 한 번에 하나씩 처리한다 (F14)
+        Shop shop = ShopScope.orNotFound(shopRepository.findForUpdateById(shopId));
+        LocalDateTime now = LocalDateTime.now(clock);
+        if (shop.isLoginLocked(now)) {
+            throw new ApiException(ErrorCode.LOGIN_LOCKED);
+        }
+        if (!passwordEncoder.matches(password, shop.getPasswordHash())) {
+            shop.loginFailed(now);
+            throw new ApiException(
+                    shop.isLoginLocked(now) ? ErrorCode.LOGIN_LOCKED : ErrorCode.PASSWORD_MISMATCH);
+        }
+        shop.loginSucceeded();
+        Staff owner = ShopScope.orNotFound(staffRepository.findByShopIdAndOwnerTrue(shopId));
+        requireUniquePin(shopId, pin, owner.getId());
+        owner.resetOwnerPin(passwordEncoder.encode(pin));
+    }
+
     /** 비활성화를 막는 예약 하나 ({@code conflict}의 details, CONTRACTS 6장) */
     public record BlockingReservation(long id, OffsetDateTime startAt, String customerName) {}
 
