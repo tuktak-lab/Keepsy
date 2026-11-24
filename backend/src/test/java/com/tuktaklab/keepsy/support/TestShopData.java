@@ -1,10 +1,13 @@
 package com.tuktaklab.keepsy.support;
 
+import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import org.springframework.jdbc.core.ConnectionCallback;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
@@ -67,27 +70,48 @@ public class TestShopData {
                 reason);
     }
 
+    /**
+     * 만든 매장의 행을 {@code shop_id} 칼럼이 있는 모든 테이블에서 지운다. 테이블 목록은 DB에서 읽으므로 migration이 테이블을 더해도 이 메서드를
+     * 고치지 않는다 (CLAUDE.md 「충돌 줄이기」). 테이블 사이 FK 순서를 맞추지 않으려고 한 연결 안에서만 FK 검사를 잠깐 끈다.
+     */
     public void cleanUp() {
-        for (long shopId : shops) {
-            for (String table :
-                    List.of(
-                            "reservation_service",
-                            "visit_service",
-                            "payment",
-                            "visit_note",
-                            "photo",
-                            "reservation",
-                            "visit",
-                            "day_off",
-                            "consent",
-                            "customer",
-                            "service_menu",
-                            "staff")) {
-                jdbc.update("DELETE FROM " + table + " WHERE shop_id = ?", shopId);
-            }
-            jdbc.update("DELETE FROM shop WHERE id = ?", shopId);
+        if (shops.isEmpty()) {
+            return;
         }
+        List<String> tables =
+                jdbc.queryForList(
+                        "SELECT table_name FROM information_schema.columns"
+                                + " WHERE table_schema = DATABASE() AND column_name = 'shop_id'",
+                        String.class);
+        jdbc.execute(
+                (ConnectionCallback<Void>)
+                        con -> {
+                            try (Statement st = con.createStatement()) {
+                                st.execute("SET FOREIGN_KEY_CHECKS = 0");
+                                try {
+                                    for (long shopId : shops) {
+                                        for (String table : tables) {
+                                            delete(
+                                                    con,
+                                                    "DELETE FROM `" + table + "` WHERE shop_id = ?",
+                                                    shopId);
+                                        }
+                                        delete(con, "DELETE FROM shop WHERE id = ?", shopId);
+                                    }
+                                } finally {
+                                    st.execute("SET FOREIGN_KEY_CHECKS = 1");
+                                }
+                            }
+                            return null;
+                        });
         shops.clear();
+    }
+
+    private static void delete(Connection con, String sql, long shopId) throws SQLException {
+        try (PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setLong(1, shopId);
+            ps.executeUpdate();
+        }
     }
 
     private long insert(String sql, Object... args) {
