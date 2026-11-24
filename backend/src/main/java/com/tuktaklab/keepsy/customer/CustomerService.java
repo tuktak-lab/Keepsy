@@ -126,7 +126,7 @@ public class CustomerService {
     }
 
     /**
-     * 고객 상세 (FR-CUS-03). 방문 요약(FR-CUS-11)은 #37에서 더한다.
+     * 고객 상세와 방문 요약 (FR-CUS-03 · 11).
      *
      * @throws ApiException 다른 매장 · 삭제된 고객이면 {@code not_found}
      */
