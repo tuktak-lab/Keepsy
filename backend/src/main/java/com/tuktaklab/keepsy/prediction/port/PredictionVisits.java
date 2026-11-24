@@ -6,6 +6,7 @@ import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * 예측 계산에 필요한 방문 · 메뉴 · 매장 기본 주기 (다른 도메인의 값, DEVELOPMENT 4장 「도메인 연동」). 이름과 반환 타입은 예측 도메인이 필요한 모양이다.
@@ -37,4 +38,13 @@ public interface PredictionVisits {
 
     /** 이 카테고리에 메뉴 없는 가져온 방문이 있는 고객 (카테고리 기본 주기 변경 시 재계산 대상) */
     List<Long> customersWithMenulessVisits(long shopId, String category);
+
+    /** 세션 매장의 삭제되지 않은 고객인지 (NFR-03, FR-CUS-10) */
+    boolean isActiveCustomer(long shopId, long customerId);
+
+    /** 이탈 신호 기간 상한 (매장 설정, 기본 120일, FR-SET-03) */
+    int churnCapDays(long shopId);
+
+    /** 다음 예약(오늘 이후의 확정 예약, 아직 완료되지 않은 오늘 예약 포함)의 예정 시술 카테고리 (FR-PRD-04, A11 · A13) */
+    Set<String> upcomingCategories(long shopId, long customerId, LocalDate today);
 }
