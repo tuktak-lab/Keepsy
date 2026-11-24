@@ -165,9 +165,14 @@ a{color:#7A4450;text-decoration:none}
 @keyframes blk-flash0{0%{box-shadow:0 0 0 0 rgba(122,68,80,.55)}60%{box-shadow:0 0 0 4px rgba(122,68,80,.28)}100%{box-shadow:0 0 0 6px rgba(122,68,80,0)}}
 @keyframes blk-flash1{0%{box-shadow:0 0 0 0 rgba(122,68,80,.55)}60%{box-shadow:0 0 0 4px rgba(122,68,80,.28)}100%{box-shadow:0 0 0 6px rgba(122,68,80,0)}}
 .blk-more{position:absolute;box-sizing:border-box;border-radius:6px;border:1px dashed #B88A90;background:#fff;color:#7A4450;font:600 12.5px 'Noto Sans KR',sans-serif;cursor:default;display:flex;align-items:center;justify-content:center}
-/* 확정 예약 카드는 눌러서 일정 변경 (버튼), 완료 예약과 "+N건"은 눌러도 동작이 없다 */
+/* 예약 카드는 예약 상세로 가는 링크, "+N건"은 눌러도 동작이 없다 */
 .blk{cursor:default}
-button.blk{cursor:pointer}
+a.blk{cursor:pointer;color:#221D1B;text-decoration:none}
+/* 예약 상세 */
+.detail-card{max-width:720px;padding:24px 28px}
+.st-chip.s-canceled{color:#6B605B}
+.st-chip.s-noshow{color:#9E3F3F}
+:root .sub .p-link{font-size:13px}
 /* 선택할 수 없는 시간 (영업시간 밖 · 정기 휴무 요일 · 매장/스탭 휴무일) */
 .off{position:absolute;box-sizing:border-box;background:repeating-linear-gradient(135deg,rgba(107,96,91,.09) 0 4px,rgba(107,96,91,.03) 4px 9px);pointer-events:auto;display:flex;align-items:flex-start;justify-content:center}
 .off span{margin-top:8px;padding:2px 8px;border-radius:6px;background:#fff;border:1px solid #E6DDD5;font-size:12px;font-weight:600;color:#6B605B;max-width:90%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}

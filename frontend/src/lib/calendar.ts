@@ -36,6 +36,14 @@ export function seoulParts(at: string | number | Date): { date: DateStr; minutes
 
 export const todayInSeoul = (now: number): DateStr => seoulParts(now).date;
 
+/** `YYYY-MM-DD` 형식이면서 실제 있는 날짜인가 (주소의 `?date=` 같은 바깥 입력 검사) */
+export function isDateStr(value: string | null | undefined): value is DateStr {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [y, m, d] = value.split('-').map(Number);
+  const t = new Date(Date.UTC(y, m - 1, d));
+  return t.getUTCFullYear() === y && t.getUTCMonth() === m - 1 && t.getUTCDate() === d;
+}
+
 function utc(date: DateStr): Date {
   const [y, m, d] = date.split('-').map(Number);
   return new Date(Date.UTC(y, m - 1, d));

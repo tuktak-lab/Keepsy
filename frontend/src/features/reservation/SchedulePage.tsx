@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
+import { AppLink } from '@/components/common/AppLink';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Topbar } from '@/components/layout/Topbar';
 import styleText from './SchedulePage.css?inline';
 import { ReservationForm } from './ReservationForm';
 import { useStyleSheet } from '@/hooks/useStyleSheet';
 import { api } from '@/lib/api';
+import { useNowMs } from '@/lib/clock';
 import {
   addDays,
   axisRange,
@@ -17,6 +19,7 @@ import {
   endMs,
   formatMinutes,
   hoursOfDay,
+  isDateStr,
   layout,
   monthCells,
   seoulParts,
@@ -62,22 +65,24 @@ const STATES: [Tone, string][] = [
 ];
 const TONE_LABEL = Object.fromEntries(STATES) as Record<Tone, string>;
 
-// 서버 렌더(정적 빌드)에는 "지금"이 없다. 브라우저에서만 읽고, 1분 단위로 갱신해 마감 미완료 표시를 맞춘다.
-const clockSubscribe = (onChange: () => void) => {
-  const timer = setInterval(onChange, 30_000);
-  return () => clearInterval(timer);
+// 주소의 `?date=YYYY-MM-DD`: 예약 상세의 「예약 캘린더로」가 그 예약의 날짜로 돌아오게 한다.
+// 서버 렌더(정적 빌드)에는 주소가 없어 null이고, 하이드레이션이 끝난 뒤 브라우저 값으로 바뀐다 (첫 렌더가 서버 HTML과 어긋나지 않게)
+const noSubscribe = () => () => {};
+const readDateParam = (): DateStr | null => {
+  const value = new URLSearchParams(window.location.search).get('date');
+  return isDateStr(value) ? value : null;
 };
-const clockNow = () => Math.floor(Date.now() / 60_000) * 60_000;
 
 const monthDay = (d: DateStr) => `${Number(d.slice(5, 7))}월 ${dayOfMonth(d)}일`;
 
 export default function SchedulePage() {
   useStyleSheet('SchedulePage', styleText);
 
-  const nowMs = useSyncExternalStore(clockSubscribe, clockNow, () => 0);
+  const nowMs = useNowMs();
   const today = nowMs ? todayInSeoul(nowMs) : '';
-  const [picked, setPicked] = useState<DateStr | null>(null); // 사용자가 고른 기준 날짜. 없으면 오늘
-  const anchor = picked ?? today;
+  const urlDate = useSyncExternalStore(noSubscribe, readDateParam, () => null);
+  const [picked, setPicked] = useState<DateStr | null>(null); // 사용자가 고른 기준 날짜. 없으면 주소의 date, 그것도 없으면 오늘
+  const anchor = picked ?? urlDate ?? today;
   const [miniPick, setMiniPick] = useState<{ y: number; m: number } | null>(null); // 미니 달력에서 넘겨 본 달. 없으면 기준 날짜의 달
   const [staffId, setStaffId] = useState<number | null>(null); // null = 전체
   const [staff, setStaff] = useState<StaffRef[]>([]);
@@ -85,7 +90,7 @@ export default function SchedulePage() {
   const [week, setWeek] = useState<WeekData | null>(null);
   const [failed, setFailed] = useState<DateStr | null>(null);
   const [reload, setReload] = useState(0);
-  const [form, setForm] = useState<{ editId: number | null } | null>(null); // 등록(null) · 일정 변경(예약 ID) 창
+  const [creating, setCreating] = useState(false); // 예약 등록 창 (일정 변경은 예약 상세에서)
   // 보기 단위: `?view=day`면 일간. 서버 렌더(정적 빌드)는 달력 본문을 그리지 않아 첫 값이 달라도 하이드레이션이 어긋나지 않는다
   const [view, setView] = useState<View>(() =>
     typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('view') === 'day' ? 'day' : 'week',
@@ -142,10 +147,10 @@ export default function SchedulePage() {
     else url.searchParams.delete('view');
     window.history.replaceState(window.history.state, '', url);
   };
-  const closeForm = useCallback(() => setForm(null), []);
+  const closeForm = useCallback(() => setCreating(false), []);
   // 저장하면 그 예약이 있는 주로 옮겨 다시 읽는다
   const saved = useCallback((date: DateStr) => {
-    setForm(null);
+    setCreating(false);
     setPicked(date);
     setMiniPick(null);
     setReload((n) => n + 1);
@@ -210,11 +215,10 @@ export default function SchedulePage() {
     const label = r.consultFirst ? `${TONE_LABEL[tone]} · 상담 후 진행` : TONE_LABEL[tone];
     const who = r.customer ? (r.customer.name ?? '이름 없음') : route; // 고객 없는 예약은 이름 대신 예약 경로 (E3)
     const range = `${formatMinutes(b.start)}–${formatMinutes(b.end)}`;
-    // 확정 예약만 일정을 바꿀 수 있다 (완료 · 취소 · 노쇼는 수정 불가, F22)
-    const editable = r.status === 'CONFIRMED';
+    // 모든 예약 카드는 예약 상세로 간다. 일정 변경 · 취소 · 노쇼 · 고객 연결은 거기서 한다 (#128)
     const props = {
       className: `blk s-${tone} l${lines}${r.customer ? '' : ' nocust'}${h < 44 ? ' short' : ''}${over ? ' over' : ''}`,
-      'aria-label': `${r.customer ? who : `고객 없는 예약 ${route}`} · ${treat} · ${range} · ${label} · ${r.staff.name}${editable ? ' · 눌러서 일정 변경' : ''}`,
+      'aria-label': `${r.customer ? who : `고객 없는 예약 ${route}`} · ${treat} · ${range} · ${label} · ${r.staff.name} · 눌러서 예약 상세`,
       title: `${r.staff.name} · ${range}`,
       style: {
         top: topOf(b.start) + 2,
@@ -234,14 +238,10 @@ export default function SchedulePage() {
         <span className="b3">{label}</span>
       </>
     );
-    return editable ? (
-      <button key={b.id} type="button" {...props} onClick={() => setForm({ editId: r.id })}>
+    return (
+      <AppLink key={b.id} href={`/reservations/detail?id=${r.id}`} {...props}>
         {inner}
-      </button>
-    ) : (
-      <div key={b.id} role="group" {...props}>
-        {inner}
-      </div>
+      </AppLink>
     );
   };
 
@@ -256,9 +256,9 @@ export default function SchedulePage() {
           <header className="head">
             <div>
               <h1 className="h1 serif">예약 · 일정 관리</h1>
-              <p className="sub">날짜를 고르면 그 날짜의 예약을 볼 수 있어요. 일간은 스탭별, 주간은 요일별이에요. 예약을 누르면 일정을 바꿀 수 있어요.</p>
+              <p className="sub">날짜를 고르면 그 날짜의 예약을 볼 수 있어요. 일간은 스탭별, 주간은 요일별이에요. 예약을 누르면 상세를 볼 수 있어요.</p>
             </div>
-            <button type="button" className="btn btn-p" onClick={() => setForm({ editId: null })} disabled={staff.length === 0}>
+            <button type="button" className="btn btn-p" onClick={() => setCreating(true)} disabled={staff.length === 0}>
               + 예약 등록
             </button>
           </header>
@@ -491,7 +491,7 @@ export default function SchedulePage() {
           ) : null}
         </div>
       </main>
-      {form ? <ReservationForm key={form.editId ?? 'new'} editId={form.editId} initialDate={anchor} staff={staff} onClose={closeForm} onSaved={saved} onStale={stale} /> : null}
+      {creating ? <ReservationForm editId={null} initialDate={anchor} staff={staff} onClose={closeForm} onSaved={saved} onStale={stale} /> : null}
     </div>
   );
 }

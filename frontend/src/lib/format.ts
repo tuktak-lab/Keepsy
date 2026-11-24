@@ -11,6 +11,9 @@ const dateTimeFormat = new Intl.DateTimeFormat('ko-KR', {
   hourCycle: 'h23',
 });
 
+/** 금액(원 정수) → `58,000원` (CONTRACTS 3장) */
+export const formatWon = (won: number): string => `${won.toLocaleString('ko-KR')}원`;
+
 /** `2026-11-23T05:30:00Z` → `2026-11-23 14:30` */
 export function formatDateTime(iso: string): string {
   const parts = Object.fromEntries(dateTimeFormat.formatToParts(new Date(iso)).map((p) => [p.type, p.value]));

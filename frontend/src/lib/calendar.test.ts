@@ -8,6 +8,7 @@ import {
   dayIndex,
   dayOffOn,
   hoursOfDay,
+  isDateStr,
   layout,
   monthCells,
   seoulParts,
@@ -22,6 +23,18 @@ test('날짜 계산: 달 · 해를 넘겨도 맞다', () => {
   assert.equal(addDays('2026-11-30', 1), '2026-12-01');
   assert.equal(addDays('2026-01-01', -1), '2025-12-31');
   assert.equal(addDays('2026-02-27', 2), '2026-03-01');
+});
+
+test('날짜 문자열 검사: 형식과 실제 있는 날짜만', () => {
+  assert.equal(isDateStr('2026-11-24'), true);
+  assert.equal(isDateStr('2028-02-29'), true); // 윤년
+  assert.equal(isDateStr('2026-02-29'), false);
+  assert.equal(isDateStr('2026-13-01'), false);
+  assert.equal(isDateStr('2026-11-31'), false);
+  assert.equal(isDateStr('26-11-24'), false);
+  assert.equal(isDateStr('2026-11-24T10:00'), false);
+  assert.equal(isDateStr(''), false);
+  assert.equal(isDateStr(null), false);
 });
 
 test('주간은 월요일부터 7일 (F10)', () => {
