@@ -40,4 +40,11 @@ public class MessageTemplate {
         t.purpose = purpose;
         return t;
     }
+
+    /** 수정: 이름 · 본문 · 용도를 통째로 바꾼다. 입력 검사는 Service가 먼저 한다 */
+    void update(String name, String body, TemplatePurpose purpose) {
+        this.name = name;
+        this.body = body;
+        this.purpose = purpose;
+    }
 }
