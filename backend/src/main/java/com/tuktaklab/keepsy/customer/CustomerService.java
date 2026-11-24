@@ -1,7 +1,10 @@
 package com.tuktaklab.keepsy.customer;
 
+import com.tuktaklab.keepsy.common.audit.AccessLogger;
+import com.tuktaklab.keepsy.common.audit.AccessLogger.Action;
 import com.tuktaklab.keepsy.common.error.ApiException;
 import com.tuktaklab.keepsy.common.error.ErrorCode;
+import com.tuktaklab.keepsy.common.security.FeatureKey;
 import com.tuktaklab.keepsy.common.web.PageResponse;
 import com.tuktaklab.keepsy.customer.query.ConsentHistoryQuery;
 import com.tuktaklab.keepsy.customer.query.CustomerDetailQuery;
@@ -30,6 +33,7 @@ public class CustomerService {
     private final CustomerListQuery listQuery;
     private final ConsentHistoryQuery consentHistoryQuery;
     private final CustomerDetailQuery detailQuery;
+    private final AccessLogger accessLogger;
     private final Clock clock;
 
     /**
@@ -94,6 +98,9 @@ public class CustomerService {
             // 두 고객을 동시에 같은 번호로 바꾸면 고유 제약(uk_customer_shop_phone)이 하나만 남긴다
             throw duplicatePhone();
         }
+        // 수정과 접근 로그를 한 트랜잭션에 묶어, 바뀌었는데 기록이 없는 일이 없게 한다 (NFR-06)
+        accessLogger.record(
+                FeatureKey.CUSTOMER_EDIT, AccessLogger.CUSTOMER, customerId, Action.UPDATE);
     }
 
     /** 목록 항목 (CONTRACTS 6장 「고객 (CUS)」). 번호는 마스킹한다 (NFR-04) */

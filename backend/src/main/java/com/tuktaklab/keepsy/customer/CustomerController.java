@@ -79,8 +79,6 @@ class CustomerController {
                         r.birthYear(),
                         r.preferredLanguage(),
                         r.acquisitionChannel()));
-        accessLogger.record(
-                FeatureKey.CUSTOMER_EDIT, AccessLogger.CUSTOMER, customerId, Action.UPDATE);
     }
 
     @RequireFeature(FeatureKey.CUSTOMER_WRITE)
