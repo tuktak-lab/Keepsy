@@ -7,6 +7,7 @@ import com.tuktaklab.keepsy.reservation.ReservationAppService;
 import com.tuktaklab.keepsy.support.TestShopData;
 import java.sql.PreparedStatement;
 import java.sql.Statement;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -20,8 +21,8 @@ import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
 
 /**
- * 방문의 캠페인 귀속 저장 (Keepsy #101 완료 조건, FR-VIS-04, FR-CUS-13). 실제 MySQL에서 돈다. 예약은 지난 날짜로 잡아 예약 생성
- * 시각(지금) 기준 귀속과 섞이지 않게 하고, 방문 귀속은 예약 시작 시각 기준으로 본다.
+ * 방문의 캠페인 귀속 저장 (Keepsy #101 완료 조건, FR-VIS-04, FR-CUS-13, F33). 실제 MySQL에서 돈다. 날짜 기준 계산은 예약을 지난 날짜로
+ * 잡아 예약 생성 시각(지금) 기준 귀속과 섞이지 않게 하고(귀속되지 않은 예약), 예약 승계는 발송을 지금 기준으로 넣어 예약이 귀속되게 한다.
  */
 @SpringBootTest
 class VisitAttributionTest {
@@ -31,6 +32,7 @@ class VisitAttributionTest {
     @Autowired VisitAppService service;
     @Autowired ReservationAppService reservations;
     @Autowired JdbcTemplate jdbc;
+    @Autowired Clock clock;
 
     private TestShopData data;
     private long shop;
@@ -74,20 +76,15 @@ class VisitAttributionTest {
 
     /** 예약을 잡고 결제 없이 완료해 방문을 만든다 */
     private long visitOn(LocalDate date) {
-        long r =
-                reservations.create(
-                        shop,
-                        new NewReservation(
-                                customer,
-                                staff,
-                                date.atTime(11, 0),
-                                null,
-                                null,
-                                false,
-                                null,
-                                List.of(nail)),
-                        false);
-        return service.completeWithoutPayment(shop, r, null);
+        return service.completeWithoutPayment(shop, reserve(date, List.of(nail)), null);
+    }
+
+    private long reserve(LocalDate date, List<Long> menus) {
+        return reservations.create(
+                shop,
+                new NewReservation(
+                        customer, staff, date.atTime(11, 0), null, null, false, null, menus),
+                false);
     }
 
     private Long attributed(long visitId) {
@@ -95,6 +92,22 @@ class VisitAttributionTest {
                 "SELECT attributed_message_id FROM visit_service WHERE visit_id = ?",
                 Long.class,
                 visitId);
+    }
+
+    private Long attributed(long visitId, long menuId) {
+        return jdbc.queryForObject(
+                "SELECT attributed_message_id FROM visit_service"
+                        + " WHERE visit_id = ? AND service_menu_id = ?",
+                Long.class,
+                visitId,
+                menuId);
+    }
+
+    private Long reservationAttributed(long reservationId) {
+        return jdbc.queryForObject(
+                "SELECT attributed_message_id FROM reservation_service WHERE reservation_id = ?",
+                Long.class,
+                reservationId);
     }
 
     @Test
@@ -107,6 +120,63 @@ class VisitAttributionTest {
 
         assertThat(attributed(first)).isEqualTo(m);
         assertThat(attributed(second)).isNull(); // 첫 방문이 이미 가졌다
+    }
+
+    @Test
+    void 귀속된_예약을_마감한_방문은_방문일이_귀속_기간_밖이어도_예약의_발송을_이어받는다() {
+        // 11/1 발송 → 11/3 예약 → 11/20 방문 (기간 14일, F33): 발송 2일 뒤 예약, 발송 18일 뒤 방문
+        LocalDateTime now = LocalDateTime.now(clock);
+        long m = sent("NAIL", now.minusDays(2));
+
+        long r = reserve(now.toLocalDate().plusDays(16), List.of(nail));
+        long visitId = service.completeWithoutPayment(shop, r, null);
+
+        assertThat(reservationAttributed(r)).isEqualTo(m);
+        assertThat(attributed(visitId)).isEqualTo(m);
+    }
+
+    @Test
+    void 예약에_없던_카테고리_시술은_이어받지_않고_방문일_기준으로_따로_계산한다() {
+        long waxing = data.menu(shop, 30);
+        jdbc.update("UPDATE service_menu SET category = 'WAXING' WHERE id = ?", waxing);
+        LocalDateTime now = LocalDateTime.now(clock);
+        long m = sent("NAIL", now.minusDays(2));
+        sent("WAXING", now.minusDays(2)); // 방문일 기준 18일 전이라 따로 계산하면 기간 밖
+
+        long r = reserve(now.toLocalDate().plusDays(16), List.of(nail));
+        long visitId = service.completeWithoutPayment(shop, r, List.of(nail, waxing));
+
+        assertThat(attributed(visitId, nail)).isEqualTo(m);
+        assertThat(attributed(visitId, waxing)).isNull();
+    }
+
+    @Test
+    void 귀속되지_않은_예약의_방문은_방문일_기준으로_계산한다() {
+        long m = sent("NAIL", DAY.minusDays(2).atTime(10, 0)); // 예약 생성 시각(지금)에서는 기간 밖
+
+        long r = reserve(DAY, List.of(nail));
+        long visitId = service.completeWithoutPayment(shop, r, null);
+
+        assertThat(reservationAttributed(r)).isNull();
+        assertThat(attributed(visitId)).isEqualTo(m);
+    }
+
+    @Test
+    void 가져온_방문에_합쳐지면_귀속된_예약이어도_이어받지_않는다() {
+        LocalDateTime now = LocalDateTime.now(clock);
+        sent("NAIL", now.minusDays(2));
+        LocalDate day = now.toLocalDate().plusDays(16);
+        jdbc.update(
+                "INSERT INTO visit (shop_id, customer_id, visit_date, source) VALUES (?, ?, ?, 'IMPORT')",
+                shop,
+                customer,
+                day);
+
+        long r = reserve(day, List.of(nail));
+        long visitId = service.completeWithoutPayment(shop, r, null);
+
+        assertThat(reservationAttributed(r)).isNotNull();
+        assertThat(attributed(visitId)).isNull(); // FR-CUS-13
     }
 
     @Test

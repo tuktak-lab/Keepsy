@@ -53,7 +53,8 @@ public interface VisitReferences {
 
     /**
      * @param visitId 완료된 예약이면 연결된 방문
-     * @param startAt 예약 시작 시각. 방문의 캠페인 귀속 기준 시각이다 (FR-VIS-04)
+     * @param startAt 예약 시작 시각. 예약에서 이어받지 않는 방문 시술의 캠페인 귀속 기준 시각이다 (FR-VIS-04)
+     * @param attributedMessageIds 예약 시술의 귀속 발송 (카테고리 → 발송 ID). 같은 카테고리 방문 시술이 이어받는다 (F33)
      */
     record ReservationToClose(
             long id,
@@ -64,5 +65,6 @@ public interface VisitReferences {
             boolean completed,
             Long visitId,
             List<Long> plannedMenuIds,
-            LocalDateTime startAt) {}
+            LocalDateTime startAt,
+            Map<String, Long> attributedMessageIds) {}
 }

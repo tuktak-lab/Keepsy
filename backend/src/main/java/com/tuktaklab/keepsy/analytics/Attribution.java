@@ -5,6 +5,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -49,6 +50,30 @@ public final class Attribution {
                 .filter(s -> withinPeriod(s, at, attributionDays))
                 .map(SentAd::messageId)
                 .filter(id -> !claimedMessageIds.contains(id));
+    }
+
+    /**
+     * 예약을 마감해 생긴 방문 시술 하나를 어느 발송에 연결할지 (FR-VIS-04, F33). 그 예약의 같은 카테고리 시술이 귀속돼 있으면 그 발송을 이어받는다:
+     * 방문일이 귀속 기간 밖이어도 연결한다. 예약에 없던 카테고리이거나 예약이 귀속되지 않았으면 방문 기준 시각으로 {@link #attribute}를 따로 계산한다.
+     * 이어받을 발송을 다른 방문 시술이 이미 가졌으면 첫 방문이 아니라서 이어받지 않고 따로 계산한다.
+     *
+     * @param category 방문 시술의 카테고리
+     * @param reservationAttributions 그 예약 시술의 귀속 발송 (카테고리 → 발송 ID)
+     * @param at 방문 기준 시각 (예약 시작 시각)
+     * @param claimedMessageIds 이미 다른 방문 시술이 귀속된 발송
+     */
+    public static Optional<Long> attributeVisit(
+            String category,
+            Map<String, Long> reservationAttributions,
+            LocalDateTime at,
+            List<SentAd> sends,
+            Collection<Long> claimedMessageIds,
+            int attributionDays) {
+        Long inherited = reservationAttributions.get(category);
+        if (inherited != null && !claimedMessageIds.contains(inherited)) {
+            return Optional.of(inherited);
+        }
+        return attribute(category, at, sends, claimedMessageIds, attributionDays);
     }
 
     /**

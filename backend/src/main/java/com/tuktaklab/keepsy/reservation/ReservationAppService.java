@@ -254,7 +254,11 @@ public class ReservationAppService {
                 r.getVisitId());
     }
 
-    /** 시술 마감 · 완료 처리가 읽는 예약 값 (visit 도메인이 Port로 부른다, DEVELOPMENT 4장 「도메인 연동」) */
+    /**
+     * 시술 마감 · 완료 처리가 읽는 예약 값 (visit 도메인이 Port로 부른다, DEVELOPMENT 4장 「도메인 연동」)
+     *
+     * @param attributedMessageIds 예약 시술의 귀속 발송 (카테고리 → 발송 ID). 방문의 같은 카테고리 시술이 이어받는다 (F33)
+     */
     public record ClosingTarget(
             long id,
             Long customerId,
@@ -265,7 +269,8 @@ public class ReservationAppService {
             boolean servicesConfirmed,
             Long visitId,
             List<Long> plannedMenuIds,
-            LocalDateTime startAt) {}
+            LocalDateTime startAt,
+            Map<String, Long> attributedMessageIds) {}
 
     /** 예약을 행 잠금으로 읽는다. 같은 예약의 완료 · 마감이 동시에 들어와도 한 번만 처리된다 */
     @Transactional
@@ -284,7 +289,27 @@ public class ReservationAppService {
                 r.isServicesConfirmed(),
                 r.getVisitId(),
                 r.getServices().stream().map(ReservationService::getServiceMenuId).toList(),
-                r.getStartAt());
+                r.getStartAt(),
+                attributionsByCategory(shopId, r));
+    }
+
+    /** 예약 시술의 귀속 발송을 카테고리별로 모은다. 한 예약의 같은 카테고리 시술은 같은 발송을 가진다 (등록 · 승계 모두 예약 단위) */
+    private Map<String, Long> attributionsByCategory(long shopId, Reservation r) {
+        List<ReservationService> attributed =
+                r.getServices().stream().filter(s -> s.getAttributedMessageId() != null).toList();
+        if (attributed.isEmpty()) {
+            return Map.of();
+        }
+        Map<Long, String> categories =
+                refs.menuCategories(
+                        shopId,
+                        attributed.stream().map(ReservationService::getServiceMenuId).toList());
+        return attributed.stream()
+                .collect(
+                        Collectors.toMap(
+                                s -> categories.get(s.getServiceMenuId()),
+                                ReservationService::getAttributedMessageId,
+                                (a, b) -> a));
     }
 
     /** 확정 → 완료, 방문 연결 (FR-VIS-01). 방문을 만든 같은 트랜잭션에서 부른다 */
