@@ -62,9 +62,24 @@ export function PinForm(props: { title: string; owner?: boolean; message?: strin
         fontFamily: "'Noto Sans KR', sans-serif",
       }}
     >
-      <div style={{ fontSize: '28px', lineHeight: 1 }} aria-hidden="true">
-        🔒
-      </div>
+      {/* 사람 + 자물쇠 아이콘 (Lucide user-lock 모양, ISC) */}
+      <svg
+        width="32"
+        height="32"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="#7A4450"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        style={{ alignSelf: 'center' }}
+        aria-hidden="true"
+      >
+        <circle cx="10" cy="7" r="4" />
+        <path d="M10.3 15H7a4 4 0 0 0-4 4v2" />
+        <path d="M15 15.5V14a2 2 0 0 1 4 0v1.5" />
+        <rect width="8" height="5" x="13" y="16" rx=".9" />
+      </svg>
       <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 600, color: '#221D1B' }}>{props.title}</h2>
       <p style={{ margin: 0, fontSize: '13px', color: '#6B605B', lineHeight: 1.6 }}>{guide}</p>
       {props.message && <p style={{ margin: 0, fontSize: '13px', color: '#7A4450', lineHeight: 1.6 }}>{props.message}</p>}
