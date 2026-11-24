@@ -105,7 +105,8 @@ public class VisitAppService {
         if (hasMemo) {
             notes.save(VisitNote.of(shopId, visit.getId(), actorStaffId, in.memo(), now));
         }
-        // ponytail: 예측 재계산(FR-PRD-01) · 고객 마지막 방문일(FR-CUS-12) · 귀속(FR-VIS-04)은 그 서비스가 생기면 여기서 부른다
+        // 예측 재계산은 방문을 만드는 completeWithVisit에서 한다 (완료된 예약은 결제 · 메모만 더해 방문이 그대로다)
+        // ponytail: 고객 마지막 방문일(FR-CUS-12) · 귀속(FR-VIS-04)은 그 서비스가 생기면 여기서 부른다
         return visit.getId();
     }
 
@@ -147,8 +148,10 @@ public class VisitAppService {
         notes.deleteVisitNotes(shopId, visitId);
         refs.deletePhotos(shopId, visitId);
         visits.delete(visit);
-        // ponytail: 예측 재계산(FR-PRD-01) · 고객 마지막 방문일(FR-CUS-12)은 그 서비스가 생기면 여기서 부른다. 스냅샷 재평가 · 귀속 승계는
-        // 하지 않는다 (#71)
+        visits.flush();
+        // 지운 방문을 빼고 다시 계산한다. 카테고리 방문이 남지 않으면 그 예측 행이 지워진다 (FR-PRD-01)
+        refs.recalculatePrediction(shopId, visit.getCustomerId());
+        // ponytail: 고객 마지막 방문일(FR-CUS-12)은 그 서비스가 생기면 여기서 부른다. 스냅샷 재평가 · 귀속 승계는 하지 않는다 (#71)
     }
 
     private Payment findPayment(long shopId, long paymentId) {
@@ -201,6 +204,10 @@ public class VisitAppService {
                         .toList());
         visits.flush();
         refs.completeReservation(shopId, r.id(), visit.getId(), items != null);
+        if (visit.getCustomerId() != null) {
+            // 같은 트랜잭션에서 예측을 다시 계산한다. 고객 없는 방문은 예측이 없다 (FR-PRD-01, E3)
+            refs.recalculatePrediction(shopId, visit.getCustomerId());
+        }
         return visit;
     }
 

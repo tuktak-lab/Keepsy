@@ -31,6 +31,9 @@ public interface VisitReferences {
     /** 그 매장 스탭 ID만 남긴다 (시술별 담당 스탭 확인) */
     Set<Long> shopStaffIds(long shopId, Collection<Long> staffIds);
 
+    /** 방문이 생기거나 바뀌거나 지워진 고객의 예측을 같은 트랜잭션에서 다시 계산한다 (FR-PRD-01) */
+    void recalculatePrediction(long shopId, long customerId);
+
     /**
      * @param visitId 완료된 예약이면 연결된 방문
      */
