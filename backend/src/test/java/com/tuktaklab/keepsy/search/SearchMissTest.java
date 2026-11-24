@@ -1,6 +1,7 @@
 package com.tuktaklab.keepsy.search;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -105,7 +106,8 @@ class SearchMissTest {
                         post("/api/search/misses")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content("{}")
-                                .session(session()))
+                                .session(session())
+                                .with(csrf()))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error.code").value("invalid"));
         miss("가".repeat(100)).andExpect(status().isNoContent());
@@ -118,7 +120,8 @@ class SearchMissTest {
                 post("/api/search/misses")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"keyword\":\"" + keyword + "\"}")
-                        .session(session()));
+                        .session(session())
+                        .with(csrf()));
     }
 
     private List<String> keywords(long shopId) {
