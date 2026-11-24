@@ -36,6 +36,15 @@ public class CampaignResultQuery {
                     + " JOIN visit v ON v.id = vs.visit_id AND v.source = 'NORMAL'"
                     + " WHERE c.id = :campaignId AND c.shop_id = :shopId";
 
+    /** 재예약 단계 고객: 예약 상태와 관계없이(취소 · 노쇼 포함) 이 캠페인 발송이 귀속된 예약 시술이 있는 고객 (FR-ANL-01 · 03) */
+    private static final String REBOOKED_CUSTOMERS =
+            "SELECT cm.customer_id"
+                    + ATTRIBUTABLE
+                    + " JOIN reservation_service rs ON rs.attributed_message_id = cm.id"
+                    + " JOIN service_menu sm ON sm.id = rs.service_menu_id"
+                    + " AND sm.category = c.category"
+                    + " WHERE c.id = :campaignId AND c.shop_id = :shopId";
+
     private final NamedParameterJdbcTemplate jdbc;
 
     /**
@@ -57,18 +66,17 @@ public class CampaignResultQuery {
                                 + " (SELECT COUNT(DISTINCT customer_id) FROM campaign_message"
                                 + "   WHERE shop_id = :shopId AND campaign_id = :campaignId"
                                 + "   AND control_group = FALSE AND send_status = 'SENT') AS reached,"
-                                // 재예약: 예약 상태와 관계없이(취소 · 노쇼 포함), 승계로 같은 발송을 가진 예약이 여럿이어도
-                                // 고객당 1 (FR-ANL-01 · 03)
-                                + " (SELECT COUNT(DISTINCT cm.customer_id)"
-                                + ATTRIBUTABLE
-                                + "   JOIN reservation_service rs ON rs.attributed_message_id = cm.id"
-                                + "   JOIN service_menu sm ON sm.id = rs.service_menu_id"
-                                + "   AND sm.category = c.category"
-                                + "   WHERE c.id = :campaignId AND c.shop_id = :shopId) AS rebooked,"
-                                // 재방문: 귀속된 예약에서 생긴 방문은 방문일이 기간 밖이어도 든다 (F33)
+                                // 재예약: 승계로 같은 발송을 가진 예약이 여럿이어도 고객당 1 (FR-ANL-03)
+                                + " (SELECT COUNT(DISTINCT r.customer_id) FROM ("
+                                + REBOOKED_CUSTOMERS
+                                + ") r) AS rebooked,"
+                                // 재방문: 재예약 고객 중 귀속된 방문이 있는 고객. 방문만 귀속된 고객은 뺀다 (F35).
+                                // 귀속된 예약에서 생긴 방문은 방문일이 기간 밖이어도 든다 (F33)
                                 + " (SELECT COUNT(DISTINCT cm.customer_id)"
                                 + ATTRIBUTED_VISIT_SERVICE
-                                + ") AS revisited",
+                                + " AND cm.customer_id IN ("
+                                + REBOOKED_CUSTOMERS
+                                + ")) AS revisited",
                         p,
                         (rs, i) ->
                                 new Funnel(
@@ -79,7 +87,8 @@ public class CampaignResultQuery {
     }
 
     /**
-     * 귀속된 방문의 취소 안 된 결제 전액 (FR-ANL-02, A13, FR-PAY-02). 같은 방문은 한 번만 센다 ({@code IN}).
+     * 귀속된 방문의 취소 안 된 결제 전액 (FR-ANL-02, A13, FR-PAY-02). 같은 방문은 한 번만 센다 ({@code IN}). 퍼널 재방문과 달리 재예약
+     * 고객으로 좁히지 않는다 (F35는 퍼널에만 적용).
      *
      * @return 세션 매장에 그 캠페인이 없으면 비어 있다 (NFR-03)
      */

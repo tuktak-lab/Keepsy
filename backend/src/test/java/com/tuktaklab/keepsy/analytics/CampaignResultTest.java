@@ -27,8 +27,8 @@ import org.springframework.security.web.context.HttpSessionSecurityContextReposi
 import org.springframework.test.web.servlet.MockMvc;
 
 /**
- * 캠페인 전환 퍼널 · 연결 매출 (Keepsy #102 · #103, FR-ANL-01 · 02 · 03, F33). 귀속은 저장된 값을 읽으므로 귀속 발송 ID를 직접 넣은
- * 답을 아는 모의 데이터로 확인한다 (DEVELOPMENT 7장 「지표 계산 검증」).
+ * 캠페인 전환 퍼널 · 연결 매출 (Keepsy #102 · #103, FR-ANL-01 · 02 · 03, F33 · F35). 귀속은 저장된 값을 읽으므로 귀속 발송 ID를
+ * 직접 넣은 답을 아는 모의 데이터로 확인한다 (DEVELOPMENT 7장 「지표 계산 검증」).
  *
  * <p>네일 캠페인 X의 고객: A(도달 · 취소 예약 → 승계 예약 → 기간 밖 방문, F33), B(도달 · 노쇼, 승계 없음), C(도달만), D(실패 · 귀속이 잘못
  * 들어간 예약 · 방문), E(대기), F(대조군 · 귀속이 잘못 들어간 예약), G(도달 · 다른 카테고리 시술에만 귀속), H(도달 · 네일은 X, 왁싱은 Y에 귀속된
@@ -146,6 +146,35 @@ class CampaignResultTest {
                 .andExpect(jsonPath("$.reachedCount").value(6)) // A B C G H I
                 .andExpect(jsonPath("$.rebookedCount").value(3)) // A(취소 + 승계 = 1) B(노쇼) H
                 .andExpect(jsonPath("$.revisitedCount").value(2)); // A(F33 기간 밖 방문) H
+    }
+
+    @Test
+    void 방문만_귀속된_고객은_재방문에서_빠지고_매출에는_든다() throws Exception {
+        // J: 발송 전에 잡아 둔 예약(귀속 없음)의 방문만 X에 귀속 → 재예약이 아니므로 재방문에서 뺀다 (F35)
+        long j = data.customer(shop, false, null);
+        long mJ = message(campaignX, j, "NAIL", false, "SENT");
+        long rJ = reservation(j, "COMPLETED");
+        insert(
+                "INSERT INTO reservation_service (shop_id, reservation_id, service_menu_id)"
+                        + " VALUES (?, ?, ?)",
+                shop,
+                rJ,
+                nail);
+        long vJ = visit(j, "2026-10-10", "NORMAL");
+        visitService(vJ, rJ, nail, "NAIL", mJ);
+        payment(rJ, j, vJ, 40_000, false);
+
+        MockHttpSession s = session(true);
+        mvc.perform(get("/api/campaigns/{id}/funnel", campaignX).session(s))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.sentCount").value(9))
+                .andExpect(jsonPath("$.reachedCount").value(7))
+                .andExpect(jsonPath("$.rebookedCount").value(3))
+                .andExpect(jsonPath("$.revisitedCount").value(2)); // 재예약 고객 A · H의 귀속 방문만
+        // 연결 매출은 저장된 방문 귀속을 그대로 쓴다: 100,000 + J 40,000 (F35는 퍼널에만)
+        mvc.perform(get("/api/campaigns/{id}/revenue", campaignX).session(s))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.revenue").value(140_000));
     }
 
     @Test
