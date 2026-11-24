@@ -2,17 +2,19 @@ import { PinGate } from '@/components/common/PinGate';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Topbar } from '@/components/layout/Topbar';
 import { useStyleSheet } from '@/hooks/useStyleSheet';
+import { FeatureLockSection, OwnerPinSection } from './AccessSection';
 import { DayOffSection } from './DayOffSection';
 import { MenuSection } from './MenuSection';
 import { SettingsSections } from './SettingsSections';
 import { ShopSection } from './ShopSection';
+import { StaffSection } from './StaffSection';
 import styleText from './SettingsPage.css?inline';
 
-// 매장 설정 (FR-SET-01 · 02 · 03 · 04 · 06 · 07). 화면 전체가 원장 PIN 기능이다 (OWNER_PIN, PinGate).
-// 이번 단계: 매장 정보 · 영업시간, 시술 메뉴 · 기본 주기, 휴무일, 예측 상태 기준, 발송 설정, 보관 기간.
-// 스탭 · PIN · 기능 잠금(FR-SET-05, FR-ACC-03~05 · 09)은 이어지는 PR에서 이 화면에 더한다.
+// 매장 설정 (FR-SET-01~07, FR-ACC-03~05 · 09). 화면 전체가 원장 PIN 기능이다 (OWNER_PIN, PinGate).
+// 구역: 매장 정보 · 영업시간, 시술 메뉴 · 기본 주기, 휴무일, 예측 상태 기준, 발송 설정, 보관 기간, 스탭 · PIN, 기능별 공용/PIN.
+// 원장 PIN 재설정(FR-ACC-09)만은 원장 PIN을 잊었을 때 쓰므로 PinGate 바깥에 둔다 (매장 세션이면 되는 API, PUT /api/owner-pin).
 // 구역마다 저장 API가 달라 저장 버튼도 구역별이다: 매장 정보 → PUT /api/shop, 시술 메뉴 → /api/service-menus · /api/category-cycles,
-// 휴무일 → /api/day-offs · PATCH /api/staff/{staffId}, 나머지 → PUT /api/settings.
+// 휴무일 → /api/day-offs · PATCH /api/staff/{staffId}, 스탭 → /api/staff, 기능 잠금 → PUT /api/feature-locks, 나머지 → PUT /api/settings.
 
 export default function SettingsPage() {
   useStyleSheet('SettingsPage', styleText);
@@ -37,6 +39,8 @@ export default function SettingsPage() {
               <a href="#st-status">예측 상태 기준</a>
               <a href="#st-send">발송 설정</a>
               <a href="#st-privacy">개인정보 보관</a>
+              <a href="#st-staff">스탭 · PIN</a>
+              <a href="#st-lock">기능별 공용 / PIN</a>
             </nav>
             <div className="st-note">설정 화면은 원장 PIN으로만 열려요. 이 화면의 모든 변경은 항상 원장 PIN이 필요해요.</div>
 
@@ -44,8 +48,13 @@ export default function SettingsPage() {
             <MenuSection />
             <DayOffSection />
             <SettingsSections />
+            <StaffSection />
+            <FeatureLockSection />
           </div>
         </PinGate>
+        <div className="st-wrap" style={{ paddingTop: 0 }}>
+          <OwnerPinSection />
+        </div>
       </main>
     </div>
   );
