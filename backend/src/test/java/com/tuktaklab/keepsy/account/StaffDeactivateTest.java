@@ -27,7 +27,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
 /**
- * POST /api/staff/{staffId}/deactivate 스탭 비활성화 (Keepsy #23, CONTRACTS 6장 ACC, FR-ACC-04, F33). 실제
+ * POST /api/staff/{staffId}/deactivate 스탭 비활성화 (Keepsy #23, CONTRACTS 6장 ACC, FR-ACC-04, F34). 실제
  * MySQL에서 돈다. 모의 데이터만 쓴다.
  */
 @SpringBootTest

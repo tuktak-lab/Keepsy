@@ -17,6 +17,6 @@ public interface StaffReservations {
     List<Booked> confirmedOn(
             long shopId, long staffId, Collection<DayOfWeek> days, LocalDateTime from);
 
-    /** 이 스탭의 확정 예약 전부(지난 · 앞으로, 고객 없는 예약 포함), 시작 시각순. 비활성화를 막는다 (FR-ACC-04, F33) */
+    /** 이 스탭의 확정 예약 전부(지난 · 앞으로, 고객 없는 예약 포함), 시작 시각순. 비활성화를 막는다 (FR-ACC-04, F34) */
     List<Booked> allConfirmed(long shopId, long staffId);
 }

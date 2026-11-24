@@ -87,7 +87,7 @@ class StaffController {
         commandService.resetPin(shopSession.shopId(), staffId, req.pin());
     }
 
-    /** 스탭 비활성화 (FR-ACC-04, F33). 원장 PIN. 남은 확정 예약이 있으면 conflict와 그 목록 */
+    /** 스탭 비활성화 (FR-ACC-04, F34). 원장 PIN. 남은 확정 예약이 있으면 conflict와 그 목록 */
     @RequireFeature(FeatureKey.OWNER_PIN)
     @PostMapping("/api/staff/{staffId}/deactivate")
     @ResponseStatus(HttpStatus.NO_CONTENT)

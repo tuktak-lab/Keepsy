@@ -100,7 +100,7 @@ public class Staff {
     }
 
     /**
-     * 비활성화 (FR-ACC-04). 작성한 기록은 ID로 남아 있으므로 지우지 않는다. 남은 예약 검사는 서비스가 한다 (F33).
+     * 비활성화 (FR-ACC-04). 작성한 기록은 ID로 남아 있으므로 지우지 않는다. 남은 예약 검사는 서비스가 한다 (F34).
      *
      * @throws ApiException 원장 스탭이면 {@code invalid} (FR-ACC-01)
      */

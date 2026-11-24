@@ -44,7 +44,7 @@ public class FeatureSettingsReader {
         return !owner.isEmpty() && Boolean.TRUE.equals(owner.get(0));
     }
 
-    /** 그 매장의 비활성 스탭인지 (FR-ACC-04, F33). 세션에 남은 스탭을 다음 요청부터 막는 데 쓴다 */
+    /** 그 매장의 비활성 스탭인지 (FR-ACC-04, F34). 세션에 남은 스탭을 다음 요청부터 막는 데 쓴다 */
     public boolean isDeactivated(long shopId, long staffId) {
         Integer count =
                 jdbc.queryForObject(

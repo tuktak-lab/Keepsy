@@ -95,7 +95,7 @@ public class StaffCommandService {
     public record BlockingReservation(long id, OffsetDateTime startAt, String customerName) {}
 
     /**
-     * 스탭 비활성화 (FR-ACC-04, F33). 이미 비활성이면 그대로 둔다. 그 스탭의 세션은 권한 검사가 다음 요청부터 막는다.
+     * 스탭 비활성화 (FR-ACC-04, F34). 이미 비활성이면 그대로 둔다. 그 스탭의 세션은 권한 검사가 다음 요청부터 막는다.
      *
      * @throws ApiException 다른 매장 · 없는 스탭이면 {@code not_found}, 원장 스탭이면 {@code invalid}, 확정 예약(지난 ·
      *     앞으로, 고객 없는 예약 포함)이 남아 있으면 {@code conflict}이고 details에 그 예약 목록
