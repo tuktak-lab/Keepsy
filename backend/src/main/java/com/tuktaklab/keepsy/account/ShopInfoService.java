@@ -23,7 +23,19 @@ public class ShopInfoService {
     private final StaffReservations reservations;
     private final Clock clock;
 
+    /**
+     * @param retentionYears 보관 기간(년). 동의서 고지에 쓴다 (FR-SET-06, F40). 바꾸는 곳은 매장 설정값
+     */
     public record ShopInfo(
+            String name,
+            String phone,
+            String senderNumber,
+            String unsubscribeNumber,
+            List<OpeningHours> openingHours,
+            int retentionYears) {}
+
+    /** 매장 정보 수정 입력. 보관 기간은 매장 설정값에서 바꾸므로 없다 (F40) */
+    public record ShopInfoChange(
             String name,
             String phone,
             String senderNumber,
@@ -41,7 +53,8 @@ public class ShopInfoService {
                 shop.getPhone(),
                 shop.getSenderNumber(),
                 shop.getUnsubscribeNumber(),
-                shop.openingHours());
+                shop.openingHours(),
+                shop.getRetentionYears());
     }
 
     /**
@@ -52,7 +65,7 @@ public class ShopInfoService {
      *     Shop#changeInfo})
      */
     @Transactional
-    public List<Timed> update(long shopId, ShopInfo in) {
+    public List<Timed> update(long shopId, ShopInfoChange in) {
         Shop shop = ShopScope.orNotFound(shopRepository.findById(shopId));
         shop.changeInfo(
                 in.name(),

@@ -2,6 +2,7 @@ package com.tuktaklab.keepsy.account;
 
 import com.tuktaklab.keepsy.account.Shop.OpeningHours;
 import com.tuktaklab.keepsy.account.ShopInfoService.ShopInfo;
+import com.tuktaklab.keepsy.account.ShopInfoService.ShopInfoChange;
 import com.tuktaklab.keepsy.common.security.FeatureKey;
 import com.tuktaklab.keepsy.common.security.RequireFeature;
 import com.tuktaklab.keepsy.common.security.RequireWorker;
@@ -45,7 +46,8 @@ class ShopController {
             String phone,
             String senderNumber,
             String unsubscribeNumber,
-            List<OpeningHoursResponse> openingHours) {}
+            List<OpeningHoursResponse> openingHours,
+            int retentionYears) {}
 
     /** 매장 정보 · 영업시간 (FR-SET-01). 근무자. 매장 설정 화면과 예약 화면이 함께 쓴다 (F20) */
     @RequireWorker
@@ -61,7 +63,8 @@ class ShopController {
                         .map(h ->
                                 new OpeningHoursResponse(
                                         h.dayOfWeek(), hhmm(h.open()), hhmm(h.close())))
-                        .toList());
+                        .toList(),
+                info.retentionYears());
     }
 
     private static String hhmm(LocalTime time) {
@@ -95,8 +98,8 @@ class ShopController {
     @RequireFeature(FeatureKey.OWNER_PIN)
     @PutMapping("/api/shop")
     UpdateResponse update(@Valid @RequestBody UpdateRequest req) {
-        ShopInfo in =
-                new ShopInfo(
+        ShopInfoChange in =
+                new ShopInfoChange(
                         req.name(),
                         req.phone(),
                         req.senderNumber(),
