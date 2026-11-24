@@ -1,5 +1,7 @@
 package com.tuktaklab.keepsy.account;
 
+import com.tuktaklab.keepsy.common.error.ApiException;
+import com.tuktaklab.keepsy.common.error.ErrorCode;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -9,6 +11,7 @@ import jakarta.persistence.Id;
 import java.time.DayOfWeek;
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -51,6 +54,43 @@ public class Staff {
                 .map(d -> DayOfWeek.valueOf(d.trim()))
                 .sorted()
                 .toList();
+    }
+
+    /** 원장 PIN으로 등록하는 스탭 (FR-ACC-03). 원장은 가입 때만 생긴다 */
+    static Staff member(
+            long shopId,
+            String name,
+            String pinHash,
+            boolean lockedFeatureAllowed,
+            List<DayOfWeek> regularDaysOff) {
+        Staff staff = new Staff();
+        staff.shopId = shopId;
+        staff.name = name;
+        staff.pinHash = pinHash;
+        staff.lockedFeatureAllowed = lockedFeatureAllowed;
+        staff.changeDaysOff(regularDaysOff);
+        staff.status = StaffStatus.ACTIVE;
+        return staff;
+    }
+
+    void rename(String name) {
+        this.name = name;
+    }
+
+    /**
+     * @throws ApiException 원장 스탭의 허용을 끄면 {@code invalid} (FR-ACC-01)
+     */
+    void allowLockedFeatures(boolean allowed) {
+        if (owner && !allowed) {
+            throw new ApiException(ErrorCode.INVALID, "원장 스탭의 잠긴 기능 사용 허용은 끌 수 없습니다");
+        }
+        this.lockedFeatureAllowed = allowed;
+    }
+
+    /** 정기 휴무 요일 전체를 바꾼다. 월요일부터 순서로 저장한다 */
+    void changeDaysOff(List<DayOfWeek> days) {
+        this.regularDaysOff =
+                days.stream().sorted().map(DayOfWeek::name).collect(Collectors.joining(","));
     }
 
     /** 가입 때 만드는 원장 스탭 (FR-ACC-01) */
