@@ -7,26 +7,38 @@ import { Topbar } from '@/components/layout/Topbar';
 import { useStyleSheet } from '@/hooks/useStyleSheet';
 import { ApiError, api } from '@/lib/api';
 import { CHANNEL_LABEL, DOW_LABEL, dayIndex, formatMinutes, seoulParts, type Channel } from '@/lib/calendar';
-import { PAYMENT_METHODS, parseAmount, sumPrices, toClosingRequest, validateClosing, type ClosingService, type PaymentMethod } from '@/lib/closing';
+import {
+  PAYMENT_METHODS,
+  asksMenuExclusion,
+  canExcludeFromCycle,
+  parseAmount,
+  sumPrices,
+  toClosingRequest,
+  validateClosing,
+  type ClosingService,
+  type PaymentMethod,
+} from '@/lib/closing';
 import { formatWon } from '@/lib/format';
 import { detailsText } from '@/lib/reservationForm';
+import { CustomerSearch, type CustomerPick } from './CustomerSearch';
 import styleText from './SchedulePage.css?inline';
 
-// 시술 마감 카드 (FR-PAY-04). 경로: /reservations/closing?id=
+// 시술 마감 카드 (FR-PAY-04 · FR-VIS-05). 경로: /reservations/closing?id=
 // 저장 한 번으로 결제 · 방문 생성 · 예약 완료가 함께 처리된다. 이미 완료된 예약은 추가 결제 · 메모만 더한다 (E4).
-// API: GET · POST /api/reservations/{id}/closing (docs CONTRACTS 6장 「시술 마감 · 결제 (PAY)」)
-// 이 화면에서 아직 하지 않는 것: 고객 없는 예약의 카드 안 연결 · 고객 없음 마감, 주기 계산 제외(FR-VIS-05) → 다음 PR.
-// 사진 올리기와 동의 받기는 해당 API(#46 · #48)가 생기면 붙인다.
+// 고객 없는 예약은 이 카드 안에서 고객을 연결하거나 「고객 없음」으로 마감한다 (E3).
+// 시술마다 [이번 시술 주기 계산 제외]를 체크할 수 있고, 「일반」 메뉴라면 메뉴 전체를 제외할지 묻는다 (FR-VIS-05).
+// API: GET · POST /api/reservations/{id}/closing, PUT …/customer, PATCH /api/service-menus/{id} (docs CONTRACTS 6장)
+// 사진 올리기와 동의 받기는 해당 API(#46 · #48)가 main에 생기면 붙인다.
 
 type StaffRef = { id: number; name: string };
-type Menu = { id: number; name: string; price: number; durationMinutes: number };
+type Menu = { id: number; name: string; price: number; durationMinutes: number; predictionAttribute: string };
 type Closing = {
   reservationId: number;
   status: 'CONFIRMED' | 'COMPLETED';
   servicesConfirmRequired: boolean;
   visitId: number | null;
   customer: { id: number; name: string | null } | null;
-  services: { serviceMenuId: number; name: string; price: number; staff: StaffRef }[];
+  services: { serviceMenuId: number; name: string; price: number; predictionAttribute: string; staff: StaffRef; cycleExcluded: boolean }[];
 };
 type Summary = { startAt: string; minutes: number; channel: Channel; staff: StaffRef };
 type Loaded = { id: number; closing?: Closing; error?: 'notfound' | 'conflict' | 'error'; message?: string };
@@ -50,6 +62,9 @@ export default function ClosingPage() {
   const [memo, setMemo] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [reload, setReload] = useState(0);
+  const [noCustomer, setNoCustomer] = useState(false); // 고객 없는 예약을 「고객 없음」으로 마감 (E3)
+  const [ask, setAsk] = useState<{ menuId: number; error: string; busy: boolean } | null>(null); // 「앞으로 이 메뉴를 모두 제외할까요?」 (FR-VIS-05)
 
   // 시술별 담당 스탭 · 시술 추가에 쓰는 목록
   useEffect(() => {
@@ -72,7 +87,7 @@ export default function ClosingPage() {
     api<Closing>(`/api/reservations/${id}/closing`, { silent: true })
       .then((closing) => {
         if (cancelled) return;
-        setRows(closing.services.map((s) => ({ serviceMenuId: s.serviceMenuId, staffId: s.staff.id })));
+        setRows(closing.services.map((s) => ({ serviceMenuId: s.serviceMenuId, staffId: s.staff.id, cycleExcluded: s.cycleExcluded })));
         setLoaded({ id, closing });
       })
       .catch((err) => {
@@ -86,19 +101,25 @@ export default function ClosingPage() {
     return () => {
       cancelled = true;
     };
-  }, [id, validId]);
+  }, [id, validId, reload]);
 
   const current = loaded?.id === id ? loaded : null;
   const closing = current?.closing;
   const completed = closing?.status === 'COMPLETED';
   const hasCustomer = closing?.customer != null;
-  const needsCustomer = closing !== undefined && !completed && !hasCustomer; // 고객 없는 예약은 먼저 고객을 연결해야 한다 (다음 PR에서 이 카드 안에서)
+  const needsCustomer = closing !== undefined && !completed && !hasCustomer; // 고객 없는 확정 예약: 연결하거나 「고객 없음」으로 마감
+  const needsChoice = needsCustomer && !noCustomer; // 아직 둘 중 하나를 고르지 않음 → 폼을 열지 않는다
+  const excludable = hasCustomer && !completed; // 주기 계산 제외는 고객이 있는 마감에서만 (E3)
 
-  // 이름 · 가격: 새로 더한 시술은 메뉴 목록에서, 처음 채워진 시술은 마감 카드 응답에서
+  // 이름 · 가격 · 예측 속성: 새로 더한 시술은 메뉴 목록에서, 처음 채워진 시술은 마감 카드 응답에서
   const info = (menuId: number) => {
     const m = menus.find((x) => x.id === menuId);
     const c = closing?.services.find((x) => x.serviceMenuId === menuId);
-    return { name: m?.name ?? c?.name ?? `시술 ${menuId}`, price: m?.price ?? c?.price ?? 0 };
+    return {
+      name: m?.name ?? c?.name ?? `시술 ${menuId}`,
+      price: m?.price ?? c?.price ?? 0,
+      attribute: m?.predictionAttribute ?? c?.predictionAttribute ?? 'NORMAL',
+    };
   };
   const shownAmount = amountTouched ? amount : completed ? '' : String(sumPrices(rows.map((r) => info(r.serviceMenuId).price)));
 
@@ -111,11 +132,53 @@ export default function ClosingPage() {
     setRows((cur) => cur.filter((r) => r.serviceMenuId !== menuId));
   };
   const changeStaff = (menuId: number, staffId: number) => setRows((cur) => cur.map((r) => (r.serviceMenuId === menuId ? { ...r, staffId } : r)));
+  const setExcluded = (menuId: number, cycleExcluded: boolean) => setRows((cur) => cur.map((r) => (r.serviceMenuId === menuId ? { ...r, cycleExcluded } : r)));
+
+  // [이번 시술 주기 계산 제외] 체크 (FR-VIS-05): 「일반」 메뉴에 체크하면 메뉴 전체를 제외할지 먼저 묻는다
+  const toggleExcluded = (menuId: number, checked: boolean) => {
+    setError('');
+    if (checked && asksMenuExclusion(info(menuId).attribute)) setAsk({ menuId, error: '', busy: false });
+    else setExcluded(menuId, checked);
+  };
+  // [예]: 메뉴의 예측 속성을 「주기 계산 제외」로 바꾼다. 매장 설정 권한이라 원장 PIN이 필요하다 (api.ts가 PIN 창을 띄움)
+  async function excludeWholeMenu() {
+    if (!ask) return;
+    setAsk({ ...ask, busy: true, error: '' });
+    try {
+      await api(`/api/service-menus/${ask.menuId}`, { method: 'PATCH', body: { predictionAttribute: 'EXCLUDE' }, silent: true });
+      setMenus((cur) => cur.map((m) => (m.id === ask.menuId ? { ...m, predictionAttribute: 'EXCLUDE' } : m)));
+      setExcluded(ask.menuId, true);
+      setAsk(null);
+      toast(`앞으로 ${info(ask.menuId).name} 메뉴는 주기 계산에서 제외돼요.`);
+    } catch (err) {
+      setAsk({ ...ask, busy: false, error: err instanceof ApiError ? err.message : '잠시 후 다시 시도해 주세요' });
+    }
+  }
+  // [아니요]: 이번 방문만 제외한다
+  const excludeThisVisitOnly = () => {
+    if (!ask) return;
+    setExcluded(ask.menuId, true);
+    setAsk(null);
+  };
+
+  // 고객 없는 예약에 고객을 연결한 뒤 카드를 다시 읽는다 (예약 제한 고객은 PIN 없이 연결하고 안내만, FR-CUS-14 · E3)
+  async function linkCustomer(c: CustomerPick) {
+    setError('');
+    try {
+      const res = await api<{ notice: string | null }>(`/api/reservations/${id}/customer`, { method: 'PUT', body: { customerId: c.id }, silent: true });
+      toast(`${c.name} 고객을 연결했어요.`);
+      if (res?.notice) toast(res.notice, 'warn');
+      setNoCustomer(false);
+      setReload((n) => n + 1);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : '잠시 후 다시 시도해 주세요');
+    }
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     const values = { services: rows, amount: shownAmount, method, memo };
-    const mode = { completed: !!completed, hasCustomer };
+    const mode = { completed: !!completed, hasCustomer, noCustomer: needsCustomer && noCustomer };
     const problem = validateClosing(values, mode);
     if (problem) return setError(problem);
     setBusy(true);
@@ -168,7 +231,9 @@ export default function ClosingPage() {
               <form className="detail" onSubmit={submit}>
                 <dl className="d-dl">
                   <dt>고객</dt>
-                  <dd className="strong">{closing.customer ? (closing.customer.name ?? '이름 없음') : '고객 정보 없음'}</dd>
+                  <dd className="strong">
+                    {closing.customer ? (closing.customer.name ?? '이름 없음') : needsCustomer && noCustomer ? '고객 없음으로 마감' : '고객 정보 없음'}
+                  </dd>
                   {summary && at ? (
                     <>
                       <dt>예약</dt>
@@ -180,17 +245,36 @@ export default function ClosingPage() {
                   ) : null}
                 </dl>
 
-                {needsCustomer ? (
-                  <div className="box warn" role="note">
-                    <p>
-                      고객 없는 예약이에요. 시술 마감 전에 고객을 연결해 주세요.{' '}
-                      <AppLink href={`/reservations/detail?id=${id}`} className="p-link">
-                        예약 상세에서 고객 연결 →
-                      </AppLink>
-                    </p>
-                  </div>
+                {needsChoice ? (
+                  <>
+                    <div className="box warn" role="note">
+                      <p>고객 없는 예약이에요. 시술 마감 전에 고객을 연결하거나, 손님이 동의를 거부했다면 「고객 없음」으로 마감해 주세요.</p>
+                    </div>
+                    <div>
+                      <span className="lbl">고객 연결</span>
+                      <CustomerSearch onPick={(c) => void linkCustomer(c)} />
+                    </div>
+                    <div className="box">
+                      <p>
+                        <b>고객 없음으로 마감</b> — 실제 시술 · 담당 스탭 · 금액 · 결제 수단만 기록하고, 사진 · 메모 · 동의 받기 · 주기 계산은 없어요.
+                      </p>
+                      <button type="button" className="btn btn-sm" style={{ marginTop: 8 }} onClick={() => setNoCustomer(true)}>
+                        고객 없음으로 마감하기
+                      </button>
+                    </div>
+                  </>
                 ) : (
                   <>
+                    {needsCustomer && noCustomer ? (
+                      <div className="box" role="note">
+                        <p>
+                          고객 없음으로 마감해요. 메모와 주기 계산은 기록하지 않아요.{' '}
+                          <button type="button" className="lk" onClick={() => setNoCustomer(false)}>
+                            고객 연결하기
+                          </button>
+                        </p>
+                      </div>
+                    ) : null}
                     {completed ? (
                       <div className="box" role="note">
                         <p>이미 마감된 예약이에요. 결제(추가 결제)와 메모만 더할 수 있고, 실제 시술은 방문 수정에서 바꿀 수 있어요.</p>
@@ -205,7 +289,7 @@ export default function ClosingPage() {
                       <span className="lbl">실제 시술{completed ? '' : ' (1개 이상)'}</span>
                       <ul className="svc-list">
                         {rows.map((r) => {
-                          const { name, price } = info(r.serviceMenuId);
+                          const { name, price, attribute } = info(r.serviceMenuId);
                           return (
                             <li key={r.serviceMenuId} className="svc-row">
                               <span className="svc-name">
@@ -228,6 +312,15 @@ export default function ClosingPage() {
                                   </button>
                                 </>
                               )}
+                              {/* 주기 계산 제외 (FR-VIS-05): 고객이 있는 마감에서만. 이미 항상 제외인 메뉴는 체크가 필요 없다 */}
+                              {excludable && canExcludeFromCycle(attribute) ? (
+                                <label className="chk svc-opt">
+                                  <input type="checkbox" checked={!!r.cycleExcluded} onChange={(e) => toggleExcluded(r.serviceMenuId, e.target.checked)} />
+                                  <span>이번 시술 주기 계산 제외</span>
+                                </label>
+                              ) : null}
+                              {hasCustomer && !completed && !canExcludeFromCycle(attribute) ? <span className="meta svc-opt">주기 계산에서 항상 제외되는 메뉴예요</span> : null}
+                              {completed && r.cycleExcluded ? <span className="meta svc-opt">이번 시술은 주기 계산에서 제외됐어요</span> : null}
                             </li>
                           );
                         })}
@@ -290,7 +383,7 @@ export default function ClosingPage() {
                   <AppLink href={backHref} className="btn">
                     돌아가기
                   </AppLink>
-                  {!needsCustomer ? (
+                  {!needsChoice ? (
                     <button type="submit" className="btn btn-p" disabled={busy}>
                       {busy ? '저장 중…' : completed ? '추가 결제 저장' : '시술 마감 저장'}
                     </button>
@@ -301,6 +394,32 @@ export default function ClosingPage() {
           </section>
         </div>
       </main>
+
+      {ask ? (
+        <div className="overlay">
+          <div className="card modal" role="dialog" aria-modal="true" aria-label="주기 계산 제외 확인">
+            <h2 className="h2" style={{ fontSize: '19px' }}>
+              앞으로 {info(ask.menuId).name} 메뉴를 모두 주기 계산에서 제외할까요?
+            </h2>
+            <p className="meta">
+              [예]를 고르면 메뉴의 예측 속성이 「주기 계산 제외」로 바뀌어요. 매장 설정 권한(원장 PIN)이 필요해요. [아니요]를 고르면 이번 방문만 제외해요.
+            </p>
+            {ask.error ? (
+              <span className="err" role="alert">
+                {ask.error}
+              </span>
+            ) : null}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+              <button type="button" className="btn" disabled={ask.busy} onClick={excludeThisVisitOnly}>
+                아니요 (이번 방문만)
+              </button>
+              <button type="button" className="btn btn-p" disabled={ask.busy} onClick={() => void excludeWholeMenu()}>
+                {ask.busy ? '변경 중…' : '예 (메뉴 전체 제외)'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
