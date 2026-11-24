@@ -216,6 +216,19 @@ class CustomerController {
         return consents;
     }
 
+    @RequireFeature(FeatureKey.CUSTOMER_VIEW)
+    @GetMapping("/api/customers/{customerId}/history")
+    PageResponse<CustomerService.HistoryVisit> history(
+            @PathVariable long customerId,
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
+        PageResponse<CustomerService.HistoryVisit> history =
+                customerService.history(shopSession.shopId(), customerId, page, size);
+        accessLogger.record(
+                FeatureKey.CUSTOMER_VIEW, AccessLogger.CUSTOMER, customerId, Action.VIEW);
+        return history;
+    }
+
     /** 요청 하나에 항목 하나 (CONTRACTS 6장) */
     record ConsentRequest(
             @NotNull(message = "동의 항목을 골라 주세요") Consent.Item item,
