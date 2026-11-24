@@ -1,5 +1,7 @@
 package com.tuktaklab.keepsy.customer;
 
+import com.tuktaklab.keepsy.common.audit.AccessLogger;
+import com.tuktaklab.keepsy.common.audit.AccessLogger.Action;
 import com.tuktaklab.keepsy.common.security.FeatureKey;
 import com.tuktaklab.keepsy.common.security.RequireFeature;
 import com.tuktaklab.keepsy.common.security.ShopSession;
@@ -33,6 +35,7 @@ class CustomerController {
 
     private final CustomerService customerService;
     private final ShopSession shopSession;
+    private final AccessLogger accessLogger;
 
     record RegisterRequest(
             @NotBlank(message = "이름을 입력해 주세요") @Size(max = 50, message = "이름은 50자 이하입니다")
@@ -104,7 +107,11 @@ class CustomerController {
     @RequireFeature(FeatureKey.CUSTOMER_VIEW)
     @GetMapping("/api/customers/{customerId}")
     CustomerDetailQuery.Detail detail(@PathVariable long customerId) {
-        return customerService.detail(shopSession.shopId(), customerId);
+        CustomerDetailQuery.Detail detail =
+                customerService.detail(shopSession.shopId(), customerId);
+        accessLogger.record(
+                FeatureKey.CUSTOMER_VIEW, AccessLogger.CUSTOMER, customerId, Action.VIEW);
+        return detail;
     }
 
     record ContactResponse(String phone) {}
