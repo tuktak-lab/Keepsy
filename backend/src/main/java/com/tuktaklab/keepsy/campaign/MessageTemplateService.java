@@ -1,8 +1,15 @@
 package com.tuktaklab.keepsy.campaign;
 
+import com.tuktaklab.keepsy.common.error.ApiException;
+import com.tuktaklab.keepsy.common.error.ErrorCode;
+import com.tuktaklab.keepsy.common.error.GlobalExceptionHandler;
 import com.tuktaklab.keepsy.common.web.PageResponse;
 import java.util.List;
+import java.util.Set;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,6 +41,12 @@ public class MessageTemplateService {
                             "[{매장명}] {고객명}님은 {동의일}에 {매장명}의 광고성 정보 수신에 동의하셨습니다 (야간 광고 수신: {야간광고동의}). 동의는 그대로 유지됩니다. 더 받지 않으시려면 [수신거부]를 누르거나 매장에 말씀해 주세요.",
                             TemplatePurpose.CONSENT_RECONFIRM));
 
+    /** 2장 「2,000바이트 초과 메시지」 */
+    private static final int MAX_BODY_BYTES = 2000;
+
+    /** 변수: 중괄호로 감싼 이름 (C10) */
+    private static final Pattern VARIABLE = Pattern.compile("\\{([^{}]*)\\}");
+
     private final MessageTemplateRepository templates;
 
     public record TemplateItem(
@@ -55,6 +68,70 @@ public class MessageTemplateService {
                                 t.getBody(),
                                 t.getPurpose(),
                                 t.getPurpose().messageKind()));
+    }
+
+    /** {@code POST /api/message-templates} (FR-CMP-03, C10). @return 새 템플릿 ID */
+    @Transactional
+    public long create(long shopId, String name, String body, TemplatePurpose purpose) {
+        validate(body, purpose);
+        return templates.save(MessageTemplate.of(shopId, name, body, purpose)).getId();
+    }
+
+    /** {@code PATCH /api/message-templates/{id}}: 같은 본문을 통째로 바꾼다 */
+    @Transactional
+    public void update(
+            long shopId, long templateId, String name, String body, TemplatePurpose purpose) {
+        validate(body, purpose);
+        find(shopId, templateId).update(name, body, purpose);
+    }
+
+    /**
+     * {@code DELETE /api/message-templates/{id}}. 캠페인이 쓰는 템플릿은 지우지 않는다 (campaign.template_id FK)
+     */
+    @Transactional
+    public void delete(long shopId, long templateId) {
+        templates.delete(find(shopId, templateId));
+        try {
+            templates.flush();
+        } catch (DataIntegrityViolationException e) {
+            throw new ApiException(ErrorCode.CONFLICT, "캠페인에 쓴 템플릿은 지울 수 없습니다");
+        }
+    }
+
+    private MessageTemplate find(long shopId, long templateId) {
+        return templates
+                .findById(templateId)
+                .filter(t -> t.getShopId() == shopId)
+                .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND));
+    }
+
+    /** 본문 2,000바이트 이하(FR-CMP-05와 같은 셈법), 용도별 허용 변수만 (C10) */
+    private static void validate(String body, TemplatePurpose purpose) {
+        if (MessageComposer.countBytes(body) > MAX_BODY_BYTES) {
+            throw invalidBody("본문은 2,000바이트 이하로 써 주세요");
+        }
+        Set<String> allowed = purpose.allowedVariables();
+        List<String> wrong =
+                VARIABLE.matcher(body)
+                        .results()
+                        .map(m -> m.group(1))
+                        .filter(v -> !allowed.contains(v))
+                        .distinct()
+                        .toList();
+        if (!wrong.isEmpty()) {
+            throw invalidBody(
+                    "이 용도에서 쓸 수 없는 변수입니다: "
+                            + wrong.stream()
+                                    .map(v -> "{" + v + "}")
+                                    .collect(Collectors.joining(" ")));
+        }
+    }
+
+    private static ApiException invalidBody(String reason) {
+        return new ApiException(
+                ErrorCode.INVALID,
+                ErrorCode.INVALID.defaultMessage(),
+                List.of(new GlobalExceptionHandler.FieldViolation("body", reason)));
     }
 
     /** 매장 가입 때 기본 템플릿을 만든다 (FR-CMP-03 · 13, D1). 가입 트랜잭션 안에서 부른다 */
