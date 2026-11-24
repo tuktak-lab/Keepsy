@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.cookie;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -42,7 +43,7 @@ class SecurityConfigTest {
 
         @GetMapping("/api/protected")
         String protectedApi() {
-            return "ok";
+            return "shop=" + shopSession.shopId();
         }
 
         @PostMapping("/api/protected")
@@ -83,7 +84,9 @@ class SecurityConfigTest {
                                 .getRequest()
                                 .getSession(false);
 
-        mvc.perform(get("/api/protected").session(session)).andExpect(status().isOk());
+        mvc.perform(get("/api/protected").session(session))
+                .andExpect(status().isOk())
+                .andExpect(content().string("shop=7"));
         mvc.perform(post("/api/protected").session(session).with(csrf()))
                 .andExpect(status().isOk());
     }

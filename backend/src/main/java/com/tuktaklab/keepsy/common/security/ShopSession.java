@@ -6,6 +6,7 @@ import jakarta.servlet.http.HttpSession;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
@@ -40,6 +41,15 @@ public class ShopSession {
                 UsernamePasswordAuthenticationToken.authenticated(shopId, null, List.of()));
         SecurityContextHolder.setContext(context);
         contextRepository.saveContext(context, request, response);
+    }
+
+    /**
+     * 로그인한 매장 ID. 경로 · 쿼리 · 본문으로 매장 ID를 받지 않고 항상 이것을 쓴다 (CONTRACTS 3장, NFR-03). 로그인하지 않았으면 null (보호
+     * API는 SecurityConfig가 먼저 401로 막는다)
+     */
+    public Long shopId() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        return auth != null && auth.getPrincipal() instanceof Long id ? id : null;
     }
 
     /** 로그아웃: 근무자 · PIN 인증도 함께 사라진다 (FR-ACC-02·10) */
