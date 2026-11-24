@@ -181,6 +181,76 @@ class ReservationControllerTest {
     }
 
     @Test
+    void 상세는_주의사항을_포함하고_고객_없는_예약은_customer가_null이다() throws Exception {
+        long customer = data.customer(shop, false, null);
+        jdbc.update(
+                "UPDATE customer SET service_caution = '피부 민감', health_caution = '임신 중' WHERE id = ?",
+                customer);
+        long withCustomer =
+                service.create(
+                        shop,
+                        new NewReservation(
+                                customer,
+                                staff,
+                                LocalDateTime.of(2099, 1, 6, 11, 0),
+                                60,
+                                ReservationChannel.NAVER,
+                                true,
+                                "짧게",
+                                List.of(care)),
+                        false);
+        long noCustomer =
+                service.create(
+                        shop,
+                        new NewReservation(
+                                null,
+                                staff,
+                                LocalDateTime.of(2099, 1, 6, 14, 0),
+                                null,
+                                null,
+                                false,
+                                null,
+                                List.of(care)),
+                        false);
+        MockHttpSession s = session(shop, staff);
+
+        mvc.perform(get("/api/reservations/{id}", withCustomer).session(s))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CONFIRMED"))
+                .andExpect(jsonPath("$.startAt").value("2099-01-06T11:00:00+09:00"))
+                .andExpect(jsonPath("$.minutes").value(60))
+                .andExpect(jsonPath("$.channel").value("NAVER"))
+                .andExpect(jsonPath("$.consultFirst").value(true))
+                .andExpect(jsonPath("$.memo").value("짧게"))
+                .andExpect(jsonPath("$.staff.id").value(staff))
+                .andExpect(jsonPath("$.staff.name").value("스탭"))
+                .andExpect(jsonPath("$.services[0].serviceMenuId").value(care))
+                .andExpect(jsonPath("$.services[0].name").value("젤"))
+                .andExpect(jsonPath("$.services[0].price").value(50000))
+                .andExpect(jsonPath("$.customer.id").value(customer))
+                .andExpect(jsonPath("$.customer.name").value("모의 고객"))
+                .andExpect(jsonPath("$.customer.serviceCaution").value("피부 민감"))
+                .andExpect(jsonPath("$.customer.healthCaution").value("임신 중"))
+                .andExpect(jsonPath("$.customer.phone").doesNotExist())
+                .andExpect(jsonPath("$.visitId").isEmpty());
+
+        mvc.perform(get("/api/reservations/{id}", noCustomer).session(s))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.customer").isEmpty())
+                .andExpect(jsonPath("$.minutes").value(30))
+                .andExpect(jsonPath("$.channel").value("STORE"))
+                .andExpect(jsonPath("$.services[0].name").value("젤"));
+
+        long otherShop = data.shop();
+        long otherStaff = data.staff(otherShop, "ACTIVE", false);
+        mvc.perform(
+                        get("/api/reservations/{id}", noCustomer)
+                                .session(session(otherShop, otherStaff)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error.code").value("not_found"));
+    }
+
+    @Test
     void 다른_매장_예약은_not_found() throws Exception {
         long id =
                 service.create(

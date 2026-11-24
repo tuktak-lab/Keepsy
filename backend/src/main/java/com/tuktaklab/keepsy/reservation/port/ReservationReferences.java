@@ -33,7 +33,20 @@ public interface ReservationReferences {
     /** 정상 고객의 예약 제한 상태. 다른 매장 · 없는 · 삭제된 고객이면 비어 있다 */
     Optional<CustomerState> customer(long shopId, long customerId);
 
+    /** 예약 상세에 보일 스탭 이름. 비활성 스탭도 돌려준다 */
+    String staffName(long shopId, long staffId);
+
+    /** 예약 상세에 보일 메뉴 이름 · 지금 가격. 다른 매장 · 없는 메뉴는 결과에서 빠진다 */
+    Map<Long, MenuSummary> menuSummaries(long shopId, Collection<Long> serviceMenuIds);
+
+    /** 예약 상세에 보일 고객 이름 · 주의사항 (FR-CUS-05). 삭제된 고객도 돌려준다 (이름 null, C12) */
+    Optional<CustomerSummary> customerSummary(long shopId, long customerId);
+
     record StaffState(boolean active) {}
 
     record CustomerState(boolean restricted, String restrictReason) {}
+
+    record MenuSummary(String name, int price) {}
+
+    record CustomerSummary(String name, String serviceCaution, String healthCaution) {}
 }

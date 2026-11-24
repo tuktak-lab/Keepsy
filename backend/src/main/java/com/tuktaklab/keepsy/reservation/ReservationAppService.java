@@ -2,14 +2,19 @@ package com.tuktaklab.keepsy.reservation;
 
 import com.tuktaklab.keepsy.common.error.ApiException;
 import com.tuktaklab.keepsy.common.error.ErrorCode;
+import com.tuktaklab.keepsy.common.time.TimeConfig;
 import com.tuktaklab.keepsy.reservation.AvailableTimes.Booking;
 import com.tuktaklab.keepsy.reservation.port.ReservationReferences;
 import com.tuktaklab.keepsy.reservation.port.ReservationReferences.CustomerState;
+import com.tuktaklab.keepsy.reservation.port.ReservationReferences.MenuSummary;
 import com.tuktaklab.keepsy.reservation.port.ReservationReferences.StaffState;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.OffsetDateTime;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -128,6 +133,67 @@ public class ReservationAppService {
         return customer.restricted()
                 ? Optional.of("예약 제한 고객입니다. 사유: " + customer.restrictReason())
                 : Optional.empty();
+    }
+
+    /**
+     * {@code GET /api/reservations/{id}} 응답 (CONTRACTS 6장 「예약 (RSV)」). 고객 없는 예약이면 customer가 null
+     * (E3)
+     */
+    public record ReservationDetail(
+            long id,
+            ReservationStatus status,
+            OffsetDateTime startAt,
+            int minutes,
+            ReservationChannel channel,
+            boolean consultFirst,
+            String memo,
+            StaffView staff,
+            List<ServiceView> services,
+            CustomerView customer,
+            Long visitId) {}
+
+    public record StaffView(long id, String name) {}
+
+    public record ServiceView(long serviceMenuId, String name, int price) {}
+
+    public record CustomerView(long id, String name, String serviceCaution, String healthCaution) {}
+
+    /** {@code GET /api/reservations/{id}}. 상태와 관계없이 조회한다 (FR-RSV-01, FR-CUS-05, FR-DSH-01) */
+    @Transactional(readOnly = true)
+    public ReservationDetail detail(long shopId, long reservationId) {
+        Reservation r = find(shopId, reservationId);
+        List<Long> menuIds =
+                r.getServices().stream()
+                        .sorted(Comparator.comparing(ReservationService::getId))
+                        .map(ReservationService::getServiceMenuId)
+                        .toList();
+        Map<Long, MenuSummary> menus = refs.menuSummaries(shopId, menuIds);
+        // ponytail: 주의사항 조회 접근 로그(NFR-06)는 access_log(#11 · #12)가 생기면 여기서 남긴다
+        CustomerView customer =
+                r.getCustomerId() == null
+                        ? null
+                        : refs.customerSummary(shopId, r.getCustomerId())
+                                .map(c ->
+                                        new CustomerView(
+                                                r.getCustomerId(),
+                                                c.name(),
+                                                c.serviceCaution(),
+                                                c.healthCaution()))
+                                .orElse(null);
+        return new ReservationDetail(
+                r.getId(),
+                r.getStatus(),
+                TimeConfig.offset(r.getStartAt()),
+                (int) Duration.between(r.getStartAt(), r.getEndAt()).toMinutes(),
+                r.getChannel(),
+                r.isConsultFirst(),
+                r.getMemo(),
+                new StaffView(r.getStaffId(), refs.staffName(shopId, r.getStaffId())),
+                menuIds.stream()
+                        .map(id -> new ServiceView(id, menus.get(id).name(), menus.get(id).price()))
+                        .toList(),
+                customer,
+                r.getVisitId());
     }
 
     /** 시술 마감 · 완료 처리가 읽는 예약 값 (visit 도메인이 Port로 부른다, DEVELOPMENT 4장 「도메인 연동」) */
