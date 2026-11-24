@@ -52,9 +52,11 @@ export function PinForm(props: { title: string; owner?: boolean; message?: strin
         boxSizing: 'border-box',
         padding: '32px 28px',
         borderRadius: '24px',
-        background: '#FFFFFF',
-        border: '1px solid #F1E4E0',
-        boxShadow: '0 6px 22px rgba(160,90,90,.08)',
+        background: 'rgba(255,255,255,0.66)',
+        border: '1px solid rgba(255,255,255,0.85)',
+        boxShadow: 'inset 0 1px 0 #fff, 0 0 0 1px rgba(150,100,108,0.12), 0 24px 60px -12px rgba(150,90,100,0.3)',
+        WebkitBackdropFilter: 'blur(24px) saturate(1.15)',
+        backdropFilter: 'blur(24px) saturate(1.15)',
         textAlign: 'center',
         display: 'flex',
         flexDirection: 'column',
@@ -101,7 +103,9 @@ export function PinForm(props: { title: string; owner?: boolean; message?: strin
         style={{
           height: '46px',
           borderRadius: '12px',
-          border: `1px solid ${error ? '#C98B8B' : '#EBD9D5'}`,
+          border: `1px solid ${error ? '#C98B8B' : 'rgba(255,255,255,0.9)'}`,
+          background: 'rgba(255,255,255,0.6)',
+          boxShadow: 'inset 0 1px 2px rgba(150,90,100,0.08), 0 0 0 1px rgba(150,100,108,0.12)',
           textAlign: 'center',
           fontSize: '18px',
           letterSpacing: '.3em',
@@ -116,7 +120,16 @@ export function PinForm(props: { title: string; owner?: boolean; message?: strin
       <button
         type="submit"
         disabled={busy}
-        style={{ height: '46px', border: 0, borderRadius: '12px', background: '#7A4450', color: '#fff', font: "500 14px 'Noto Sans KR', sans-serif", cursor: 'pointer' }}
+        style={{
+          height: '46px',
+          border: '1px solid rgba(255,255,255,0.18)',
+          borderRadius: '12px',
+          background: 'linear-gradient(180deg, #8c5262 0%, #74404c 100%)',
+          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.28), 0 8px 20px -6px rgba(122,68,80,0.5)',
+          color: '#fff',
+          font: "500 14px 'Noto Sans KR', sans-serif",
+          cursor: 'pointer',
+        }}
       >
         {busy ? '확인 중…' : '열기'}
       </button>

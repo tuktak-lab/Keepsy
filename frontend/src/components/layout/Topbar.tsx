@@ -105,8 +105,11 @@ export function Topbar(props: { crumb?: string }) {
           padding: '0 16px',
           boxSizing: 'border-box',
           borderRadius: '999px',
-          background: '#FFFFFF',
-          border: `1px solid ${miss ? '#C98B8B' : '#EBD9D5'}`,
+          background: 'rgba(255,255,255,0.6)',
+          border: `1px solid ${miss ? '#C98B8B' : 'rgba(255,255,255,0.9)'}`,
+          boxShadow: 'inset 0 1px 0 #fff, 0 0 0 1px rgba(150,100,108,0.12), 0 6px 18px -8px rgba(150,90,100,0.25)',
+          WebkitBackdropFilter: 'blur(14px) saturate(1.15)',
+          backdropFilter: 'blur(14px) saturate(1.15)',
         }}
       >
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6B605B" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
@@ -135,7 +138,9 @@ export function Topbar(props: { crumb?: string }) {
             height: '32px',
             padding: '0 6px 0 12px',
             borderRadius: '999px',
-            background: '#F6ECEA',
+            background: 'rgba(255,255,255,0.55)',
+            border: '1px solid rgba(255,255,255,0.9)',
+            boxShadow: '0 0 0 1px rgba(150,100,108,0.12)',
             font: "500 12.5px 'Noto Sans KR', sans-serif",
             color: '#7A4450',
             whiteSpace: 'nowrap',
