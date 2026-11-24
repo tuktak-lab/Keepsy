@@ -1,6 +1,7 @@
 package com.tuktaklab.keepsy.visit.port;
 
 import com.tuktaklab.keepsy.customer.PhotoStorage;
+import com.tuktaklab.keepsy.prediction.PredictionAppService;
 import com.tuktaklab.keepsy.reservation.ReservationAppService;
 import com.tuktaklab.keepsy.reservation.ReservationAppService.ClosingTarget;
 import com.tuktaklab.keepsy.reservation.ReservationStatus;
@@ -31,6 +32,12 @@ class VisitReferencesAdapter implements VisitReferences {
     private final ReservationAppService reservations;
     private final NamedParameterJdbcTemplate jdbc;
     private final PhotoStorage photoStorage;
+    private final PredictionAppService predictions;
+
+    @Override
+    public void recalculatePrediction(long shopId, long customerId) {
+        predictions.recalculate(shopId, customerId);
+    }
 
     @Override
     public ReservationToClose lockReservation(long shopId, long reservationId) {
