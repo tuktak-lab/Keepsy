@@ -215,4 +215,31 @@ class CustomerController {
                 FeatureKey.CUSTOMER_VIEW, AccessLogger.CUSTOMER, customerId, Action.VIEW);
         return consents;
     }
+
+    /** 요청 하나에 항목 하나 (CONTRACTS 6장) */
+    record ConsentRequest(
+            @NotNull(message = "동의 항목을 골라 주세요") Consent.Item item,
+            @NotNull(message = "동의 여부를 보내 주세요") Boolean agreed,
+            @NotNull(message = "동의 방법을 골라 주세요") Consent.Method method,
+            Consent.WithdrawalPath withdrawalPath) {}
+
+    record IdResponse(long id) {}
+
+    @RequireFeature(FeatureKey.CONSENT)
+    @PostMapping("/api/customers/{customerId}/consents")
+    @ResponseStatus(HttpStatus.CREATED)
+    IdResponse changeConsent(
+            @PathVariable long customerId,
+            @Valid @RequestBody ConsentRequest r,
+            HttpSession session) {
+        return new IdResponse(
+                customerService.changeConsent(
+                        shopSession.shopId(),
+                        shopSession.currentStaffId(session),
+                        customerId,
+                        r.item(),
+                        r.agreed(),
+                        r.method(),
+                        r.withdrawalPath()));
+    }
 }
