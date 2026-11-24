@@ -86,15 +86,7 @@ public class Reservation {
             String memo,
             List<Long> serviceMenuIds,
             LocalDateTime now) {
-        if (serviceMenuIds == null || serviceMenuIds.isEmpty()) {
-            throw new ApiException(ErrorCode.INVALID, "예정 시술을 1개 이상 골라 주세요");
-        }
-        if (minutes <= 0 || minutes % AvailableTimes.SLOT_MINUTES != 0) {
-            throw new ApiException(ErrorCode.INVALID, "소요 시간은 30분 단위로 입력해 주세요");
-        }
-        if (customerId == null && memo != null && !memo.isBlank()) {
-            throw new ApiException(ErrorCode.INVALID, "고객 없는 예약에는 메모를 남길 수 없습니다");
-        }
+        validate(customerId, minutes, memo, serviceMenuIds);
         Reservation r = new Reservation();
         r.shopId = shopId;
         r.customerId = customerId;
@@ -108,6 +100,47 @@ public class Reservation {
         r.createdAt = now;
         serviceMenuIds.forEach(r::addService);
         return r;
+    }
+
+    /**
+     * 확정 예약의 입력 항목을 등록과 같은 규칙으로 바꾼다 (FR-RSV-01, F22). 고객은 바꾸지 않는다. 겹침 검사는 호출하는 Service가 한다. 남는 예정
+     * 시술 행은 그대로 두어 귀속 발송 ID(F15)를 잃지 않고, 빠진 메뉴만 지우고 새 메뉴만 더한다.
+     */
+    public void update(
+            Long staffId,
+            LocalDateTime startAt,
+            int minutes,
+            ReservationChannel channel,
+            boolean consultFirst,
+            String memo,
+            List<Long> serviceMenuIds) {
+        requireConfirmed("수정");
+        validate(customerId, minutes, memo, serviceMenuIds);
+        this.staffId = staffId;
+        this.startAt = startAt;
+        this.endAt = startAt.plusMinutes(minutes);
+        this.channel = channel == null ? ReservationChannel.STORE : channel;
+        this.consultFirst = consultFirst;
+        this.memo = customerId == null ? null : memo;
+        services.removeIf(s -> !serviceMenuIds.contains(s.getServiceMenuId()));
+        serviceMenuIds.stream()
+                .distinct()
+                .filter(id -> services.stream().noneMatch(s -> id.equals(s.getServiceMenuId())))
+                .forEach(this::addService);
+    }
+
+    /** 등록 · 수정 공통 입력 규칙: 예정 시술 1개 이상 (A13), 30분 단위, 고객 없는 예약은 메모 없음 (E3) */
+    private static void validate(
+            Long customerId, int minutes, String memo, List<Long> serviceMenuIds) {
+        if (serviceMenuIds == null || serviceMenuIds.isEmpty()) {
+            throw new ApiException(ErrorCode.INVALID, "예정 시술을 1개 이상 골라 주세요");
+        }
+        if (minutes <= 0 || minutes % AvailableTimes.SLOT_MINUTES != 0) {
+            throw new ApiException(ErrorCode.INVALID, "소요 시간은 30분 단위로 입력해 주세요");
+        }
+        if (customerId == null && memo != null && !memo.isBlank()) {
+            throw new ApiException(ErrorCode.INVALID, "고객 없는 예약에는 메모를 남길 수 없습니다");
+        }
     }
 
     /** 확정 → 취소. 그 시간은 다시 예약할 수 있다 (FR-RSV-03·04). */
