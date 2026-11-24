@@ -1,6 +1,7 @@
 package com.tuktaklab.keepsy.account;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -37,17 +38,42 @@ class StaffPinVerifierTest {
     private final Shop shop = Shop.create("owner@example.com", "hash", "테스트 네일");
     private final Staff owner = Staff.owner(SHOP, "원장", encoder.encode("1234"));
     private final Staff other = Staff.owner(SHOP, "다른 스탭", encoder.encode("5678"));
+    private final Staff notAllowed = staffWithoutLockedFeatures("9999");
+
+    /** "잠긴 기능 사용 허용"이 꺼진 일반 스탭 (스탭 등록 #21 전이라 목으로 만든다) */
+    private Staff staffWithoutLockedFeatures(String pin) {
+        Staff staff = mock(Staff.class);
+        when(staff.getPinHash()).thenReturn(encoder.encode(pin));
+        when(staff.isLockedFeatureAllowed()).thenReturn(false);
+        return staff;
+    }
 
     @BeforeEach
     void activeStaff() {
         when(shopRepository.findForUpdateById(SHOP)).thenReturn(Optional.of(shop));
         when(staffRepository.findByShopIdAndStatus(SHOP, StaffStatus.ACTIVE))
-                .thenReturn(List.of(owner, other));
+                .thenReturn(List.of(owner, other, notAllowed));
+    }
+
+    @Test
+    void 잠긴_기능_인증은_허용된_스탭만_통과하고_허용이_꺼진_스탭의_PIN은_실패로_센다() {
+        assertThatThrownBy(() -> verifier.verify(SHOP, "9999", true))
+                .isInstanceOf(ApiException.class)
+                .extracting(e -> ((ApiException) e).errorCode())
+                .isEqualTo(ErrorCode.PIN_INVALID);
+        assertThat(shop.getPinFailCount()).isEqualTo(1);
+
+        assertThat(verifier.verify(SHOP, "1234", true)).isSameAs(owner);
+    }
+
+    @Test
+    void 근무자_전환은_잠긴_기능_허용과_상관없이_통과한다() {
+        assertThat(verifier.verify(SHOP, "9999", false)).isSameAs(notAllowed);
     }
 
     private ErrorCode errorOf(String pin) {
         try {
-            verifier.verify(SHOP, pin);
+            verifier.verify(SHOP, pin, false);
             return null;
         } catch (ApiException e) {
             return e.errorCode();
@@ -58,7 +84,7 @@ class StaffPinVerifierTest {
     void 맞는_PIN의_활성_스탭을_돌려주고_실패_횟수를_되돌린다() {
         shop.pinFailed(NOW);
 
-        assertThat(verifier.verify(SHOP, "5678")).isSameAs(other);
+        assertThat(verifier.verify(SHOP, "5678", false)).isSameAs(other);
         assertThat(shop.getPinFailCount()).isZero();
     }
 
