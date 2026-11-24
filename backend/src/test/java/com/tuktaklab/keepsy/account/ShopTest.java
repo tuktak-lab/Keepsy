@@ -28,6 +28,20 @@ class ShopTest {
     }
 
     @Test
+    void PIN은_매장_단위_5회_연속_실패하면_5분_막는다() {
+        for (int i = 0; i < 4; i++) {
+            shop.pinFailed(NOW);
+        }
+        assertThat(shop.isPinLocked(NOW)).isFalse();
+
+        shop.pinFailed(NOW);
+
+        assertThat(shop.isPinLocked(NOW.plusMinutes(4).plusSeconds(59))).isTrue();
+        assertThat(shop.isPinLocked(NOW.plusMinutes(5))).isFalse();
+        assertThat(shop.isLoginLocked(NOW)).isFalse();
+    }
+
+    @Test
     void 성공하면_실패_횟수가_0으로_돌아간다() {
         shop.loginFailed(NOW);
         shop.loginFailed(NOW);

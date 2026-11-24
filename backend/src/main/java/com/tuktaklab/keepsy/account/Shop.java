@@ -25,6 +25,12 @@ public class Shop {
     /** 로그인 잠금 시간 (FR-ACC-02, C1) */
     public static final Duration LOGIN_LOCK = Duration.ofMinutes(15);
 
+    /** PIN 연속 실패 허용 횟수. 매장 단위, 근무자 PIN과 잠긴 기능 PIN을 같이 센다 (FR-ACC-08 · 10, C22) */
+    public static final int PIN_MAX_FAILURES = 5;
+
+    /** PIN 입력 차단 시간 (FR-ACC-08, C22) */
+    public static final Duration PIN_LOCK = Duration.ofMinutes(5);
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -42,6 +48,12 @@ public class Shop {
 
     /** 이 시각 전까지 로그인 · 비밀번호 재확인을 막는다 (F14) */
     private LocalDateTime loginLockedUntil;
+
+    /** 차단 전 PIN 연속 실패 횟수 (F14) */
+    private int pinFailCount;
+
+    /** 이 시각 전까지 PIN 입력을 막는다 (F14) */
+    private LocalDateTime pinLockedUntil;
 
     static Shop create(String email, String passwordHash, String name) {
         Shop shop = new Shop();
@@ -67,5 +79,23 @@ public class Shop {
     void loginSucceeded() {
         loginFailCount = 0;
         loginLockedUntil = null;
+    }
+
+    boolean isPinLocked(LocalDateTime now) {
+        return pinLockedUntil != null && now.isBefore(pinLockedUntil);
+    }
+
+    /** PIN이 틀렸을 때. 5회째면 5분 막고 횟수를 처음부터 다시 센다 */
+    void pinFailed(LocalDateTime now) {
+        pinFailCount++;
+        if (pinFailCount >= PIN_MAX_FAILURES) {
+            pinLockedUntil = now.plus(PIN_LOCK);
+            pinFailCount = 0;
+        }
+    }
+
+    void pinSucceeded() {
+        pinFailCount = 0;
+        pinLockedUntil = null;
     }
 }
