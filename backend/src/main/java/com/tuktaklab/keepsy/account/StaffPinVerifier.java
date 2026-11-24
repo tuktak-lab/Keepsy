@@ -27,18 +27,22 @@ public class StaffPinVerifier {
      * PIN은 해시라 매장 활성 스탭의 해시와 하나씩 비교한다 (ARCHITECTURE 5장 「PIN 중복 검사」). 매장 행을 잠근 한 트랜잭션에서 차단 확인 → 비교 →
      * 횟수 갱신을 하고, 실패해도 횟수는 저장한다.
      *
+     * @param lockedFeatureRequired 잠긴 기능 PIN 인증이면 true: "잠긴 기능 사용 허용" 스탭만 비교한다 (FR-ACC-08). 허용이 꺼진
+     *     스탭의 PIN은 틀린 PIN과 똑같이 실패로 센다
      * @return PIN이 맞는 활성 스탭
-     * @throws ApiException 맞는 활성 스탭이 없으면 {@code pin_invalid}, 차단 중이거나 이번 실패로 차단되면 {@code
-     *     pin_locked}
+     * @throws ApiException 맞는 스탭이 없으면 {@code pin_invalid}, 차단 중이거나 이번 실패로 차단되면 {@code pin_locked}
      */
     @Transactional(noRollbackFor = ApiException.class)
-    public Staff verify(long shopId, String pin) {
+    public Staff verify(long shopId, String pin, boolean lockedFeatureRequired) {
         Shop shop = ShopScope.orNotFound(shopRepository.findForUpdateById(shopId));
         LocalDateTime now = LocalDateTime.now(clock);
         if (shop.isPinLocked(now)) {
             throw new ApiException(ErrorCode.PIN_LOCKED);
         }
         for (Staff staff : staffRepository.findByShopIdAndStatus(shopId, StaffStatus.ACTIVE)) {
+            if (lockedFeatureRequired && !staff.isLockedFeatureAllowed()) {
+                continue;
+            }
             if (passwordEncoder.matches(pin, staff.getPinHash())) {
                 shop.pinSucceeded();
                 return staff;

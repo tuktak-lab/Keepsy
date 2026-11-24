@@ -18,10 +18,13 @@ import com.tuktaklab.keepsy.account.ShopLoginService.LoggedIn;
 import com.tuktaklab.keepsy.common.error.ApiException;
 import com.tuktaklab.keepsy.common.error.ErrorCode;
 import com.tuktaklab.keepsy.common.error.GlobalExceptionHandler;
+import com.tuktaklab.keepsy.common.security.FeatureGuard;
 import com.tuktaklab.keepsy.common.security.FeatureKey;
 import com.tuktaklab.keepsy.common.security.FeatureKey.Access;
+import com.tuktaklab.keepsy.common.security.FeatureSettingsReader;
 import com.tuktaklab.keepsy.common.security.SecurityConfig;
 import com.tuktaklab.keepsy.common.security.ShopSession;
+import com.tuktaklab.keepsy.common.time.TimeConfig;
 import jakarta.servlet.http.HttpSession;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -33,9 +36,18 @@ import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-/** 로그인 · 세션 조회 · 로그아웃 (Keepsy #15 · #16, CONTRACTS 6장). DB 없이 돈다. */
+/**
+ * 로그인 · 세션 조회 · 로그아웃 · 근무자 전환 · PIN 인증 (Keepsy #15~#18, CONTRACTS 6장). 근무자 검사까지 보려고 FeatureGuard를
+ * 함께 띄운다. DB 없이 돈다.
+ */
 @WebMvcTest(SessionController.class)
-@Import({SecurityConfig.class, ShopSession.class, GlobalExceptionHandler.class})
+@Import({
+    SecurityConfig.class,
+    ShopSession.class,
+    GlobalExceptionHandler.class,
+    TimeConfig.class,
+    FeatureGuard.class
+})
 class SessionControllerTest {
 
     private static final String BODY =
@@ -45,6 +57,76 @@ class SessionControllerTest {
     @MockitoBean ShopLoginService loginService;
     @MockitoBean SessionQueryService queryService;
     @MockitoBean StaffPinVerifier pinVerifier;
+    @MockitoBean FeatureSettingsReader featureSettings;
+
+    private static org.springframework.test.web.servlet.RequestBuilder postPin(
+            MockHttpSession session, String pin) {
+        return post("/api/session/pin")
+                .session(session)
+                .with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"pin\":\"" + pin + "\"}");
+    }
+
+    @Test
+    void 근무자가_없으면_PIN_인증과_잠금은_worker_required_403() throws Exception {
+        MockHttpSession session = loggedIn();
+
+        mvc.perform(postPin(session, "1234"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("worker_required"));
+        mvc.perform(delete("/api/session/pin").session(session).with(csrf()))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("worker_required"));
+        verifyNoInteractions(pinVerifier);
+    }
+
+    @Test
+    void 잠긴_기능_허용_스탭의_PIN이면_인증되고_현재_근무자와_달라도_된다() throws Exception {
+        MockHttpSession session = loggedIn();
+        session.setAttribute("keepsy.currentStaffId", 10L);
+        Staff owner = org.mockito.Mockito.mock(Staff.class);
+        when(owner.getId()).thenReturn(20L);
+        when(owner.getName()).thenReturn("원장");
+        when(pinVerifier.verify(3L, "1234", true)).thenReturn(owner);
+
+        mvc.perform(postPin(session, "1234"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(20))
+                .andExpect(jsonPath("$.name").value("원장"))
+                .andExpect(jsonPath("$.expiresAt").exists());
+
+        assertThat(session.getAttribute("keepsy.pinStaffId")).isEqualTo(20L);
+        assertThat(session.getAttribute("keepsy.pinExpiresAt")).isNotNull();
+        assertThat(session.getAttribute("keepsy.currentStaffId")).isEqualTo(10L);
+    }
+
+    @Test
+    void 허용이_꺼진_스탭이나_틀린_PIN이면_pin_invalid_400() throws Exception {
+        MockHttpSession session = loggedIn();
+        session.setAttribute("keepsy.currentStaffId", 10L);
+        when(pinVerifier.verify(3L, "5678", true))
+                .thenThrow(new ApiException(ErrorCode.PIN_INVALID));
+
+        mvc.perform(postPin(session, "5678"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("pin_invalid"));
+        assertThat(session.getAttribute("keepsy.pinStaffId")).isNull();
+    }
+
+    @Test
+    void 잠금을_누르면_PIN_인증만_풀리고_근무자는_그대로() throws Exception {
+        MockHttpSession session = loggedIn();
+        session.setAttribute("keepsy.currentStaffId", 10L);
+        session.setAttribute("keepsy.pinStaffId", 20L);
+
+        mvc.perform(delete("/api/session/pin").session(session).with(csrf()))
+                .andExpect(status().isNoContent());
+
+        assertThat(session.getAttribute("keepsy.pinStaffId")).isNull();
+        assertThat(session.getAttribute("keepsy.pinExpiresAt")).isNull();
+        assertThat(session.getAttribute("keepsy.currentStaffId")).isEqualTo(10L);
+    }
 
     private static org.springframework.test.web.servlet.RequestBuilder putWorker(
             MockHttpSession session, String pin) {
@@ -61,7 +143,7 @@ class SessionControllerTest {
         Staff worker = org.mockito.Mockito.mock(Staff.class);
         when(worker.getId()).thenReturn(10L);
         when(worker.getName()).thenReturn("근무자");
-        when(pinVerifier.verify(3L, "5678")).thenReturn(worker);
+        when(pinVerifier.verify(3L, "5678", false)).thenReturn(worker);
 
         mvc.perform(putWorker(session, "5678"))
                 .andExpect(status().isOk())
@@ -75,7 +157,8 @@ class SessionControllerTest {
     void 근무자_PIN이_틀리면_pin_invalid_400이고_근무자는_그대로() throws Exception {
         MockHttpSession session = loggedIn();
         session.setAttribute("keepsy.currentStaffId", 10L);
-        when(pinVerifier.verify(3L, "0000")).thenThrow(new ApiException(ErrorCode.PIN_INVALID));
+        when(pinVerifier.verify(3L, "0000", false))
+                .thenThrow(new ApiException(ErrorCode.PIN_INVALID));
 
         mvc.perform(putWorker(session, "0000"))
                 .andExpect(status().isBadRequest())

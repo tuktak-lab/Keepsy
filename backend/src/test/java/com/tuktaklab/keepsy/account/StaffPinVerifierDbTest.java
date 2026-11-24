@@ -45,7 +45,7 @@ class StaffPinVerifierDbTest {
 
     private ErrorCode errorOf(long shopId, String pin) {
         try {
-            verifier.verify(shopId, pin);
+            verifier.verify(shopId, pin, false);
             return null;
         } catch (ApiException e) {
             return e.errorCode();
@@ -55,7 +55,7 @@ class StaffPinVerifierDbTest {
     @Test
     void 비활성_스탭의_PIN으로는_근무자가_될_수_없다() {
         long shopId = shop("pin-inactive@example.com");
-        assertThat(verifier.verify(shopId, "1234").getName()).isEqualTo("원장");
+        assertThat(verifier.verify(shopId, "1234", false).getName()).isEqualTo("원장");
 
         jdbc.update("UPDATE staff SET status = 'INACTIVE' WHERE shop_id = ?", shopId);
 
