@@ -168,6 +168,39 @@ class MessageTemplateWriteTest {
     }
 
     @Test
+    void 발송_전_캠페인이_쓰는_템플릿_수정은_conflict_발송_뒤_취소_캠페인만_쓰면_수정된다() throws Exception {
+        long t = service.create(shop, "재방문", "{고객명}님", TemplatePurpose.REVISIT);
+        long c = campaign(shop, t, "DRAFT");
+
+        for (String s : List.of("DRAFT", "SCHEDULED")) {
+            jdbc.update("UPDATE campaign SET status = ? WHERE id = ?", s, c);
+            write(patch("/api/message-templates/{id}", t), "바꿈", "{고객명}님 안녕하세요", "ETC")
+                    .andExpect(status().isConflict())
+                    .andExpect(jsonPath("$.error.code").value("conflict"));
+        }
+        assertThat(row(t)).containsEntry("body", "{고객명}님").containsEntry("purpose", "REVISIT");
+
+        jdbc.update("UPDATE campaign SET status = 'SENT' WHERE id = ?", c);
+        campaign(shop, t, "CANCELED");
+        // 다른 매장 캠페인은 보지 않는다 (NFR-03)
+        campaign(data.shop(), t, "DRAFT");
+        write(patch("/api/message-templates/{id}", t), "바꿈", "{고객명}님 안녕하세요", "ETC")
+                .andExpect(status().isNoContent());
+        assertThat(row(t)).containsEntry("body", "{고객명}님 안녕하세요").containsEntry("purpose", "ETC");
+    }
+
+    private long campaign(long shopId, long templateId, String status) {
+        jdbc.update(
+                "INSERT INTO campaign (shop_id, name, template_id, message_kind, status)"
+                        + " VALUES (?, '모의 캠페인', ?, 'AD', ?)",
+                shopId,
+                templateId,
+                status);
+        return jdbc.queryForObject(
+                "SELECT MAX(id) FROM campaign WHERE shop_id = ?", Long.class, shopId);
+    }
+
+    @Test
     void PIN_인증이_없으면_pin_required() throws Exception {
         send(
                         post("/api/message-templates")
