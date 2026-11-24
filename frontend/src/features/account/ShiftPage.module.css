@@ -15,7 +15,7 @@
   height: 58px;
   box-sizing: border-box;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 16px;
   background: #fff;
   font: inherit;
   font-size: 28px;
@@ -47,7 +47,7 @@
 .key {
   height: 50px;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 16px;
   background: rgba(255, 255, 255, 0.85);
   font: inherit;
   font-size: 22px;
