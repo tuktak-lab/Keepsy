@@ -1,8 +1,8 @@
 import { images } from '@/assets/images';
 
-export function Avatar(props: { who?: string; size?: any }) {
-  function renderVals(): any {
-    const M: any = {
+export function Avatar(props: { who?: string; size?: number | string }) {
+  function renderVals() {
+    const M: Record<string, string> = {
       김민지: images.avatarKimMinji,
       이윤서: images.avatarLeeYunseo,
       최유진: images.avatarChoiYujin,
@@ -11,7 +11,7 @@ export function Avatar(props: { who?: string; size?: any }) {
       오서현: images.avatarOhSeohyun,
     };
     const n = props.who || '';
-    const s = props.size || 36;
+    const s = Number(props.size) || 36;
     const url = M[n] || '';
     return {
       who: n,

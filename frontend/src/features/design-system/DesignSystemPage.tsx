@@ -10,10 +10,10 @@ import { useStyleSheet } from '@/hooks/useStyleSheet';
 export default function DesignSystemPage() {
   useStyleSheet('DesignSystemPage', styleText);
 
-  function renderVals(): any {
-    const P = (name, items) => ({
+  function renderVals() {
+    const P = (name: string, items: [string, string, string][]) => ({
       name,
-      items: items.map(([n, hex, use]: any) => ({
+      items: items.map(([n, hex, use]) => ({
         name: n,
         hex,
         use,
@@ -46,7 +46,8 @@ export default function DesignSystemPage() {
         ['재방문 완료', '#85505A', '데이터 결과'],
       ]),
     ];
-    const T: any = [
+    // [역할, 예시, 크기(px), 굵기, 자간, 색]
+    const T: [string, string, number, number, string, string][] = [
       ['화면 제목', '고객 목록', 26, 700, '-0.03em', '#1F1B1A'],
       ['큰 숫자', '486,000원', 30, 500, '-0.025em', '#1F1B1A'],
       ['강조 헤드라인', '28일의 리듬, 7일의 공백', 20, 700, '-0.025em', '#1F1B1A'],
@@ -57,7 +58,7 @@ export default function DesignSystemPage() {
       ['메타', '11.21 14:00 · 서연', 12, 400, '-0.01em', '#77706C'],
       ['표 헤더', '재방문 예상 / 예약', 12, 500, '-0.01em', '#77706C'],
     ];
-    const types = T.map(([role, sample, size, w, ls, c]: any) => ({
+    const types = T.map(([role, sample, size, w, ls, c]) => ({
       role,
       sample,
       size,

@@ -19,6 +19,28 @@ type Appt = {
   consult: boolean;
 };
 type Line = { name: string; price: number; exclude: boolean; scope: 'once' | 'all' };
+// 예약 등록 모달 입력값
+type RegForm = {
+  route: string;
+  noCust: boolean;
+  name: string;
+  day: number;
+  st: number;
+  staff: string;
+  treats: string[];
+  consult: boolean;
+  err: string;
+};
+// 시술 마감 카드 입력값
+type ConsentKey = 'marketing' | 'night' | 'photoC' | 'health';
+type FinForm = {
+  id: string;
+  lines: Line[];
+  pay: string;
+  memo: string;
+  photo: boolean;
+  link: string;
+} & Record<ConsentKey, boolean>;
 
 const HH = 56;
 const START = 9;
@@ -124,8 +146,8 @@ export default function SchedulePage() {
   const [sel, setSel] = useState('sat-kim');
   const [staffF, setStaffF] = useState('전체');
   const [toast, setToast] = useState('');
-  const [reg, setReg] = useState<any>(null);
-  const [fin, setFin] = useState<any>(null);
+  const [reg, setReg] = useState<RegForm | null>(null);
+  const [fin, setFin] = useState<FinForm | null>(null);
   const [linking, setLinking] = useState(false);
   const [linkPick, setLinkPick] = useState(CUSTOMERS[0]);
 
@@ -143,7 +165,7 @@ export default function SchedulePage() {
   const pos: Record<string, { lane: number; n: number }> = {};
   for (let d = 0; d < 7; d++) {
     const arr = shown.filter((a) => a.day === d).sort((a, b) => a.st - b.st);
-    let cluster: any[] = [];
+    let cluster: Appt[] = [];
     let laneEnds: number[] = [];
     let clusterEnd = -1;
     const flush = () => {
@@ -200,7 +222,7 @@ export default function SchedulePage() {
     setToast('저장했어요. 결제·방문 기록이 생성되고, 다음 방문 예측이 갱신됩니다.');
   };
   const setLine = (i: number, p: Partial<Line>) =>
-    setFin((f: any) => ({ ...f, lines: f.lines.map((l: Line, k: number) => (k === i ? { ...l, ...p } : l)) }));
+    setFin((f) => ({ ...f, lines: f.lines.map((l, k) => (k === i ? { ...l, ...p } : l)) }));
 
   const openReg = () =>
     setReg({ route: '매장 직접', noCust: false, name: '', day: 5, st: 15, staff: '서연', treats: [] as string[], consult: false, err: '' });
@@ -770,12 +792,14 @@ export default function SchedulePage() {
             <div>
               <span className="lbl">수신 · 수집 동의 (항목별로 따로 받아요)</span>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: '8px' }}>
-                {[
-                  ['marketing', '마케팅 수신 동의'],
-                  ['night', '야간 광고 수신 동의'],
-                  ['photoC', '사진 수집 · 활용 동의'],
-                  ['health', '건강정보 수집 동의'],
-                ].map(([k, t]) => (
+                {(
+                  [
+                    ['marketing', '마케팅 수신 동의'],
+                    ['night', '야간 광고 수신 동의'],
+                    ['photoC', '사진 수집 · 활용 동의'],
+                    ['health', '건강정보 수집 동의'],
+                  ] as [ConsentKey, string][]
+                ).map(([k, t]) => (
                   <label key={k} className="chk">
                     <input type="checkbox" checked={fin[k]} onChange={(e) => setFin({ ...fin, [k]: e.target.checked })} />
                     <span>{t}</span>
