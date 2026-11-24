@@ -12,8 +12,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 /**
- * 고객 (명세서 5장 customer). 주의사항 · 취향 메모 · 예약 제한 · 마지막 방문일은 그 기능을 구현할 때 매핑한다. {@code phone_last4}는 DB가
- * 채우는 검색용 칼럼이라 매핑하지 않는다.
+ * 고객 (명세서 5장 customer). 취향 메모 · 예약 제한 · 마지막 방문일은 그 기능을 구현할 때 매핑한다. {@code phone_last4}는 DB가 채우는 검색용
+ * 칼럼이라 매핑하지 않는다.
  */
 @Entity
 @Getter
@@ -62,6 +62,12 @@ public class Customer {
     /** {@code 010-0000-0000} 형태. 매장 안 고유, 삭제되면 NULL (C12) */
     private String phone;
 
+    /** 시술 주의사항 (FR-CUS-05) */
+    private String serviceCaution;
+
+    /** 건강 주의사항. 건강 정보 동의(HEALTH) 고객만 (FR-CUS-05, D7) */
+    private String healthCaution;
+
     @Enumerated(EnumType.STRING)
     private Gender gender;
 
@@ -109,6 +115,12 @@ public class Customer {
         birthYear = b.birthYear();
         preferredLanguage = b.preferredLanguage();
         acquisitionChannel = b.acquisitionChannel();
+    }
+
+    /** 두 칸을 통째로 바꾼다. 건강 정보 동의 확인은 서비스가 먼저 한다 */
+    void changeCautions(String service, String health) {
+        serviceCaution = service;
+        healthCaution = health;
     }
 
     /** 응답용 마스킹 {@code 010-****-1234} (NFR-04, A4). 연락처 전체는 CONTACT_FULL 권한 API에서만 */
