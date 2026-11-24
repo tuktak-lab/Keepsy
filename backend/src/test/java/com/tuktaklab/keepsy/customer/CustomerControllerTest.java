@@ -12,6 +12,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.tuktaklab.keepsy.common.error.GlobalExceptionHandler;
 import com.tuktaklab.keepsy.common.security.FeatureGuard;
+import com.tuktaklab.keepsy.common.security.FeatureKey;
 import com.tuktaklab.keepsy.common.security.FeatureSettingsReader;
 import com.tuktaklab.keepsy.common.security.SecurityConfig;
 import com.tuktaklab.keepsy.common.security.ShopSession;
@@ -20,6 +21,7 @@ import com.tuktaklab.keepsy.common.web.PageResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.List;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -128,6 +130,18 @@ class CustomerControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items[0].phone").value("010-****-1234"))
                 .andExpect(jsonPath("$.totalElements").value(1));
+    }
+
+    @Test
+    void 상세는_세션_매장으로_조회하고_CUSTOMER_VIEW를_PIN으로_잠그면_pin_required() throws Exception {
+        MockHttpSession session = signIn();
+        mvc.perform(get("/api/customers/3").session(session)).andExpect(status().isOk());
+        verify(service).detail(1L, 3L);
+
+        when(settings.lockedFeatures(1L)).thenReturn(Set.of(FeatureKey.CUSTOMER_VIEW));
+        mvc.perform(get("/api/customers/3").session(session))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("pin_required"));
     }
 
     @Test

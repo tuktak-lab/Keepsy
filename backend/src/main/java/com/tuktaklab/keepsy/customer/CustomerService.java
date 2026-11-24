@@ -4,6 +4,7 @@ import com.tuktaklab.keepsy.common.error.ApiException;
 import com.tuktaklab.keepsy.common.error.ErrorCode;
 import com.tuktaklab.keepsy.common.web.PageResponse;
 import com.tuktaklab.keepsy.customer.query.ConsentHistoryQuery;
+import com.tuktaklab.keepsy.customer.query.CustomerDetailQuery;
 import com.tuktaklab.keepsy.customer.query.CustomerListQuery;
 import java.time.Clock;
 import java.time.LocalDate;
@@ -19,7 +20,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/** 고객 등록 · 목록 · 동의 조회 (FR-CUS-01 · 02 · 09, E3, C12) */
+/** 고객 등록 · 목록 · 상세 · 동의 조회 (FR-CUS-01 · 02 · 03 · 09, E3, C12) */
 @Service
 @RequiredArgsConstructor
 public class CustomerService {
@@ -28,6 +29,7 @@ public class CustomerService {
     private final ConsentRepository consentRepository;
     private final CustomerListQuery listQuery;
     private final ConsentHistoryQuery consentHistoryQuery;
+    private final CustomerDetailQuery detailQuery;
     private final Clock clock;
 
     /**
@@ -121,6 +123,19 @@ public class CustomerService {
                                         r.marketingConsent()))
                         .toList();
         return new PageResponse<>(items, page, size, listQuery.count(shopId, f, today));
+    }
+
+    /**
+     * 고객 상세 (FR-CUS-03). 방문 요약(FR-CUS-11)은 #37에서 더한다.
+     *
+     * @throws ApiException 다른 매장 · 삭제된 고객이면 {@code not_found}
+     */
+    @Transactional(readOnly = true)
+    public CustomerDetailQuery.Detail detail(long shopId, long customerId) {
+        // ponytail: 접근 로그(NFR-06)는 기록 수단(#12)이 머지되면 여기서 개인정보 조회로 남긴다
+        return detailQuery
+                .find(shopId, customerId)
+                .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND));
     }
 
     /**
