@@ -65,6 +65,34 @@ public class Consent {
     @Enumerated(EnumType.STRING)
     private WithdrawalPath withdrawalPath;
 
+    /** 정정 행이면 고친 이력 행 ID (F44) */
+    private Long correctsConsentId;
+
+    /**
+     * 정정 행 (F44). 일시 · 동의 방법 · 철회 경로는 효력 기준 값을 받는다(처리 시각이 아님).
+     *
+     * @param staffId 처리 스탭
+     */
+    static Consent correction(
+            Consent target,
+            boolean agreed,
+            Method method,
+            WithdrawalPath withdrawalPath,
+            LocalDateTime effectiveAt,
+            long staffId) {
+        Consent consent = new Consent();
+        consent.shopId = target.shopId;
+        consent.customerId = target.customerId;
+        consent.item = target.item;
+        consent.agreed = agreed;
+        consent.recordedAt = effectiveAt;
+        consent.staffId = staffId;
+        consent.method = method;
+        consent.withdrawalPath = withdrawalPath;
+        consent.correctsConsentId = target.id;
+        return consent;
+    }
+
     static Consent agreed(
             Customer customer, Item item, Method method, long staffId, LocalDateTime now) {
         return of(customer, item, true, method, null, staffId, now);

@@ -198,15 +198,90 @@ public class CustomerService {
                                 path,
                                 staffId,
                                 LocalDateTime.now(clock)));
-        // 마케팅 철회는 대상 계산 · 발송 재검사가 최신 동의 행을 읽으므로 따로 할 일이 없다
-        if (!agreed && item == Consent.Item.HEALTH) {
-            customer.changeCautions(customer.getServiceCaution(), null);
-        }
-        if (!agreed && item == Consent.Item.PHOTO) {
-            deletePhotos(shopId, customerId);
+        if (!agreed) {
+            applyWithdrawal(customer, item);
         }
         accessLogger.record(FeatureKey.CONSENT, AccessLogger.CUSTOMER, customerId, Action.UPDATE);
         return row.getId();
+    }
+
+    /**
+     * 잘못 입력한 동의 정정 (FR-CUS-09, E8, 결정 F44). 원래 행은 고치지 않고 올바른 동의 여부로 새 행을 쌓는다. 새 행의 일시는 처리 시각이 아니라
+     * 효력 일시라 재확인 주기(D1)를 다시 시작하지 않는다. 처리 시각은 접근 로그에 남는다. 권한(CUSTOMER_EDIT)은 컨트롤러에서 검사한다.
+     *
+     * @param staffId 잠긴 상태면 PIN 인증 스탭, 공용이면 현재 근무자
+     * @return 정정 행 ID
+     * @throws ApiException 다른 매장 · 없는 이력 · 삭제된 고객이면 {@code not_found}, 최신 행이 아니면 {@code conflict},
+     *     {@code PRIVACY}이거나 고칠 행과 같은 값이면 {@code invalid}
+     */
+    @Transactional
+    public long correctConsent(long shopId, long staffId, long consentId, boolean agreed) {
+        Consent target =
+                consentRepository
+                        .findById(consentId)
+                        .filter(c -> c.getShopId() == shopId)
+                        .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND));
+        // 동의 받기 · 철회와 같은 고객 행 잠금: 최신 행 확인과 새 행 저장 사이에 다른 동의가 끼지 않는다
+        Customer customer =
+                customerRepository
+                        .findForUpdateByIdAndShopIdAndStatus(
+                                target.getCustomerId(), shopId, Customer.Status.ACTIVE)
+                        .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND));
+        if (target.getItem() == Consent.Item.PRIVACY) {
+            throw invalid("item", "개인정보 수집 · 이용 동의는 정정하지 않습니다. 고객 삭제로 처리합니다");
+        }
+        long latestId =
+                consentRepository
+                        .findFirstByCustomerIdAndItemOrderByIdDesc(
+                                target.getCustomerId(), target.getItem())
+                        .map(Consent::getId)
+                        .orElseThrow();
+        if (latestId != consentId) {
+            throw new ApiException(ErrorCode.CONFLICT, "그 항목의 최신 이력만 정정할 수 있습니다");
+        }
+        if (target.isAgreed() == agreed) {
+            throw invalid("agreed", "고칠 이력과 같은 값입니다");
+        }
+        // 바로 앞 행이 정정 값과 같으면 그 행으로 되돌리고(철회 경로 포함), 아니면 고친 행의 일시에 값만 바꾼다 (F44)
+        Consent restored =
+                consentRepository
+                        .findFirstByCustomerIdAndItemAndIdLessThanOrderByIdDesc(
+                                target.getCustomerId(), target.getItem(), consentId)
+                        .filter(p -> p.isAgreed() == agreed)
+                        .orElse(null);
+        Consent row =
+                consentRepository.save(
+                        restored == null
+                                ? Consent.correction(
+                                        target,
+                                        agreed,
+                                        target.getMethod(),
+                                        null,
+                                        target.getRecordedAt(),
+                                        staffId)
+                                : Consent.correction(
+                                        target,
+                                        agreed,
+                                        restored.getMethod(),
+                                        restored.getWithdrawalPath(),
+                                        restored.getRecordedAt(),
+                                        staffId));
+        if (!agreed) {
+            applyWithdrawal(customer, target.getItem());
+        }
+        accessLogger.record(
+                FeatureKey.CUSTOMER_EDIT, AccessLogger.CUSTOMER, customer.getId(), Action.UPDATE);
+        return row.getId();
+    }
+
+    /** 동의가 꺼질 때의 부수효과 (FR-CUS-09). 마케팅은 대상 계산 · 발송 재검사가 최신 동의 행을 읽으므로 따로 할 일이 없다 */
+    private void applyWithdrawal(Customer customer, Consent.Item item) {
+        if (item == Consent.Item.HEALTH) {
+            customer.changeCautions(customer.getServiceCaution(), null);
+        }
+        if (item == Consent.Item.PHOTO) {
+            deletePhotos(customer.getShopId(), customer.getId());
+        }
     }
 
     /** 고객의 모든 방문 사진 행을 지우고, 파일은 커밋 뒤에 지운다 (FR-CUS-09, F16). 롤백되면 파일이 남아야 한다 */
