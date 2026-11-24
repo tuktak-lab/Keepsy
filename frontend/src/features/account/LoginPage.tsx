@@ -1,7 +1,7 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { api, ApiError, configureApi } from '@/lib/api';
+import { api, ApiError } from '@/lib/api';
 import logoImg from '@/assets/images/keepsy-logo-thin.png';
 import type { LoginRequest, LoginResponse } from './types';
 import styles from './LoginPage.module.css';
@@ -15,21 +15,14 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [pending, setPending] = useState(false);
 
-  // 오류(login_failed · login_locked 등)는 alert 대신 폼 안에 보여 준다. 화면을 떠나면 기본 동작으로 되돌린다.
-  useEffect(() => {
-    configureApi({ showError: setError });
-    return () => configureApi({ showError: (message) => window.alert(message) });
-  }, []);
-
+  // 오류(login_failed · login_locked 등)는 전역 토스트 대신 폼 안에 보여 준다 (silent)
   async function login(body: LoginRequest): Promise<LoginResponse> {
+    const send = () => api<LoginResponse>('/api/session', { method: 'POST', body, silent: true });
     try {
-      return await api<LoginResponse>('/api/session', { method: 'POST', body });
+      return await send();
     } catch (e) {
       // 처음 접속하면 아직 CSRF 쿠키가 없어 csrf_invalid가 난다. 그 응답에 쿠키가 내려오므로 한 번만 다시 보낸다.
-      if (e instanceof ApiError && e.code === 'csrf_invalid') {
-        setError('');
-        return api<LoginResponse>('/api/session', { method: 'POST', body });
-      }
+      if (e instanceof ApiError && e.code === 'csrf_invalid') return send();
       throw e;
     }
   }
@@ -42,8 +35,8 @@ export default function LoginPage() {
     try {
       await login({ email: email.trim(), password });
       router.replace('/shift');
-    } catch {
-      // 메시지는 api()가 showError로 이미 넣었다
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : '잠시 후 다시 시도해 주세요');
       setPassword('');
       setPending(false);
     }
