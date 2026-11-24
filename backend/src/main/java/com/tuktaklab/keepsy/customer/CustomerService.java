@@ -49,9 +49,7 @@ public class CustomerService {
         if (c.consentMethod() == Consent.Method.IMPORT) {
             throw new ApiException(ErrorCode.INVALID, "가져오기 동의 방법은 CSV 등록에서만 씁니다");
         }
-        if (c.birthYear() != null && c.birthYear() > Year.now(clock).getValue()) {
-            throw new ApiException(ErrorCode.INVALID, "출생 연도가 올해보다 늦습니다");
-        }
+        checkBirthYear(c.birthYear());
         LocalDateTime now = LocalDateTime.now(clock);
         Customer customer = Customer.register(shopId, c, now);
         // 삭제된 고객은 번호가 NULL이라 걸리지 않고 새 고객이 된다 (C12 보완)
@@ -70,6 +68,33 @@ public class CustomerService {
                                 Consent.agreed(customer, item, c.consentMethod(), staffId, now))
                         .toList());
         return customer.getId();
+    }
+
+    /**
+     * 기본 정보 수정 (명세서 2장 「고객 기본 정보 수정」). 권한(CUSTOMER_EDIT)은 컨트롤러에서 검사한다.
+     *
+     * @throws ApiException 다른 매장 · 삭제된 고객이면 {@code not_found}, 올해 뒤 출생 연도면 {@code invalid}, 매장 안 다른
+     *     고객과 같은 번호면 {@code duplicate}
+     */
+    @Transactional
+    public void update(long shopId, long customerId, Customer.BasicInfo b) {
+        checkBirthYear(b.birthYear());
+        Customer customer =
+                customerRepository
+                        .findByIdAndShopIdAndStatus(customerId, shopId, Customer.Status.ACTIVE)
+                        .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND));
+        if (customerRepository.existsByShopIdAndPhoneAndIdNot(
+                shopId, Customer.normalizePhone(b.phone()), customerId)) {
+            throw duplicatePhone();
+        }
+        customer.changeBasicInfo(b);
+        try {
+            customerRepository.flush();
+        } catch (DataIntegrityViolationException e) {
+            // 두 고객을 동시에 같은 번호로 바꾸면 고유 제약(uk_customer_shop_phone)이 하나만 남긴다
+            throw duplicatePhone();
+        }
+        // ponytail: 접근 로그(NFR-06, PIN 인증 스탭으로)는 기록 수단(#12)이 머지되면 여기서 수정으로 남긴다
     }
 
     /** 목록 항목 (CONTRACTS 6장 「고객 (CUS)」). 번호는 마스킹한다 (NFR-04) */
@@ -185,6 +210,12 @@ public class CustomerService {
                         })
                         .toList();
         return new Consents(current, history);
+    }
+
+    private void checkBirthYear(Integer birthYear) {
+        if (birthYear != null && birthYear > Year.now(clock).getValue()) {
+            throw new ApiException(ErrorCode.INVALID, "출생 연도가 올해보다 늦습니다");
+        }
     }
 
     private static ApiException duplicatePhone() {
