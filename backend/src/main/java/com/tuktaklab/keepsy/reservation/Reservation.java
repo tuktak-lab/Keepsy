@@ -126,6 +126,23 @@ public class Reservation {
     }
 
     /**
+     * 확정 → 완료, 방문 연결 (FR-VIS-01, A13). [상담 후 진행] 예약은 이 시점에 실제 시술을 확인해야 한다.
+     *
+     * @param confirmServices 이번 요청에서 실제 시술을 확인했는지
+     */
+    public void complete(Long visitId, boolean confirmServices) {
+        requireConfirmed("완료 처리");
+        if (consultFirst && !servicesConfirmed && !confirmServices) {
+            throw new ApiException(ErrorCode.INVALID, "상담 후 진행 예약은 실제 시술을 확인해 주세요");
+        }
+        if (confirmServices) {
+            servicesConfirmed = true;
+        }
+        status = ReservationStatus.COMPLETED;
+        this.visitId = visitId;
+    }
+
+    /**
      * 고객 없는 확정 예약에 고객을 연결한다 (FR-RSV-01, FR-DSH-01, E3). 완료된 예약은 마감 카드에서 고객 없음으로 마감한 것이라 연결하지 않는다
      * (FR-VIS-03).
      */

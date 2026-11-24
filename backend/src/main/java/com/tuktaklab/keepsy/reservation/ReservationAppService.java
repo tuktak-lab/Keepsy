@@ -130,6 +130,41 @@ public class ReservationAppService {
                 : Optional.empty();
     }
 
+    /** 시술 마감 · 완료 처리가 읽는 예약 값 (visit 도메인이 Port로 부른다, DEVELOPMENT 4장 「도메인 연동」) */
+    public record ClosingTarget(
+            long id,
+            Long customerId,
+            long staffId,
+            LocalDate date,
+            ReservationStatus status,
+            boolean consultFirst,
+            boolean servicesConfirmed,
+            List<Long> plannedMenuIds) {}
+
+    /** 예약을 행 잠금으로 읽는다. 같은 예약의 완료 · 마감이 동시에 들어와도 한 번만 처리된다 */
+    @Transactional
+    public ClosingTarget lockForClosing(long shopId, long reservationId) {
+        Reservation r =
+                reservations
+                        .findForUpdateByIdAndShopId(reservationId, shopId)
+                        .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND));
+        return new ClosingTarget(
+                r.getId(),
+                r.getCustomerId(),
+                r.getStaffId(),
+                r.getStartAt().toLocalDate(),
+                r.getStatus(),
+                r.isConsultFirst(),
+                r.isServicesConfirmed(),
+                r.getServices().stream().map(ReservationService::getServiceMenuId).toList());
+    }
+
+    /** 확정 → 완료, 방문 연결 (FR-VIS-01). 방문을 만든 같은 트랜잭션에서 부른다 */
+    @Transactional
+    public void complete(long shopId, long reservationId, long visitId, boolean confirmServices) {
+        find(shopId, reservationId).complete(visitId, confirmServices);
+    }
+
     /** 세션 매장의 예약. 없거나 다른 매장 것이면 똑같이 404 (NFR-03) */
     private Reservation find(long shopId, long reservationId) {
         return reservations
