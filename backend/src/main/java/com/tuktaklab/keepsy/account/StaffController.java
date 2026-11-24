@@ -87,6 +87,14 @@ class StaffController {
         commandService.resetPin(shopSession.shopId(), staffId, req.pin());
     }
 
+    /** 스탭 비활성화 (FR-ACC-04, F33). 원장 PIN. 남은 확정 예약이 있으면 conflict와 그 목록 */
+    @RequireFeature(FeatureKey.OWNER_PIN)
+    @PostMapping("/api/staff/{staffId}/deactivate")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    void deactivate(@PathVariable long staffId) {
+        commandService.deactivate(shopSession.shopId(), staffId);
+    }
+
     /** 스탭 수정 (FR-ACC-03, FR-SET-07). 원장 PIN. 정기 휴무로 밀리는 확정 예약을 돌려주고 자동 취소하지 않는다 (F12) */
     @RequireFeature(FeatureKey.OWNER_PIN)
     @PatchMapping("/api/staff/{staffId}")

@@ -44,4 +44,19 @@ class JdbcStaffReservations implements StaffReservations {
                                 rs.getTimestamp("start_at").toLocalDateTime(),
                                 rs.getString("name")));
     }
+
+    @Override
+    public List<Booked> allConfirmed(long shopId, long staffId) {
+        return jdbc.query(
+                "SELECT r.id, r.start_at, c.name FROM reservation r"
+                        + " LEFT JOIN customer c ON c.id = r.customer_id"
+                        + " WHERE r.shop_id = :shopId AND r.staff_id = :staffId"
+                        + " AND r.status = 'CONFIRMED' ORDER BY r.start_at, r.id",
+                new MapSqlParameterSource().addValue("shopId", shopId).addValue("staffId", staffId),
+                (rs, i) ->
+                        new Booked(
+                                rs.getLong("id"),
+                                rs.getTimestamp("start_at").toLocalDateTime(),
+                                rs.getString("name")));
+    }
 }

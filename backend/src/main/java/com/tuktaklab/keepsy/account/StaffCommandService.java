@@ -5,9 +5,11 @@ import com.tuktaklab.keepsy.account.port.StaffReservations.Booked;
 import com.tuktaklab.keepsy.common.error.ApiException;
 import com.tuktaklab.keepsy.common.error.ErrorCode;
 import com.tuktaklab.keepsy.common.security.ShopScope;
+import com.tuktaklab.keepsy.common.time.TimeConfig;
 import java.time.Clock;
 import java.time.DayOfWeek;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.HashSet;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -87,6 +89,37 @@ public class StaffCommandService {
         staff.resetPin(passwordEncoder.encode(pin));
         // 중복이면 예외로 트랜잭션 전체가 롤백되어 위 변경도 남지 않는다
         requireUniquePin(shopId, pin, staffId);
+    }
+
+    /** 비활성화를 막는 예약 하나 ({@code conflict}의 details, CONTRACTS 6장) */
+    public record BlockingReservation(long id, OffsetDateTime startAt, String customerName) {}
+
+    /**
+     * 스탭 비활성화 (FR-ACC-04, F33). 이미 비활성이면 그대로 둔다. 그 스탭의 세션은 권한 검사가 다음 요청부터 막는다.
+     *
+     * @throws ApiException 다른 매장 · 없는 스탭이면 {@code not_found}, 원장 스탭이면 {@code invalid}, 확정 예약(지난 ·
+     *     앞으로, 고객 없는 예약 포함)이 남아 있으면 {@code conflict}이고 details에 그 예약 목록
+     */
+    @Transactional
+    public void deactivate(long shopId, long staffId) {
+        Staff staff = ShopScope.orNotFound(staffRepository.findForUpdate(staffId, shopId));
+        if (staff.getStatus() == StaffStatus.INACTIVE) {
+            return;
+        }
+        List<Booked> remaining = reservations.allConfirmed(shopId, staffId);
+        if (!remaining.isEmpty()) {
+            throw new ApiException(
+                    ErrorCode.CONFLICT,
+                    "남은 확정 예약을 다른 스탭으로 옮기거나 마감 · 취소한 뒤 비활성화해 주세요",
+                    remaining.stream()
+                            .map(b ->
+                                    new BlockingReservation(
+                                            b.id(),
+                                            TimeConfig.offset(b.startAt()),
+                                            b.customerName()))
+                            .toList());
+        }
+        staff.deactivate();
     }
 
     /**

@@ -99,6 +99,18 @@ public class Staff {
         this.lockedFeatureAllowed = allowed;
     }
 
+    /**
+     * 비활성화 (FR-ACC-04). 작성한 기록은 ID로 남아 있으므로 지우지 않는다. 남은 예약 검사는 서비스가 한다 (F33).
+     *
+     * @throws ApiException 원장 스탭이면 {@code invalid} (FR-ACC-01)
+     */
+    void deactivate() {
+        if (owner) {
+            throw new ApiException(ErrorCode.INVALID, "원장 스탭은 비활성화할 수 없습니다");
+        }
+        this.status = StaffStatus.INACTIVE;
+    }
+
     /** 정기 휴무 요일 전체를 바꾼다. 월요일부터 순서로 저장한다 */
     void changeDaysOff(List<DayOfWeek> days) {
         this.regularDaysOff =
