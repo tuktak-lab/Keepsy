@@ -1,104 +1,37 @@
-import { useState, useSyncExternalStore, type ReactNode } from 'react';
+'use client';
 
-// 기획서 8장: 잠긴 기능(캠페인·성과·설정 등)은 허용된 스탭이 PIN을 다시 입력해야 열립니다.
-// 시연용: PIN은 1234, 한 번 열면 이 브라우저 탭이 닫힐 때까지 유지됩니다(sessionStorage).
-const DEMO_PIN = '1234';
+import type { ReactNode } from 'react';
+import { PinForm } from '@/components/common/PinDialog';
+import { useSession } from '@/lib/session';
 
-function readUnlocked(id: string): boolean {
-  try {
-    return sessionStorage.getItem('keepsy-pin-' + id) === '1';
-  } catch {
-    return false;
-  }
-}
+// 잠긴 기능 화면에 들어갈 때 PIN 입력 창을 먼저 보여 준다 (FR-ACC-08).
+// 화면을 가리는 것은 표시일 뿐이고, 권한 검사는 API가 한다 (NFR-04). 화면의 API가 pin_required ·
+// owner_pin_required를 주면 api.ts가 PIN 입력 창을 다시 띄운다.
 
-// sessionStorage 는 브라우저에만 있으므로 정적 빌드(서버)에서는 늘 잠김으로 그린다.
-// useSyncExternalStore 로 서버 값(false)과 브라우저 값을 나눠 받아, 이미 연 화면도 hydration 불일치 없이 열린다.
-const noSubscribe = () => () => {};
+// 화면 id → 그 화면의 기본 기능 키 (docs ARCHITECTURE 4장 「화면 경로」, CONTRACTS 3장 「기능 키」)
+const FEATURE: Record<string, string> = {
+  performance: 'SALES_ANALYTICS',
+  campaigns: 'CAMPAIGN_VIEW',
+  settings: 'OWNER_PIN',
+};
 
 export function PinGate(props: { id: string; title: string; children: ReactNode }) {
-  const savedOpen = useSyncExternalStore(
-    noSubscribe,
-    () => readUnlocked(props.id),
-    () => false,
-  );
-  const [justOpened, setOpen] = useState(false);
-  const open = savedOpen || justOpened;
-  const [pin, setPin] = useState('');
-  const [err, setErr] = useState(false);
+  const session = useSession();
+
+  // 세션을 읽는 중에는 아무것도 열지 않는다
+  if (!session) return null;
+
+  const access = session.features[FEATURE[props.id] ?? props.id];
+  // 원장 PIN 화면도 PIN 인증 여부까지만 본다: GET /api/session에 원장 여부가 없어서,
+  // 원장이 아닌 스탭이면 화면의 API가 owner_pin_required를 주고 그때 원장 PIN을 받는다.
+  const open = access === 'PUBLIC' || session.pinStaff !== null;
 
   if (open) return <>{props.children}</>;
 
-  function submit(e: React.FormEvent) {
-    e.preventDefault();
-    if (pin === DEMO_PIN) {
-      try {
-        sessionStorage.setItem('keepsy-pin-' + props.id, '1');
-      } catch {
-        /* 저장 실패해도 이번 화면은 열립니다 */
-      }
-      setOpen(true);
-    } else {
-      setErr(true);
-      setPin('');
-    }
-  }
-
   return (
-    <div style={{ display: 'flex', justifyContent: 'center', padding: '72px 24px', fontFamily: "'Noto Sans KR', sans-serif" }}>
-      <form
-        onSubmit={submit}
-        style={{
-          width: '360px',
-          maxWidth: '100%',
-          boxSizing: 'border-box',
-          padding: '32px 28px',
-          borderRadius: '24px',
-          background: '#FFFFFF',
-          border: '1px solid #F1E4E0',
-          boxShadow: '0 6px 22px rgba(160,90,90,.08)',
-          textAlign: 'center',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '14px',
-        }}
-      >
-        <div style={{ fontSize: '28px', lineHeight: 1 }} aria-hidden="true">🔒</div>
-        <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 600, color: '#221D1B' }}>{props.title}</h2>
-        <p style={{ margin: 0, fontSize: '13px', color: '#6B605B', lineHeight: 1.6 }}>
-          잠긴 기능입니다. 사용이 허용된 스탭의 PIN을 입력해 주세요.
-        </p>
-        <input
-          type="password"
-          inputMode="numeric"
-          autoComplete="off"
-          maxLength={8}
-          value={pin}
-          onChange={(e) => {
-            setPin(e.target.value.replace(/\D/g, ''));
-            setErr(false);
-          }}
-          aria-label="PIN"
-          placeholder="PIN"
-          style={{
-            height: '46px',
-            borderRadius: '12px',
-            border: `1px solid ${err ? '#C98B8B' : '#EBD9D5'}`,
-            textAlign: 'center',
-            fontSize: '18px',
-            letterSpacing: '.3em',
-            outline: 0,
-          }}
-        />
-        {err && <span style={{ fontSize: '12px', color: '#8F2F2F' }}>PIN이 맞지 않아요. 다시 입력해 주세요.</span>}
-        <button
-          type="submit"
-          style={{ height: '46px', border: 0, borderRadius: '12px', background: '#7A4450', color: '#fff', font: "500 14px 'Noto Sans KR', sans-serif", cursor: 'pointer' }}
-        >
-          열기
-        </button>
-        <span style={{ fontSize: '11.5px', color: '#6B605B' }}>시연용 PIN: 1234</span>
-      </form>
+    <div style={{ display: 'flex', justifyContent: 'center', padding: '72px 24px' }}>
+      {/* 인증되면 refreshSession()으로 pinStaff가 채워져 다시 그려진다 */}
+      <PinForm title={props.title} owner={access === 'OWNER_PIN'} onDone={() => {}} />
     </div>
   );
 }

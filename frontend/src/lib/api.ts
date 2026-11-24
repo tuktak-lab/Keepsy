@@ -49,8 +49,14 @@ export function configureApi(next: Partial<ApiHandlers>): void {
   handlers = { ...handlers, ...next };
 }
 
+/** 오류 code 처리와 같은 방식으로 화면을 옮긴다 (예: 근무자가 없으면 /shift) */
+export function navigate(path: string): void {
+  handlers.navigate(path);
+}
+
 type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
-export type ApiOptions = { method?: Method; body?: unknown };
+/** silent: 「그 밖의 code」를 showError로 띄우지 않는다. 화면이 오류를 직접 보여 줄 때 (예: PIN 입력 창 안의 pin_invalid) */
+export type ApiOptions = { method?: Method; body?: unknown; silent?: boolean };
 
 /**
  * 같은 출처 `/api` 호출. path는 `/api/…` 전체를 쓴다 (CONTRACTS 4장 경로 그대로).
@@ -85,7 +91,7 @@ export async function api<T>(path: string, options: ApiOptions = {}): Promise<T>
       }
       throw error;
     default:
-      handlers.showError(error.message);
+      if (!options.silent) handlers.showError(error.message);
       throw error;
   }
 }

@@ -1,0 +1,10 @@
+[
+  { "path": "/dashboard", "keywords": ["대시보드", "오늘"] },
+  { "path": "/reservations", "keywords": ["예약", "마감", "일정", "캘린더"] },
+  { "path": "/history", "keywords": ["히스토리", "사진", "시술 기록"] },
+  { "path": "/customers", "keywords": ["고객 등록", "고객", "연락처", "동의"] },
+  { "path": "/insights", "keywords": ["인사이트", "재방문", "주기", "이탈", "관리할"] },
+  { "path": "/campaigns", "keywords": ["캠페인", "발송", "템플릿", "문자"] },
+  { "path": "/analytics", "keywords": ["매출", "성과", "전환", "대조군"] },
+  { "path": "/settings", "keywords": ["설정", "PIN", "휴무", "영업시간", "스탭", "시술 메뉴"] }
+]
