@@ -2,6 +2,9 @@ package com.tuktaklab.keepsy.account;
 
 import com.tuktaklab.keepsy.common.error.ApiException;
 import com.tuktaklab.keepsy.common.error.ErrorCode;
+import com.tuktaklab.keepsy.common.error.GlobalExceptionHandler.FieldViolation;
+import com.tuktaklab.keepsy.common.security.FeatureKey;
+import com.tuktaklab.keepsy.common.security.FeatureKey.Access;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -11,7 +14,12 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.Arrays;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -95,6 +103,19 @@ public class Shop {
 
     /** 가상 단가(원). 화면에서 바꾸지 않는다 (FR-CMP-05, 기본 0) */
     private int virtualUnitPrice;
+
+    /** PIN으로 잠근 기능 키, 쉼표로 이음 (명세서 5장 shop, FR-ACC-05). 권한 검사는 FeatureSettingsReader가 요청마다 읽는다 */
+    private String pinLockedFeatures;
+
+    /** 명세서 2장 기본값: PIN 6개 (V1 DB 기본값과 같음) */
+    static final Set<FeatureKey> DEFAULT_PIN_LOCKED =
+            EnumSet.of(
+                    FeatureKey.CONTACT_FULL,
+                    FeatureKey.CUSTOMER_EDIT,
+                    FeatureKey.SALES_ANALYTICS,
+                    FeatureKey.PAYMENT_EDIT,
+                    FeatureKey.CAMPAIGN_VIEW,
+                    FeatureKey.CAMPAIGN_SEND);
 
     // 카테고리 기본 주기(일). 메뉴 없는 가져온 방문의 예측에 쓴다 (FR-SET-02, E5, 기본값 C16)
     private int nailCycleMinDays;
@@ -201,7 +222,67 @@ public class Shop {
         shop.changeCategoryCycle("SEMI_PERMANENT", 365, 730);
         shop.changeCategoryCycle("ETC", 28, 56);
         shop.attributionDays = 14; // FR-SET-04 기본값
+        shop.pinLockedFeatures = join(DEFAULT_PIN_LOCKED);
         return shop;
+    }
+
+    /** PIN으로 잠근 기능 키 */
+    Set<FeatureKey> lockedFeatures() {
+        Set<FeatureKey> locked = EnumSet.noneOf(FeatureKey.class);
+        Arrays.stream(pinLockedFeatures.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .forEach(s -> locked.add(FeatureKey.valueOf(s)));
+        return locked;
+    }
+
+    /**
+     * 보낸 키만 공용/PIN을 바꾼다 (FR-ACC-05, F38). 하나라도 틀리면 아무것도 바꾸지 않는다.
+     *
+     * @param changes 기능 키 이름 → {@code PUBLIC} | {@code PIN}
+     * @throws ApiException 빈 값, 모르는 키 · 값, 고정 키를 다른 값으로, 토글 키에 {@code OWNER_PIN}이면 {@code invalid}
+     */
+    void changeFeatureLocks(Map<String, String> changes) {
+        if (changes.isEmpty()) {
+            throw lockInvalid("features", "바꿀 기능을 보내 주세요");
+        }
+        Set<FeatureKey> locked = lockedFeatures();
+        for (Map.Entry<String, String> e : changes.entrySet()) {
+            String field = "features." + e.getKey();
+            FeatureKey key =
+                    parse(FeatureKey.class, e.getKey())
+                            .orElseThrow(() -> lockInvalid(field, "모르는 기능 키입니다"));
+            Access value =
+                    parse(Access.class, e.getValue())
+                            .orElseThrow(() -> lockInvalid(field, "PUBLIC 또는 PIN이어야 합니다"));
+            if (key.fixed() != null) {
+                if (value != key.fixed()) {
+                    throw lockInvalid(field, "고정 항목은 바꿀 수 없습니다");
+                }
+                continue;
+            }
+            switch (value) {
+                case PUBLIC -> locked.remove(key);
+                case PIN -> locked.add(key);
+                default -> throw lockInvalid(field, "PUBLIC 또는 PIN이어야 합니다");
+            }
+        }
+        pinLockedFeatures = join(locked);
+    }
+
+    private static String join(Set<FeatureKey> keys) {
+        return keys.stream().map(Enum::name).collect(Collectors.joining(","));
+    }
+
+    private static <E extends Enum<E>> Optional<E> parse(Class<E> type, String name) {
+        return Arrays.stream(type.getEnumConstants())
+                .filter(c -> c.name().equals(name))
+                .findFirst();
+    }
+
+    private static ApiException lockInvalid(String field, String reason) {
+        return new ApiException(
+                ErrorCode.INVALID, reason, List.of(new FieldViolation(field, reason)));
     }
 
     boolean isLoginLocked(LocalDateTime now) {
