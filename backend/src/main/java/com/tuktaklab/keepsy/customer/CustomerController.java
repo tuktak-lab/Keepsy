@@ -18,6 +18,7 @@ import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -97,5 +98,11 @@ class CustomerController {
                         marketingConsent),
                 page,
                 size);
+    }
+
+    @RequireFeature(FeatureKey.CUSTOMER_VIEW)
+    @GetMapping("/api/customers/{customerId}/consents")
+    CustomerService.Consents consents(@PathVariable long customerId) {
+        return customerService.consents(shopSession.shopId(), customerId);
     }
 }
