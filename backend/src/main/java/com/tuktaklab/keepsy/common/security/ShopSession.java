@@ -32,10 +32,16 @@ public class ShopSession {
     private final SecurityContextRepository contextRepository =
             new HttpSessionSecurityContextRepository();
 
-    /** 매장 로그인 성공 뒤 부른다. 세션 고정 공격을 막으려 세션 ID를 바꾼다 */
+    /**
+     * 매장 로그인 성공 뒤 부른다. 세션 고정 공격을 막으려 세션 ID를 바꾸고, 같은 브라우저에서 전에 로그인했던 매장의 근무자 · PIN 인증은 지운다 (로그인 직후에는
+     * 근무자가 없다, FR-ACC-10)
+     */
     public void signIn(long shopId, HttpServletRequest request, HttpServletResponse response) {
-        request.getSession(true);
+        HttpSession session = request.getSession(true);
         request.changeSessionId();
+        session.removeAttribute(CURRENT_STAFF_ID);
+        session.removeAttribute(PIN_STAFF_ID);
+        session.removeAttribute(PIN_EXPIRES_AT);
         SecurityContext context = SecurityContextHolder.createEmptyContext();
         context.setAuthentication(
                 UsernamePasswordAuthenticationToken.authenticated(shopId, null, List.of()));
