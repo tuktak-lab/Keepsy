@@ -7,7 +7,7 @@ a{color:#7A4450;text-decoration:none}a:hover{text-decoration:underline}
 .sub{font-size:13px;color:#4A3F3B}
 .meta{font-size:12px;color:#6B605B}
 .num{font-variant-numeric:tabular-nums}
-.wrap{padding:28px 32px 48px;max-width:1240px;width:100%;box-sizing:border-box;display:flex;flex-direction:column;gap:18px}
+.wrap{padding:28px 32px 48px;width:100%;box-sizing:border-box;display:flex;flex-direction:column;gap:18px}
 .row{display:flex;flex-wrap:wrap;align-items:center;gap:12px}
 .between{justify-content:space-between}
 .col{display:flex;flex-direction:column}
