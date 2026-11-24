@@ -73,6 +73,9 @@ export function monthCells(year: number, month0: number): { date: DateStr; day: 
 export const formatMinutes = (minutes: number): string =>
   `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
 
+/** 응답의 시각(오프셋 포함) → 서울 기준 `HH:mm` */
+export const hmOf = (iso: string): string => formatMinutes(seoulParts(iso).minutes);
+
 /** `"09:30" → 570` */
 export const parseHm = (hm: string): number => {
   const [h, m] = hm.split(':').map(Number);

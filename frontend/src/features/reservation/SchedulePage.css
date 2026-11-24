@@ -165,8 +165,9 @@ a{color:#7A4450;text-decoration:none}
 @keyframes blk-flash0{0%{box-shadow:0 0 0 0 rgba(122,68,80,.55)}60%{box-shadow:0 0 0 4px rgba(122,68,80,.28)}100%{box-shadow:0 0 0 6px rgba(122,68,80,0)}}
 @keyframes blk-flash1{0%{box-shadow:0 0 0 0 rgba(122,68,80,.55)}60%{box-shadow:0 0 0 4px rgba(122,68,80,.28)}100%{box-shadow:0 0 0 6px rgba(122,68,80,0)}}
 .blk-more{position:absolute;box-sizing:border-box;border-radius:6px;border:1px dashed #B88A90;background:#fff;color:#7A4450;font:600 12.5px 'Noto Sans KR',sans-serif;cursor:default;display:flex;align-items:center;justify-content:center}
-/* 읽기 전용 단계: 예약 카드와 "+N건"은 눌러도 동작이 없어 손가락 커서를 쓰지 않는다 */
+/* 확정 예약 카드는 눌러서 일정 변경 (버튼), 완료 예약과 "+N건"은 눌러도 동작이 없다 */
 .blk{cursor:default}
+button.blk{cursor:pointer}
 /* 선택할 수 없는 시간 (영업시간 밖 · 정기 휴무 요일 · 매장/스탭 휴무일) */
 .off{position:absolute;box-sizing:border-box;background:repeating-linear-gradient(135deg,rgba(107,96,91,.09) 0 4px,rgba(107,96,91,.03) 4px 9px);pointer-events:auto;display:flex;align-items:flex-start;justify-content:center}
 .off span{margin-top:8px;padding:2px 8px;border-radius:6px;background:#fff;border:1px solid #E6DDD5;font-size:12px;font-weight:600;color:#6B605B;max-width:90%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -258,6 +259,20 @@ textarea.inp{height:auto;padding:10px 12px;min-height:72px;resize:vertical}
 .overlay{position:fixed;inset:0;background:rgba(34,29,27,.34);display:flex;align-items:center;justify-content:center;padding:20px;z-index:50;animation:fade .18s ease}
 .modal{width:100%;max-width:560px;max-height:90vh;overflow:auto;padding:24px 26px;display:flex;flex-direction:column;gap:16px;animation:rise .22s ease}
 .err{font-size:12.5px;color:#9E3F3F}
+/* 예약 등록 · 일정 변경 폼 */
+.pills{display:flex;flex-wrap:wrap;gap:6px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+@media (max-width:520px){.grid3{grid-template-columns:1fr}}
+.cust-fixed{font-size:14px;font-weight:600;color:#221D1B}
+.cust-sel{display:flex;align-items:center;gap:10px;min-height:40px;padding:0 6px 0 12px;border:1px solid #D8CDC5;border-radius:8px;background:#FAF6F3}
+.cust-sel .num{margin-left:auto;font-size:12.5px;color:#6B605B}
+.cust-sel .num.warn{color:#9E3F3F;font-weight:600}
+.cust-sel .ib{flex:none}
+.cust-list{margin-top:6px;border:1px solid #E6DDD5;border-radius:8px;overflow:hidden;background:#fff}
+.cust-list li + li{border-top:1px solid #EFE8E2}
+.cust-list button{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;padding:9px 12px;border:0;background:transparent;font:500 13.5px 'Noto Sans KR',sans-serif;color:#221D1B;cursor:pointer;text-align:left}
+.cust-list button:hover{background:#FAF6F3}
+.cust-list .num{font-size:12.5px;color:#6B605B;font-weight:400}
 @keyframes fade{from{opacity:0}to{opacity:1}}
 @keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
