@@ -121,9 +121,9 @@ h1,h2,h3,p,dl{margin:0}
   transition:background-color .18s ease,opacity .18s ease;
 }
 :root .st-wrap .st-row:has(> .st-time):hover{background:rgba(255,255,255,.5)}
-:root .st-wrap .st-row:has(.st-chk input:checked){background:rgba(255,255,255,.14)}
-:root .st-wrap .st-row:has(.st-chk input:checked) > .nm{color:#a39791}
-:root .st-wrap .st-row > span:not([class]){color:#a39791}
+:root .st-wrap .st-row:has(> .st-time):has(.st-chk input:checked){background:rgba(255,255,255,.14)}
+:root .st-wrap .st-row:has(> .st-time):has(.st-chk input:checked) > .nm{color:#a39791}
+:root .st-wrap .st-row:has(> .st-time) > span:not([class]){color:#a39791}
 :root .st-wrap .st-row .st-chk{margin-left:8px}
 
 /* 메뉴 수정 · 추가 줄: 목록과 구분되는 밝은 편집 면 */
