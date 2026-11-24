@@ -1,5 +1,7 @@
 package com.tuktaklab.keepsy.visit;
 
+import com.tuktaklab.keepsy.analytics.Attribution;
+import com.tuktaklab.keepsy.analytics.Attribution.SentAd;
 import com.tuktaklab.keepsy.common.error.ApiException;
 import com.tuktaklab.keepsy.common.error.ErrorCode;
 import com.tuktaklab.keepsy.common.time.TimeConfig;
@@ -110,7 +112,8 @@ public class VisitAppService {
             notes.save(VisitNote.of(shopId, visit.getId(), actorStaffId, in.memo(), now));
         }
         // 예측 재계산은 방문을 만드는 completeWithVisit에서 한다 (완료된 예약은 결제 · 메모만 더해 방문이 그대로다)
-        // ponytail: 고객 마지막 방문일(FR-CUS-12) · 귀속(FR-VIS-04)은 그 서비스가 생기면 여기서 부른다
+        // 귀속(FR-VIS-04)은 방문을 만드는 completeWithVisit에서 한다
+        // ponytail: 고객 마지막 방문일(FR-CUS-12)은 그 서비스가 생기면 여기서 부른다
         return visit.getId();
     }
 
@@ -250,7 +253,9 @@ public class VisitAppService {
                                             Visit.fromReservation(
                                                     shopId, r.customerId(), r.date())));
         }
-        visit.addReservationServices(r.id(), actualServices);
+        if (visit.addReservationServices(r.id(), actualServices)) {
+            attribute(shopId, visit, r);
+        }
         visits.flush();
         refs.completeReservation(shopId, r.id(), visit.getId(), items != null);
         if (visit.getCustomerId() != null) {
@@ -258,6 +263,32 @@ public class VisitAppService {
             refs.recalculatePrediction(shopId, visit.getCustomerId());
         }
         return visit;
+    }
+
+    /**
+     * 예약 하나로 더한 실제 시술마다 캠페인 귀속을 계산해 저장한다 (FR-VIS-04, A8, E7). 기준 시각은 예약 시작 시각이다. 다른 방문 시술이 이미 가진
+     * 발송은 첫 방문이 아니라서 연결하지 않는다. 고객 없는 방문은 발송이 없고, 가져온 방문은 귀속에서 뺀다 (FR-CUS-13: 같은 날 가져온 방문에 합쳐진 경우).
+     */
+    private void attribute(long shopId, Visit visit, ReservationToClose r) {
+        if (visit.getCustomerId() == null || visit.getSource() == VisitSource.IMPORT) {
+            return;
+        }
+        List<SentAd> sends = refs.sentAds(shopId, visit.getCustomerId());
+        if (sends.isEmpty()) {
+            return;
+        }
+        int days = refs.attributionDays(shopId);
+        Set<Long> claimed =
+                new HashSet<>(
+                        visits.findClaimedMessageIds(
+                                shopId,
+                                visit.getId(),
+                                sends.stream().map(SentAd::messageId).toList()));
+        visit.getServices().stream()
+                .filter(s -> Long.valueOf(r.id()).equals(s.getReservationId()))
+                .forEach(s ->
+                        Attribution.attribute(s.getCategory(), r.startAt(), sends, claimed, days)
+                                .ifPresent(s::attribute));
     }
 
     /** 그 매장의 메뉴 · 스탭인지 확인하고 메뉴의 시술 카테고리를 붙인다. 다른 매장 것이면 not_found (NFR-03) */

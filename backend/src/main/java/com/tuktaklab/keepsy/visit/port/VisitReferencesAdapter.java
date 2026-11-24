@@ -1,5 +1,8 @@
 package com.tuktaklab.keepsy.visit.port;
 
+import com.tuktaklab.keepsy.account.ShopSettingsService;
+import com.tuktaklab.keepsy.analytics.Attribution.SentAd;
+import com.tuktaklab.keepsy.campaign.SentAdQueryService;
 import com.tuktaklab.keepsy.customer.PhotoStorage;
 import com.tuktaklab.keepsy.prediction.PredictionAppService;
 import com.tuktaklab.keepsy.reservation.ReservationAppService;
@@ -20,9 +23,9 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
- * 예약은 reservation 도메인이 공개한 {@link ReservationAppService}로 부른다. 메뉴 · 고객은 조회 Service가 아직 없어 V1 · V2
- * 테이블을 직접 읽는다. 사진도 customer 도메인에 사진 Service가 아직 없어 행 삭제를 여기서 한다 (ponytail: 그 도메인에 Service가 생기면
- * 바꾼다).
+ * 예약은 reservation 도메인이 공개한 {@link ReservationAppService}로, 발송 기록 · 귀속 기간은 campaign · account가 공개한
+ * Service로 부른다. 메뉴 · 고객은 조회 Service가 아직 없어 V1 · V2 테이블을 직접 읽는다. 사진도 customer 도메인에 사진 Service가 아직 없어
+ * 행 삭제를 여기서 한다 (ponytail: 그 도메인에 Service가 생기면 바꾼다).
  */
 @Slf4j
 @Component
@@ -33,6 +36,20 @@ class VisitReferencesAdapter implements VisitReferences {
     private final NamedParameterJdbcTemplate jdbc;
     private final PhotoStorage photoStorage;
     private final PredictionAppService predictions;
+    private final SentAdQueryService sentAds;
+    private final ShopSettingsService shopSettings;
+
+    @Override
+    public List<SentAd> sentAds(long shopId, long customerId) {
+        return sentAds.sentAds(shopId, customerId).stream()
+                .map(m -> new SentAd(m.messageId(), m.category(), m.sentAt()))
+                .toList();
+    }
+
+    @Override
+    public int attributionDays(long shopId) {
+        return shopSettings.attributionDays(shopId);
+    }
 
     @Override
     public void recalculatePrediction(long shopId, long customerId) {
@@ -50,7 +67,8 @@ class VisitReferencesAdapter implements VisitReferences {
                 t.status() == ReservationStatus.CONFIRMED,
                 t.status() == ReservationStatus.COMPLETED,
                 t.visitId(),
-                t.plannedMenuIds());
+                t.plannedMenuIds(),
+                t.startAt());
     }
 
     @Override

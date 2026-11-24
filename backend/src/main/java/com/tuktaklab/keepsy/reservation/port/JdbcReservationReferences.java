@@ -1,5 +1,8 @@
 package com.tuktaklab.keepsy.reservation.port;
 
+import com.tuktaklab.keepsy.account.ShopSettingsService;
+import com.tuktaklab.keepsy.analytics.Attribution.SentAd;
+import com.tuktaklab.keepsy.campaign.SentAdQueryService;
 import com.tuktaklab.keepsy.reservation.AvailableTimes.OpeningHours;
 import java.sql.Time;
 import java.time.LocalDate;
@@ -17,13 +20,43 @@ import org.springframework.stereotype.Component;
 
 /**
  * ponytail: 매장 · 스탭 · 메뉴 · 고객 엔티티와 조회 Service가 아직 없어 V1 · V2 테이블을 직접 읽는다 (FeatureSettingsReader와 같은
- * 방식). 그 도메인에 조회 Service가 생기면 이 어댑터만 그것을 부르게 바꾼다 (DEVELOPMENT 4장 「도메인 연동」)
+ * 방식). 그 도메인에 조회 Service가 생기면 이 어댑터만 그것을 부르게 바꾼다 (DEVELOPMENT 4장 「도메인 연동」). 발송 기록 · 귀속 기간은 campaign
+ * · account가 공개한 Service로 읽는다.
  */
 @Component
 @RequiredArgsConstructor
 class JdbcReservationReferences implements ReservationReferences {
 
     private final NamedParameterJdbcTemplate jdbc;
+    private final SentAdQueryService sentAds;
+    private final ShopSettingsService shopSettings;
+
+    @Override
+    public Map<Long, String> menuCategories(long shopId, Collection<Long> serviceMenuIds) {
+        Map<Long, String> result = new HashMap<>();
+        if (serviceMenuIds.isEmpty()) {
+            return result;
+        }
+        jdbc.query(
+                "SELECT id, category FROM service_menu WHERE shop_id = :shopId AND id IN (:ids)",
+                Map.of("shopId", shopId, "ids", serviceMenuIds),
+                rs -> {
+                    result.put(rs.getLong("id"), rs.getString("category"));
+                });
+        return result;
+    }
+
+    @Override
+    public List<SentAd> sentAds(long shopId, long customerId) {
+        return sentAds.sentAds(shopId, customerId).stream()
+                .map(m -> new SentAd(m.messageId(), m.category(), m.sentAt()))
+                .toList();
+    }
+
+    @Override
+    public int attributionDays(long shopId) {
+        return shopSettings.attributionDays(shopId);
+    }
 
     @Override
     public Optional<OpeningHours> openingHours(long shopId, LocalDate date) {

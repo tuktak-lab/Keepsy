@@ -1,5 +1,8 @@
 package com.tuktaklab.keepsy.reservation;
 
+import com.tuktaklab.keepsy.analytics.Attribution;
+import com.tuktaklab.keepsy.analytics.Attribution.Candidate;
+import com.tuktaklab.keepsy.analytics.Attribution.SentAd;
 import com.tuktaklab.keepsy.common.error.ApiException;
 import com.tuktaklab.keepsy.common.error.ErrorCode;
 import com.tuktaklab.keepsy.common.time.TimeConfig;
@@ -18,7 +21,10 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -102,7 +108,11 @@ public class ReservationAppService {
         if (!available) {
             throw new ApiException(ErrorCode.RESERVATION_CONFLICT);
         }
-        return reservations.save(reservation).getId();
+        Reservation saved = reservations.save(reservation);
+        if (saved.getCustomerId() != null) {
+            attribute(shopId, saved);
+        }
+        return saved.getId();
     }
 
     /**
@@ -151,13 +161,17 @@ public class ReservationAppService {
     /** {@code POST /api/reservations/{id}/cancel}. 확정 예약만 (FR-RSV-03) */
     @Transactional
     public void cancel(long shopId, long reservationId) {
-        find(shopId, reservationId).cancel();
+        Reservation reservation = find(shopId, reservationId);
+        reservation.cancel();
+        passOnAttribution(shopId, reservation);
     }
 
     /** {@code POST /api/reservations/{id}/no-show}. 시작 시각이 지난 확정 예약만 (C8). 고객 없는 예약도 된다 (E3) */
     @Transactional
     public void markNoShow(long shopId, long reservationId) {
-        find(shopId, reservationId).markNoShow(LocalDateTime.now(clock));
+        Reservation reservation = find(shopId, reservationId);
+        reservation.markNoShow(LocalDateTime.now(clock));
+        passOnAttribution(shopId, reservation);
     }
 
     /**
@@ -173,6 +187,8 @@ public class ReservationAppService {
                 refs.customer(shopId, customerId)
                         .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND));
         reservation.linkCustomer(customerId);
+        // 연결한 시각이 아니라 예약 생성 시각 기준으로 귀속을 계산한다 (E3)
+        attribute(shopId, reservation);
         return customer.restricted()
                 ? Optional.of("예약 제한 고객입니다. 사유: " + customer.restrictReason())
                 : Optional.empty();
@@ -249,7 +265,8 @@ public class ReservationAppService {
             boolean consultFirst,
             boolean servicesConfirmed,
             Long visitId,
-            List<Long> plannedMenuIds) {}
+            List<Long> plannedMenuIds,
+            LocalDateTime startAt) {}
 
     /** 예약을 행 잠금으로 읽는다. 같은 예약의 완료 · 마감이 동시에 들어와도 한 번만 처리된다 */
     @Transactional
@@ -267,7 +284,8 @@ public class ReservationAppService {
                 r.isConsultFirst(),
                 r.isServicesConfirmed(),
                 r.getVisitId(),
-                r.getServices().stream().map(ReservationService::getServiceMenuId).toList());
+                r.getServices().stream().map(ReservationService::getServiceMenuId).toList(),
+                r.getStartAt());
     }
 
     /** 확정 → 완료, 방문 연결 (FR-VIS-01). 방문을 만든 같은 트랜잭션에서 부른다 */
@@ -291,6 +309,113 @@ public class ReservationAppService {
                         Comparator.comparing(Reservation::getStartAt)
                                 .thenComparing(Reservation::getId))
                 .map(Reservation::getId);
+    }
+
+    /**
+     * 고객이 있는 예약의 예정 시술마다 캠페인 귀속을 계산해 저장한다 (FR-VIS-04, A8, E7). 기준 시각은 예약 생성 시각이다 (E3). 다른 확정 · 완료
+     * 예약이 이미 가진 발송은 첫 예약이 아니라서 연결하지 않고, 취소 · 노쇼 예약만 가진 발송은 이 예약이 이어받는다 (FR-ANL-03).
+     */
+    private void attribute(long shopId, Reservation r) {
+        List<SentAd> sends = refs.sentAds(shopId, r.getCustomerId());
+        if (sends.isEmpty()) {
+            return;
+        }
+        int days = refs.attributionDays(shopId);
+        LocalDateTime at = r.getCreatedAt();
+        // 귀속 기간 안의 발송을 가진 예약은 그 발송 뒤에 생성됐으므로 이 날 이후만 보면 된다
+        Set<Long> claimed =
+                activeServicesExcept(shopId, r, at.toLocalDate().minusDays(days).atStartOfDay())
+                        .stream()
+                        .map(ReservationService::getAttributedMessageId)
+                        .filter(Objects::nonNull)
+                        .collect(Collectors.toSet());
+        Map<Long, String> categories =
+                refs.menuCategories(
+                        shopId,
+                        r.getServices().stream()
+                                .map(ReservationService::getServiceMenuId)
+                                .toList());
+        for (ReservationService s : r.getServices()) {
+            Attribution.attribute(categories.get(s.getServiceMenuId()), at, sends, claimed, days)
+                    .ifPresent(s::attribute);
+        }
+    }
+
+    /**
+     * 귀속된 예약이 취소 · 노쇼되면 같은 발송을 귀속 기간 안의 다음 예약(같은 카테고리 시술)에 저장한다 (FR-VIS-04, FR-ANL-03). 취소 · 노쇼 예약의
+     * 귀속은 지우지 않는다: 퍼널의 재예약 단계에 남아야 한다 (FR-ANL-01). 다른 확정 · 완료 예약이 이미 그 발송을 가졌으면 그대로 둔다.
+     */
+    private void passOnAttribution(long shopId, Reservation gone) {
+        Set<Long> messageIds =
+                gone.getServices().stream()
+                        .map(ReservationService::getAttributedMessageId)
+                        .filter(Objects::nonNull)
+                        .collect(Collectors.toSet());
+        if (gone.getCustomerId() == null || messageIds.isEmpty()) {
+            return;
+        }
+        List<SentAd> sends =
+                refs.sentAds(shopId, gone.getCustomerId()).stream()
+                        .filter(s -> messageIds.contains(s.messageId()))
+                        .toList();
+        if (sends.isEmpty()) {
+            return;
+        }
+        int days = refs.attributionDays(shopId);
+        LocalDateTime from =
+                sends.stream()
+                        .map(SentAd::sentAt)
+                        .min(Comparator.naturalOrder())
+                        .orElseThrow()
+                        .toLocalDate()
+                        .atStartOfDay();
+        List<ReservationService> active = activeServicesExcept(shopId, gone, from);
+        Map<Long, String> categories =
+                refs.menuCategories(
+                        shopId,
+                        active.stream()
+                                .map(ReservationService::getServiceMenuId)
+                                .collect(Collectors.toSet()));
+        for (SentAd send : sends) {
+            Long messageId = send.messageId();
+            if (active.stream().anyMatch(s -> messageId.equals(s.getAttributedMessageId()))) {
+                continue;
+            }
+            List<Candidate> candidates =
+                    active.stream()
+                            .filter(s -> s.getAttributedMessageId() == null)
+                            .map(s ->
+                                    new Candidate(
+                                            s.getId(),
+                                            categories.get(s.getServiceMenuId()),
+                                            s.getReservation().getCreatedAt()))
+                            .toList();
+            Attribution.successor(send, candidates, days)
+                    .ifPresent(id -> {
+                        // 등록 때처럼 예약 단위로 본다: 이어받는 예약의 같은 카테고리 시술은 모두 같은 발송
+                        Reservation next =
+                                active.stream()
+                                        .filter(s -> s.getId().equals(id))
+                                        .findFirst()
+                                        .orElseThrow()
+                                        .getReservation();
+                        next.getServices().stream()
+                                .filter(s -> s.getAttributedMessageId() == null)
+                                .filter(s ->
+                                        send.category()
+                                                .equals(categories.get(s.getServiceMenuId())))
+                                .forEach(s -> s.attribute(messageId));
+                    });
+        }
+    }
+
+    /** 같은 고객의 다른 확정 · 완료 예약의 예정 시술 */
+    private List<ReservationService> activeServicesExcept(
+            long shopId, Reservation self, LocalDateTime from) {
+        return reservations.findActiveWithServices(shopId, self.getCustomerId(), from).stream()
+                .filter(r -> !r.getId().equals(self.getId()))
+                .flatMap(r -> r.getServices().stream())
+                .toList();
     }
 
     /** 세션 매장의 예약. 없거나 다른 매장 것이면 똑같이 404 (NFR-03) */

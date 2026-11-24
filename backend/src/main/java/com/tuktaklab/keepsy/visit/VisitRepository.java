@@ -2,9 +2,12 @@ package com.tuktaklab.keepsy.visit;
 
 import jakarta.persistence.LockModeType;
 import java.time.LocalDate;
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
 
 public interface VisitRepository extends JpaRepository<Visit, Long> {
 
@@ -16,4 +19,10 @@ public interface VisitRepository extends JpaRepository<Visit, Long> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<Visit> findByShopIdAndCustomerIdAndVisitDate(
             long shopId, long customerId, LocalDate visitDate);
+
+    /** 그 방문이 아닌 방문 시술이 이미 가진 귀속 발송 ID 중 {@code messageIds}에 있는 것 (첫 방문 판정, FR-VIS-04) */
+    @Query(
+            "select vs.attributedMessageId from VisitService vs where vs.shopId = :shopId"
+                    + " and vs.visit.id <> :visitId and vs.attributedMessageId in :messageIds")
+    List<Long> findClaimedMessageIds(long shopId, long visitId, Collection<Long> messageIds);
 }

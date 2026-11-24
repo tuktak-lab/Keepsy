@@ -18,6 +18,11 @@ interface CampaignMessageRepository extends JpaRepository<CampaignMessage, Long>
     Page<CampaignMessage> findByShopIdAndRecipientPhoneAndSendStatusOrderByResultAtDescIdDesc(
             Long shopId, String recipientPhone, SendStatus sendStatus, Pageable pageable);
 
+    /** 고객이 받은 메시지 중 귀속에 쓰는 것 (FR-ANL-03, idx_campaign_message_customer_result) */
+    List<CampaignMessage>
+            findByShopIdAndCustomerIdAndKindAndSendStatusAndControlGroupFalseAndCategoryNotNull(
+                    Long shopId, Long customerId, MessageKind kind, SendStatus sendStatus);
+
     /**
      * 아직 PENDING인 행만 결과를 채운다 (ARCHITECTURE 7장 「캠페인 발송 상태 전이」, F7). 이미 결과가 난 행이면 0을 돌려준다.
      *

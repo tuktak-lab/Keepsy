@@ -87,6 +87,9 @@ public class Shop {
     /** 이 시각 전까지 PIN 입력을 막는다 (F14) */
     private LocalDateTime pinLockedUntil;
 
+    /** 귀속 기간(일) (FR-SET-04, 기본 14) */
+    private int attributionDays;
+
     /** 가상 발송 무작위 실패 비율 % (FR-CMP-10, FR-SET-04, 기본 0 F17) */
     private int virtualFailurePercent;
 
@@ -197,6 +200,7 @@ public class Shop {
         shop.changeCategoryCycle("WAXING", 28, 42);
         shop.changeCategoryCycle("SEMI_PERMANENT", 365, 730);
         shop.changeCategoryCycle("ETC", 28, 56);
+        shop.attributionDays = 14; // FR-SET-04 기본값
         return shop;
     }
 
