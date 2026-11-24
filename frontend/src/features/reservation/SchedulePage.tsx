@@ -132,6 +132,7 @@ export default function SchedulePage() {
     setMiniPick(null);
     setReload((n) => n + 1);
   }, []);
+  const stale = useCallback(() => setReload((n) => n + 1), []); // 창은 그대로 두고 뒤의 캘린더만 다시 읽는다
 
   const dates = from ? weekDates(from) : [];
   const data = week && week.from === from ? week : null;
@@ -441,7 +442,7 @@ export default function SchedulePage() {
           ) : null}
         </div>
       </main>
-      {form ? <ReservationForm key={form.editId ?? 'new'} editId={form.editId} initialDate={anchor} staff={staff} onClose={closeForm} onSaved={saved} /> : null}
+      {form ? <ReservationForm key={form.editId ?? 'new'} editId={form.editId} initialDate={anchor} staff={staff} onClose={closeForm} onSaved={saved} onStale={stale} /> : null}
     </div>
   );
 }
