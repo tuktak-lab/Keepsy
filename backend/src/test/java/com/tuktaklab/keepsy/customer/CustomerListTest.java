@@ -185,6 +185,34 @@ class CustomerListTest {
     }
 
     @Test
+    void 시작_시각이_지난_오늘_미완료_예약도_빼고_취소_노쇼_지난_예약이면_돌아온다() {
+        long r =
+                jdbc.queryForObject(
+                        "SELECT id FROM reservation WHERE customer_id = ?", Long.class, seoyeon);
+        LocalDateTime midnight = TODAY.atStartOfDay();
+        jdbc.update(
+                "UPDATE reservation SET start_at = ?, end_at = ? WHERE id = ?",
+                midnight,
+                midnight.plusHours(1),
+                r);
+        assertThat(ids(list(null, status(DUE, null)))).containsExactly(minji);
+
+        for (String s : List.of("CANCELED", "NO_SHOW")) {
+            jdbc.update("UPDATE reservation SET status = ? WHERE id = ?", s, r);
+            assertThat(ids(list(null, status(DUE, null))))
+                    .containsExactlyInAnyOrder(minji, seoyeon);
+        }
+
+        // 마감 안 된 어제 확정 예약은 다음 예약이 아니다 (오늘 이후만, A11)
+        jdbc.update(
+                "UPDATE reservation SET status = 'CONFIRMED', start_at = ?, end_at = ? WHERE id = ?",
+                midnight.minusHours(14),
+                midnight.minusHours(13),
+                r);
+        assertThat(ids(list(null, status(DUE, null)))).containsExactlyInAnyOrder(minji, seoyeon);
+    }
+
+    @Test
     void 페이지는_요청한_크기로_자르고_전체_건수를_준다() {
         for (int i = 0; i < 23; i++) {
             customer(shop, "모의" + i, "010-1111-" + String.format("%04d", i), "ACTIVE");
