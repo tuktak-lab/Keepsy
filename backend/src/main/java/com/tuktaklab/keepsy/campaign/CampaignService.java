@@ -1,6 +1,7 @@
 package com.tuktaklab.keepsy.campaign;
 
 import com.tuktaklab.keepsy.campaign.CampaignTargets.Target;
+import com.tuktaklab.keepsy.campaign.query.CampaignQuery;
 import com.tuktaklab.keepsy.campaign.query.CampaignTargetQuery.Selection;
 import com.tuktaklab.keepsy.campaign.query.ConsentReconfirmQuery;
 import com.tuktaklab.keepsy.common.error.ApiException;
@@ -10,6 +11,7 @@ import com.tuktaklab.keepsy.common.web.PageResponse;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -30,6 +32,7 @@ public class CampaignService {
     private final CampaignTargets targets;
     private final NamedParameterJdbcTemplate jdbc;
     private final ConsentReconfirmQuery reconfirmQuery;
+    private final CampaignQuery campaignQuery;
     private final Clock clock;
 
     /**
@@ -103,6 +106,68 @@ public class CampaignService {
         throw campaigns.existsByIdAndShopId(campaignId, shopId)
                 ? new ApiException(ErrorCode.CONFLICT, "작성 중인 캠페인만 검토할 수 있습니다")
                 : new ApiException(ErrorCode.NOT_FOUND);
+    }
+
+    /** 캠페인 목록 (FR-CMP-10). 최근 만든 순 */
+    @Transactional(readOnly = true)
+    public PageResponse<CampaignQuery.Item> list(long shopId, int page, int size) {
+        return new PageResponse<>(
+                campaignQuery.find(shopId, page, size), page, size, campaignQuery.count(shopId));
+    }
+
+    /** CONTRACTS 6장 「`GET /api/campaigns/{campaignId}` 응답 필드」: 목록 항목 필드 + 상세 칸 + 고객별 결과 */
+    public record Detail(
+            long id,
+            String name,
+            String category,
+            String messageKind,
+            String status,
+            int targetCount,
+            int controlCount,
+            OffsetDateTime scheduledAt,
+            OffsetDateTime sentAt,
+            String cancelReason,
+            long templateId,
+            int controlPercent,
+            CampaignQuery.StaffRef reviewedBy,
+            OffsetDateTime reviewedAt,
+            OffsetDateTime canceledAt,
+            PageResponse<CampaignQuery.Message> messages) {}
+
+    /**
+     * 캠페인 상세 · 고객별 발송 결과 (FR-CMP-10 · 18). 대조군은 발송 상태 없이 구분하고, 삭제된 고객은 표시만 한다 (FR-CUS-10).
+     *
+     * @throws ApiException 다른 매장 · 없는 캠페인이면 {@code not_found}
+     */
+    @Transactional(readOnly = true)
+    public Detail detail(long shopId, long campaignId, int page, int size) {
+        CampaignQuery.Header h =
+                campaignQuery
+                        .findOne(shopId, campaignId)
+                        .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND));
+        CampaignQuery.Item i = h.item();
+        CampaignQuery.Extra e = h.extra();
+        return new Detail(
+                i.id(),
+                i.name(),
+                i.category(),
+                i.messageKind(),
+                i.status(),
+                i.targetCount(),
+                i.controlCount(),
+                i.scheduledAt(),
+                i.sentAt(),
+                i.cancelReason(),
+                e.templateId(),
+                e.controlPercent(),
+                e.reviewedBy(),
+                e.reviewedAt(),
+                e.canceledAt(),
+                new PageResponse<>(
+                        campaignQuery.messages(shopId, campaignId, page, size),
+                        page,
+                        size,
+                        campaignQuery.countMessages(shopId, campaignId)));
     }
 
     /** 동의 재확인 대상 (FR-CMP-13, D1, F45). 오늘은 Asia/Seoul (NFR-12) */

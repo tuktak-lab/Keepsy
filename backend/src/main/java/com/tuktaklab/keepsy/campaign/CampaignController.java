@@ -1,5 +1,6 @@
 package com.tuktaklab.keepsy.campaign;
 
+import com.tuktaklab.keepsy.campaign.query.CampaignQuery;
 import com.tuktaklab.keepsy.campaign.query.CampaignTargetQuery.Selection;
 import com.tuktaklab.keepsy.campaign.query.ConsentReconfirmQuery;
 import com.tuktaklab.keepsy.common.security.FeatureGuard;
@@ -121,6 +122,25 @@ class CampaignController {
                 shopSession.shopId(),
                 campaignId,
                 featureGuard.actorStaffId(session, FeatureKey.CAMPAIGN_SEND));
+    }
+
+    /** 캠페인 목록 (CONTRACTS 6장). 조회라 CAMPAIGN_VIEW */
+    @RequireFeature(FeatureKey.CAMPAIGN_VIEW)
+    @GetMapping("/api/campaigns")
+    PageResponse<CampaignQuery.Item> list(
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
+        return campaigns.list(shopSession.shopId(), page, size);
+    }
+
+    /** 캠페인 상세 · 고객별 발송 결과 (CONTRACTS 6장). page · size는 고객별 결과의 페이지 */
+    @RequireFeature(FeatureKey.CAMPAIGN_VIEW)
+    @GetMapping("/api/campaigns/{campaignId}")
+    CampaignService.Detail detail(
+            @PathVariable long campaignId,
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
+        return campaigns.detail(shopSession.shopId(), campaignId, page, size);
     }
 
     /** 동의 재확인 대상 (CONTRACTS 6장, F45). 조회라 클래스의 CAMPAIGN_SEND 대신 CAMPAIGN_VIEW */
