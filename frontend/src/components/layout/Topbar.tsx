@@ -1,21 +1,23 @@
+'use client';
+
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 
 // 기능 검색: 키워드로 해당 화면으로 이동합니다 (MVP는 키워드 사전 방식).
 const SEARCH_MAP: [string[], string][] = [
-  [['대시보드', '오늘'], '/'],
-  [['예약', '마감', '일정', '캘린더'], '/schedule'],
+  [['대시보드', '오늘'], '/dashboard'],
+  [['예약', '마감', '일정', '캘린더'], '/reservations'],
   [['히스토리', '사진', '시술 기록'], '/history'],
   [['고객 등록', '고객', '연락처', '동의'], '/customers'],
   [['인사이트', '재방문', '주기', '이탈', '관리할'], '/insights'],
   [['캠페인', '발송', '템플릿', '문자'], '/campaigns'],
-  [['매출', '성과', '전환', '대조군'], '/performance'],
+  [['매출', '성과', '전환', '대조군'], '/analytics'],
   [['설정', 'PIN', '휴무', '영업시간', '스탭', '시술 메뉴'], '/settings'],
 ];
 
 export function Topbar(props: { crumb?: string }) {
   const crumb = props.crumb ?? 'Customer Intelligence / Overview';
-  const navigate = useNavigate();
+  const router = useRouter();
   const [q, setQ] = useState('');
   const [miss, setMiss] = useState(false);
 
@@ -27,7 +29,7 @@ export function Topbar(props: { crumb?: string }) {
     if (hit) {
       setMiss(false);
       setQ('');
-      navigate(hit[1]);
+      router.push(hit[1]);
     } else {
       setMiss(true);
     }
