@@ -32,7 +32,21 @@ public class CampaignTargetQuery {
             Integer visitCountMax,
             PredictionStatus predictionStatus,
             LocalDate lastServiceFrom,
-            LocalDate lastServiceTo) {}
+            LocalDate lastServiceTo) {
+
+        /** 캠페인 만들기는 메시지 종류를 템플릿 용도로 정한다 (FR-CMP-03) */
+        public Selection withKind(MessageKind k) {
+            return new Selection(
+                    k,
+                    category,
+                    customerIds,
+                    visitCountMin,
+                    visitCountMax,
+                    predictionStatus,
+                    lastServiceFrom,
+                    lastServiceTo);
+        }
+    }
 
     /**
      * @param marketingConsent 마케팅 동의 최신 행이 동의인지 (받은 적 없으면 false)
