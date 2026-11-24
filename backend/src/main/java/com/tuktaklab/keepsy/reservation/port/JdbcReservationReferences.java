@@ -102,6 +102,47 @@ class JdbcReservationReferences implements ReservationReferences {
     }
 
     @Override
+    public String staffName(long shopId, long staffId) {
+        return jdbc.queryForObject(
+                "SELECT name FROM staff WHERE id = :staffId AND shop_id = :shopId",
+                Map.of("shopId", shopId, "staffId", staffId),
+                String.class);
+    }
+
+    @Override
+    public Map<Long, MenuSummary> menuSummaries(long shopId, Collection<Long> serviceMenuIds) {
+        Map<Long, MenuSummary> result = new HashMap<>();
+        if (serviceMenuIds.isEmpty()) {
+            return result;
+        }
+        jdbc.query(
+                "SELECT id, name, price FROM service_menu WHERE shop_id = :shopId AND id IN (:ids)",
+                Map.of("shopId", shopId, "ids", serviceMenuIds),
+                rs -> {
+                    result.put(
+                            rs.getLong("id"),
+                            new MenuSummary(rs.getString("name"), rs.getInt("price")));
+                });
+        return result;
+    }
+
+    @Override
+    public Optional<CustomerSummary> customerSummary(long shopId, long customerId) {
+        return jdbc
+                .query(
+                        "SELECT name, service_caution, health_caution FROM customer"
+                                + " WHERE id = :customerId AND shop_id = :shopId",
+                        Map.of("shopId", shopId, "customerId", customerId),
+                        (rs, i) ->
+                                new CustomerSummary(
+                                        rs.getString("name"),
+                                        rs.getString("service_caution"),
+                                        rs.getString("health_caution")))
+                .stream()
+                .findFirst();
+    }
+
+    @Override
     public Optional<CustomerState> customer(long shopId, long customerId) {
         return jdbc
                 .query(

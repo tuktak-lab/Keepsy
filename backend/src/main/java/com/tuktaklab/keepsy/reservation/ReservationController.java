@@ -26,7 +26,8 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * 예약 가능 시간 · 등록 · 취소 · 노쇼 · 고객 연결 (CONTRACTS 4장 「예약 · 시술 마감 · 결제 · 방문」). 권한은 {@code RESERVATION}.
+ * 예약 가능 시간 · 등록 · 상세 · 취소 · 노쇼 · 고객 연결 (CONTRACTS 4장 「예약 · 시술 마감 · 결제 · 방문」). 권한은 {@code
+ * RESERVATION}.
  */
 @RestController
 @RequestMapping("/api/reservations")
@@ -81,6 +82,11 @@ class ReservationController {
                         req.serviceMenuIds());
         // 예약 제한 고객일 때만 원장 PIN이 필요하므로 여기서 막지 않고 인증 여부만 넘긴다
         return new IdResponse(service.create(shopId(), in, featureGuard.ownerPinVerified(session)));
+    }
+
+    @GetMapping("/{reservationId}")
+    ReservationAppService.ReservationDetail detail(@PathVariable long reservationId) {
+        return service.detail(shopId(), reservationId);
     }
 
     @PostMapping("/{reservationId}/cancel")
