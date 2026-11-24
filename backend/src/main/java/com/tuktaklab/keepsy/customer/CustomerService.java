@@ -16,7 +16,9 @@ import java.time.OffsetDateTime;
 import java.time.Year;
 import java.util.Arrays;
 import java.util.EnumMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -33,6 +35,7 @@ public class CustomerService {
     private final CustomerListQuery listQuery;
     private final ConsentHistoryQuery consentHistoryQuery;
     private final CustomerDetailQuery detailQuery;
+    private final PreferenceTagRepository preferenceTagRepository;
     private final AccessLogger accessLogger;
     private final Clock clock;
 
@@ -128,6 +131,39 @@ public class CustomerService {
         customer.changeCautions(blankToNull(service), healthCaution);
         accessLogger.record(
                 FeatureKey.CUSTOMER_WRITE, AccessLogger.CUSTOMER, customerId, Action.UPDATE);
+    }
+
+    public record TagInput(String category, String tag) {}
+
+    /**
+     * 취향 태그 · 자유 메모 (FR-CUS-04). 태그 목록과 메모를 통째로 바꾸고, 메모가 비어 있으면 지운다. 권한(CUSTOMER_WRITE)은 컨트롤러에서
+     * 검사한다.
+     *
+     * @param tags 형식은 요청 검증을 통과한 값. 같은 카테고리에 대소문자만 다른 태그는 처음 것 하나만 남긴다 (DB 고유 제약이 대소문자를 구분하지 않음)
+     * @throws ApiException 다른 매장 · 삭제된 고객이면 {@code not_found}
+     */
+    @Transactional
+    public void changePreferences(long shopId, long customerId, List<TagInput> tags, String memo) {
+        Customer customer =
+                customerRepository
+                        .findByIdAndShopIdAndStatus(customerId, shopId, Customer.Status.ACTIVE)
+                        .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND));
+        customer.changePreferenceMemo(blankToNull(memo));
+        Map<String, PreferenceTag> unique = new LinkedHashMap<>();
+        for (TagInput t : tags) {
+            String tag = t.tag().strip();
+            unique.putIfAbsent(
+                    t.category() + "\n" + tag.toLowerCase(Locale.ROOT),
+                    PreferenceTag.of(shopId, customerId, t.category(), tag));
+        }
+        preferenceTagRepository.deleteCustomerTags(shopId, customerId);
+        preferenceTagRepository.saveAll(unique.values());
+    }
+
+    /** 매장에서 쓴 취향 태그 (F3). 카테고리 안에서 중복 없이 이름 순 */
+    @Transactional(readOnly = true)
+    public List<String> shopTags(long shopId, String category) {
+        return preferenceTagRepository.findShopTags(shopId, category);
     }
 
     private static String blankToNull(String s) {
