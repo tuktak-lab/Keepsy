@@ -3,18 +3,23 @@ package com.tuktaklab.keepsy.customer;
 import com.tuktaklab.keepsy.common.error.ApiException;
 import com.tuktaklab.keepsy.common.error.ErrorCode;
 import com.tuktaklab.keepsy.common.web.PageResponse;
+import com.tuktaklab.keepsy.customer.query.ConsentHistoryQuery;
 import com.tuktaklab.keepsy.customer.query.CustomerListQuery;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.time.Year;
+import java.util.Arrays;
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/** 고객 등록 · 목록 (FR-CUS-01 · 02, E3, C12) */
+/** 고객 등록 · 목록 · 동의 조회 (FR-CUS-01 · 02 · 09, E3, C12) */
 @Service
 @RequiredArgsConstructor
 public class CustomerService {
@@ -22,6 +27,7 @@ public class CustomerService {
     private final CustomerRepository customerRepository;
     private final ConsentRepository consentRepository;
     private final CustomerListQuery listQuery;
+    private final ConsentHistoryQuery consentHistoryQuery;
     private final Clock clock;
 
     /**
@@ -115,6 +121,40 @@ public class CustomerService {
                                         r.marketingConsent()))
                         .toList();
         return new PageResponse<>(items, page, size, listQuery.count(shopId, f, today));
+    }
+
+    /**
+     * CONTRACTS 6장 「`current` 항목 필드」. 받은 적 없으면 {@code agreed} false, {@code recordedAt} null (F19)
+     */
+    public record ConsentState(Consent.Item item, boolean agreed, OffsetDateTime recordedAt) {}
+
+    public record Consents(List<ConsentState> current, List<ConsentHistoryQuery.Row> history) {}
+
+    /**
+     * 동의 현재 상태와 이력 (FR-CUS-09). 항목별 현재 상태는 그 항목의 최신 이력 행이다.
+     *
+     * @throws ApiException 다른 매장 · 삭제된 고객이면 {@code not_found} (삭제하면 동의 이력도 지운다, C12)
+     */
+    @Transactional(readOnly = true)
+    public Consents consents(long shopId, long customerId) {
+        if (!customerRepository.existsByIdAndShopIdAndStatus(
+                customerId, shopId, Customer.Status.ACTIVE)) {
+            throw new ApiException(ErrorCode.NOT_FOUND);
+        }
+        // ponytail: 접근 로그(NFR-06)는 기록 수단(#12)이 머지되면 여기서 개인정보 조회로 남긴다
+        List<ConsentHistoryQuery.Row> history = consentHistoryQuery.find(shopId, customerId);
+        Map<Consent.Item, ConsentHistoryQuery.Row> latest = new EnumMap<>(Consent.Item.class);
+        history.forEach(r -> latest.put(r.item(), r));
+        List<ConsentState> current =
+                Arrays.stream(Consent.Item.values())
+                        .map(item -> {
+                            ConsentHistoryQuery.Row r = latest.get(item);
+                            return r == null
+                                    ? new ConsentState(item, false, null)
+                                    : new ConsentState(item, r.agreed(), r.recordedAt());
+                        })
+                        .toList();
+        return new Consents(current, history);
     }
 
     private static ApiException duplicatePhone() {
