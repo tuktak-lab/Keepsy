@@ -148,6 +148,16 @@ test('그 밖의 code → message를 그대로 보여 주고 ApiError (details �
   assert.deepEqual(navigated, []);
 });
 
+test('silent면 그 밖의 code를 보여 주지 않고 ApiError만 던진다 (권한 code 처리는 그대로)', async () => {
+  responses.push(errorResponse(400, 'pin_invalid', 'PIN이 맞지 않습니다'));
+  await assert.rejects(api('/api/session/pin', { method: 'POST', body: { pin: '0000' }, silent: true }), (e: ApiError) => e.code === 'pin_invalid');
+  assert.deepEqual(shown, []);
+
+  responses.push(errorResponse(403, 'worker_required', '근무자를 선택해 주세요'));
+  await assert.rejects(api('/api/session/pin', { method: 'POST', body: { pin: '0000' }, silent: true }));
+  assert.deepEqual(navigated, ['/shift']);
+});
+
 test('오류 모양이 아닌 응답은 internal_error로 보고 기본 문구를 보여 준다', async () => {
   responses.push(new Response('Bad Gateway', { status: 502 }));
   await assert.rejects(api('/api/customers'), (e: ApiError) => e.code === 'internal_error' && e.status === 502);
