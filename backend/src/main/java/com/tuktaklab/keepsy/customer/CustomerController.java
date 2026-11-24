@@ -107,6 +107,14 @@ class CustomerController {
         return customerService.detail(shopSession.shopId(), customerId);
     }
 
+    record ContactResponse(String phone) {}
+
+    @RequireFeature(FeatureKey.CONTACT_FULL)
+    @GetMapping("/api/customers/{customerId}/contact")
+    ContactResponse contact(@PathVariable long customerId) {
+        return new ContactResponse(customerService.contact(shopSession.shopId(), customerId));
+    }
+
     @RequireFeature(FeatureKey.CUSTOMER_VIEW)
     @GetMapping("/api/customers/{customerId}/consents")
     CustomerService.Consents consents(@PathVariable long customerId) {

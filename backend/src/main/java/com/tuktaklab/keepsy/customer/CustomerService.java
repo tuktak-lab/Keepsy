@@ -139,6 +139,21 @@ public class CustomerService {
     }
 
     /**
+     * 연락처 전체 (명세서 2장 「고객 연락처 전체 보기」, A4). 권한(CONTACT_FULL)은 컨트롤러에서 검사한다.
+     *
+     * @return {@code 010-0000-0000} 형태의 전체 번호
+     * @throws ApiException 다른 매장 · 삭제된 고객이면 {@code not_found}
+     */
+    @Transactional(readOnly = true)
+    public String contact(long shopId, long customerId) {
+        // ponytail: 접근 로그(NFR-06, PIN 인증 스탭으로)는 기록 수단(#12)이 머지되면 여기서 남긴다
+        return customerRepository
+                .findByIdAndShopIdAndStatus(customerId, shopId, Customer.Status.ACTIVE)
+                .map(Customer::getPhone)
+                .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND));
+    }
+
+    /**
      * CONTRACTS 6장 「`current` 항목 필드」. 받은 적 없으면 {@code agreed} false, {@code recordedAt} null (F19)
      */
     public record ConsentState(Consent.Item item, boolean agreed, OffsetDateTime recordedAt) {}
