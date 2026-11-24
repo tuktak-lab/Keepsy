@@ -12,8 +12,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * 캠페인 전환 퍼널 · 연결 매출 (CONTRACTS 6장 「성과 · 대시보드 · 검색」, FR-ANL-01 · 02). 퍼널은 {@code CAMPAIGN_VIEW}, 매출은
- * {@code SALES_ANALYTICS} (CONTRACTS 4장)
+ * 캠페인 전환 퍼널 · 연결 매출 · 대조군 비교 (CONTRACTS 6장 「성과 · 대시보드 · 검색」, FR-ANL-01 · 02 · 09). 퍼널 · 대조군 비교는
+ * {@code CAMPAIGN_VIEW}, 매출은 {@code SALES_ANALYTICS} (CONTRACTS 4장)
  */
 @RestController
 @RequestMapping("/api/campaigns/{campaignId}")
@@ -30,6 +30,13 @@ class CampaignResultController {
     @RequireFeature(FeatureKey.CAMPAIGN_VIEW)
     CampaignResultQuery.Funnel funnel(@PathVariable long campaignId) {
         return ShopScope.orNotFound(query.funnel(shopSession.shopId(), campaignId));
+    }
+
+    /** 재예약률은 화면이 나눠 계산하고, 대조군 고객이 0명이면 비교 대상이 아니다 (결정 F36) */
+    @GetMapping("/control-comparison")
+    @RequireFeature(FeatureKey.CAMPAIGN_VIEW)
+    CampaignResultQuery.ControlComparison controlComparison(@PathVariable long campaignId) {
+        return ShopScope.orNotFound(query.controlComparison(shopSession.shopId(), campaignId));
     }
 
     @GetMapping("/revenue")
