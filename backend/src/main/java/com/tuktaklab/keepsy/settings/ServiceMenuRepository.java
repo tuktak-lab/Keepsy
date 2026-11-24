@@ -1,6 +1,7 @@
 package com.tuktaklab.keepsy.settings;
 
 import java.util.List;
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -13,4 +14,6 @@ interface ServiceMenuRepository extends JpaRepository<ServiceMenu, Long> {
                     + " WHEN 'NAIL' THEN 0 WHEN 'LASH' THEN 1 WHEN 'WAXING' THEN 2"
                     + " WHEN 'SEMI_PERMANENT' THEN 3 ELSE 4 END, m.id")
     List<ServiceMenu> findAllInDisplayOrder(@Param("shopId") long shopId);
+
+    Optional<ServiceMenu> findByIdAndShopId(Long id, Long shopId);
 }
