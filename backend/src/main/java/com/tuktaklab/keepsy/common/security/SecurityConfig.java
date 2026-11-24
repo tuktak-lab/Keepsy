@@ -22,8 +22,8 @@ import tools.jackson.databind.json.JsonMapper;
  *   <li>로그인 상태는 서버 세션의 SecurityContext다. 로그인 · 로그아웃은 {@link ShopSession}으로 한다
  *   <li>CSRF는 SPA 방식: 서버가 {@code XSRF-TOKEN} 쿠키를 내려 주고, 프론트는 상태를 바꾸는 요청에 그 값을 {@code X-XSRF-TOKEN}
  *       헤더로 보낸다 (Next.js 개발 모드 rewrites에서도 같은 출처라 그대로 동작)
- *   <li>세션 쿠키 속성(HttpOnly · Secure · SameSite)은 application.yaml {@code
- *       server.servlet.session.cookie}
+ *   <li>세션 쿠키 속성(HttpOnly · SameSite)은 application.yaml {@code server.servlet.session.cookie}.
+ *       Secure는 로컬이 http라 끈다 (docs DEVELOPMENT.md 5장)
  * </ul>
  */
 @Configuration
