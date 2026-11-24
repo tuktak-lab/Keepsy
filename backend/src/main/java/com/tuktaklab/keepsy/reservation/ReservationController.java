@@ -5,6 +5,7 @@ import com.tuktaklab.keepsy.common.security.FeatureKey;
 import com.tuktaklab.keepsy.common.security.RequireFeature;
 import com.tuktaklab.keepsy.common.security.ShopSession;
 import com.tuktaklab.keepsy.common.time.TimeConfig;
+import com.tuktaklab.keepsy.reservation.query.ReservationCalendarQuery;
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
@@ -38,6 +39,7 @@ class ReservationController {
     private final ReservationAppService service;
     private final ShopSession shopSession;
     private final FeatureGuard featureGuard;
+    private final ReservationCalendarQuery calendar;
 
     record AvailableTimesResponse(List<OffsetDateTime> startTimes) {}
 
@@ -65,6 +67,14 @@ class ReservationController {
                 service.availableTimes(shopId(), staffId, date, minutes).stream()
                         .map(time -> TimeConfig.offset(date.atTime(time)))
                         .toList());
+    }
+
+    record PeriodResponse(List<ReservationCalendarQuery.Item> reservations) {}
+
+    /** 기간 예약 · 주간 캘린더 · 일간 보기 (FR-RSV-02 · 05). {@code to} 포함, 최대 7일 (F13) */
+    @GetMapping
+    PeriodResponse period(@RequestParam LocalDate from, @RequestParam LocalDate to) {
+        return new PeriodResponse(calendar.find(shopId(), from, to));
     }
 
     @PostMapping
