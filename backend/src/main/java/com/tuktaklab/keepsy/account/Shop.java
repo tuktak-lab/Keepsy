@@ -200,6 +200,7 @@ public class Shop {
         shop.changeCategoryCycle("WAXING", 28, 42);
         shop.changeCategoryCycle("SEMI_PERMANENT", 365, 730);
         shop.changeCategoryCycle("ETC", 28, 56);
+        shop.attributionDays = 14; // FR-SET-04 기본값
         return shop;
     }
 
