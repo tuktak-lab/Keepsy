@@ -78,6 +78,18 @@ public class Staff {
     }
 
     /**
+     * @throws ApiException 원장 스탭이면 {@code invalid}. 원장 PIN은 매장 비밀번호를 다시 확인하는 원장 PIN
+     *     재설정(FR-ACC-09)으로만 바꾼다
+     */
+    void resetPin(String pinHash) {
+        if (owner) {
+            throw new ApiException(
+                    ErrorCode.INVALID, "원장 PIN은 원장 PIN 재설정에서 매장 비밀번호를 확인한 뒤 바꿀 수 있습니다");
+        }
+        this.pinHash = pinHash;
+    }
+
+    /**
      * @throws ApiException 원장 스탭의 허용을 끄면 {@code invalid} (FR-ACC-01)
      */
     void allowLockedFeatures(boolean allowed) {
