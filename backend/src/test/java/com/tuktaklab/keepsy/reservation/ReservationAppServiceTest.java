@@ -5,10 +5,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.tuktaklab.keepsy.common.error.ApiException;
 import com.tuktaklab.keepsy.common.error.ErrorCode;
-import java.sql.PreparedStatement;
-import java.sql.Statement;
+import com.tuktaklab.keepsy.support.TestShopData;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -24,8 +22,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.support.GeneratedKeyHolder;
-import org.springframework.jdbc.support.KeyHolder;
 
 /**
  * 예약 가능 시간 · 예약 등록 (Keepsy #54 · #55 완료 조건). 실제 MySQL(로컬 compose, CI 서비스 컨테이너)에서 돈다 (DEVELOPMENT
@@ -50,31 +46,24 @@ class ReservationAppServiceTest {
     private long customer;
     private long restricted;
 
+    private TestShopData data;
+
     @BeforeEach
     void seed() {
-        shop = insertShop("a@example.com");
-        otherShop = insertShop("b@example.com");
-        staff = insertStaff(shop, "ACTIVE");
-        inactiveStaff = insertStaff(shop, "INACTIVE");
-        nail = insertMenu(shop, 90);
-        care = insertMenu(shop, 30);
-        customer = insertCustomer(shop, false, null);
-        restricted = insertCustomer(shop, true, "노쇼 3회");
+        data = new TestShopData(jdbc);
+        shop = data.shop();
+        otherShop = data.shop();
+        staff = data.staff(shop, "ACTIVE", false);
+        inactiveStaff = data.staff(shop, "INACTIVE", false);
+        nail = data.menu(shop, 90);
+        care = data.menu(shop, 30);
+        customer = data.customer(shop, false, null);
+        restricted = data.customer(shop, true, "노쇼 3회");
     }
 
     @AfterEach
     void cleanUp() {
-        for (String table :
-                List.of(
-                        "reservation_service",
-                        "reservation",
-                        "day_off",
-                        "customer",
-                        "service_menu",
-                        "staff")) {
-            jdbc.update("DELETE FROM " + table + " WHERE shop_id IN (?, ?)", shop, otherShop);
-        }
-        jdbc.update("DELETE FROM shop WHERE id IN (?, ?)", shop, otherShop);
+        data.cleanUp();
     }
 
     private NewReservation at(int hour, Long customerId, List<Long> menus) {
@@ -152,11 +141,11 @@ class ReservationAppServiceTest {
         assertError(
                 () -> service.create(otherShop, at(11, null, List.of(care)), false),
                 ErrorCode.NOT_FOUND);
-        long otherMenu = insertMenu(otherShop, 30);
+        long otherMenu = data.menu(otherShop, 30);
         assertError(
                 () -> service.create(shop, at(11, customer, List.of(otherMenu)), false),
                 ErrorCode.NOT_FOUND);
-        long otherCustomer = insertCustomer(otherShop, false, null);
+        long otherCustomer = data.customer(otherShop, false, null);
         assertError(
                 () -> service.create(shop, at(11, otherCustomer, List.of(care)), false),
                 ErrorCode.NOT_FOUND);
@@ -258,66 +247,10 @@ class ReservationAppServiceTest {
     @Test
     void 다른_매장_예약이나_고객이면_not_found() {
         long id = service.create(shop, at(11, null, List.of(care)), false);
-        long otherCustomer = insertCustomer(otherShop, false, null);
+        long otherCustomer = data.customer(otherShop, false, null);
 
         assertError(() -> service.cancel(otherShop, id), ErrorCode.NOT_FOUND);
         assertError(() -> service.markNoShow(otherShop, id), ErrorCode.NOT_FOUND);
         assertError(() -> service.linkCustomer(shop, id, otherCustomer), ErrorCode.NOT_FOUND);
-    }
-
-    private long insertShop(String email) {
-        return insert(
-                "INSERT INTO shop (email, password_hash, name,"
-                        + " mon_open_time, mon_close_time, tue_open_time, tue_close_time,"
-                        + " wed_open_time, wed_close_time, thu_open_time, thu_close_time,"
-                        + " fri_open_time, fri_close_time, sat_open_time, sat_close_time,"
-                        + " sun_open_time, sun_close_time)"
-                        + " VALUES (?, 'x', '모의 매장', '10:00', '19:00', '10:00', '19:00', '10:00',"
-                        + " '19:00', '10:00', '19:00', '10:00', '19:00', '10:00', '19:00', '10:00',"
-                        + " '19:00')",
-                email + System.nanoTime());
-    }
-
-    private long insertStaff(long shopId, String status) {
-        return insert(
-                "INSERT INTO staff (shop_id, name, pin_hash, status) VALUES (?, '스탭', 'x', ?)",
-                shopId,
-                status);
-    }
-
-    private long insertMenu(long shopId, int minutes) {
-        return insert(
-                "INSERT INTO service_menu (shop_id, category, name, price, duration_minutes,"
-                        + " cycle_min_days, cycle_max_days) VALUES (?, 'NAIL', '젤', 50000, ?, 21, 28)",
-                shopId,
-                minutes);
-    }
-
-    private long insertCustomer(long shopId, boolean restrictedFlag, String reason) {
-        return insert(
-                "INSERT INTO customer (shop_id, name, phone, registered_at, reservation_restricted,"
-                        + " reservation_restrict_reason) VALUES (?, '모의 고객', ?, ?, ?, ?)",
-                shopId,
-                "010-0000-" + String.format("%04d", ++phoneSeq),
-                LocalDateTime.of(2026, 1, 1, 0, 0),
-                restrictedFlag,
-                reason);
-    }
-
-    private int phoneSeq;
-
-    private long insert(String sql, Object... args) {
-        KeyHolder key = new GeneratedKeyHolder();
-        jdbc.update(
-                con -> {
-                    PreparedStatement ps =
-                            con.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
-                    for (int i = 0; i < args.length; i++) {
-                        ps.setObject(i + 1, args[i]);
-                    }
-                    return ps;
-                },
-                key);
-        return key.getKey().longValue();
     }
 }
