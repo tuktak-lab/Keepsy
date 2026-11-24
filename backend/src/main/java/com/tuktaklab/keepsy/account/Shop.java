@@ -210,6 +210,106 @@ public class Shop {
                 .toList();
     }
 
+    /** 영업시간 시각 단위(분). 예약 시간 선택지와 같다 (F39) */
+    static final int HOURS_UNIT_MINUTES = 30;
+
+    /**
+     * 매장 정보와 요일별 영업시간을 통째로 바꾼다 (FR-SET-01 · 07, F39). 하나라도 틀리면 아무것도 바꾸지 않는다. 번호 형식은 요청에서 검사한다.
+     *
+     * @param phone 비었으면 null로 저장 (senderNumber · unsubscribeNumber도 같음)
+     * @param hours 요일 7개를 한 번씩. open · close 둘 다 null이면 정기 휴무
+     * @throws ApiException 요일이 빠지거나 겹침, 하나만 null, 30분 단위가 아님, open ≥ close이면 {@code invalid}
+     */
+    void changeInfo(
+            String name,
+            String phone,
+            String senderNumber,
+            String unsubscribeNumber,
+            List<OpeningHours> hours) {
+        if (hours.size() != DayOfWeek.values().length
+                || hours.stream().map(OpeningHours::dayOfWeek).distinct().count()
+                        != DayOfWeek.values().length
+                || hours.stream().anyMatch(h -> h.dayOfWeek() == null)) {
+            throw fieldInvalid("openingHours", "요일 7개를 한 번씩 보내 주세요");
+        }
+        for (OpeningHours h : hours) {
+            String field = "openingHours." + h.dayOfWeek();
+            if ((h.open() == null) != (h.close() == null)) {
+                throw fieldInvalid(field, "시작 · 종료를 모두 넣거나 모두 비워 주세요 (정기 휴무)");
+            }
+            if (h.open() == null) {
+                continue;
+            }
+            if (!onUnit(h.open()) || !onUnit(h.close())) {
+                throw fieldInvalid(field, "영업시간은 30분 단위입니다");
+            }
+            if (!h.open().isBefore(h.close())) {
+                throw fieldInvalid(field, "영업 시작은 종료보다 빨라야 합니다");
+            }
+        }
+        this.name = name.strip();
+        this.phone = blankToNull(phone);
+        this.senderNumber = blankToNull(senderNumber);
+        this.unsubscribeNumber = blankToNull(unsubscribeNumber);
+        for (OpeningHours h : hours) {
+            setHours(h.dayOfWeek(), h.open(), h.close());
+        }
+    }
+
+    /**
+     * 예약이 지금 영업시간 안에 시작부터 종료까지 드는지. 예약 가능 시간 계산과 같은 기준이다 (FR-RSV-04, F39)
+     *
+     * @return 정기 휴무 요일이거나, 날을 넘기거나, 영업시간 밖으로 나가면 false
+     */
+    boolean withinOpeningHours(LocalDateTime start, LocalDateTime end) {
+        OpeningHours h = openingHours().get(start.getDayOfWeek().ordinal());
+        return h.open() != null
+                && start.toLocalDate().equals(end.toLocalDate())
+                && !start.toLocalTime().isBefore(h.open())
+                && !end.toLocalTime().isAfter(h.close());
+    }
+
+    private void setHours(DayOfWeek day, LocalTime open, LocalTime close) {
+        switch (day) {
+            case MONDAY -> {
+                monOpenTime = open;
+                monCloseTime = close;
+            }
+            case TUESDAY -> {
+                tueOpenTime = open;
+                tueCloseTime = close;
+            }
+            case WEDNESDAY -> {
+                wedOpenTime = open;
+                wedCloseTime = close;
+            }
+            case THURSDAY -> {
+                thuOpenTime = open;
+                thuCloseTime = close;
+            }
+            case FRIDAY -> {
+                friOpenTime = open;
+                friCloseTime = close;
+            }
+            case SATURDAY -> {
+                satOpenTime = open;
+                satCloseTime = close;
+            }
+            case SUNDAY -> {
+                sunOpenTime = open;
+                sunCloseTime = close;
+            }
+        }
+    }
+
+    private static boolean onUnit(LocalTime t) {
+        return t.getSecond() == 0 && t.getNano() == 0 && t.getMinute() % HOURS_UNIT_MINUTES == 0;
+    }
+
+    private static String blankToNull(String s) {
+        return s == null || s.isBlank() ? null : s.strip();
+    }
+
     static Shop create(String email, String passwordHash, String name) {
         Shop shop = new Shop();
         shop.email = email;
@@ -244,27 +344,27 @@ public class Shop {
      */
     void changeFeatureLocks(Map<String, String> changes) {
         if (changes.isEmpty()) {
-            throw lockInvalid("features", "바꿀 기능을 보내 주세요");
+            throw fieldInvalid("features", "바꿀 기능을 보내 주세요");
         }
         Set<FeatureKey> locked = lockedFeatures();
         for (Map.Entry<String, String> e : changes.entrySet()) {
             String field = "features." + e.getKey();
             FeatureKey key =
                     parse(FeatureKey.class, e.getKey())
-                            .orElseThrow(() -> lockInvalid(field, "모르는 기능 키입니다"));
+                            .orElseThrow(() -> fieldInvalid(field, "모르는 기능 키입니다"));
             Access value =
                     parse(Access.class, e.getValue())
-                            .orElseThrow(() -> lockInvalid(field, "PUBLIC 또는 PIN이어야 합니다"));
+                            .orElseThrow(() -> fieldInvalid(field, "PUBLIC 또는 PIN이어야 합니다"));
             if (key.fixed() != null) {
                 if (value != key.fixed()) {
-                    throw lockInvalid(field, "고정 항목은 바꿀 수 없습니다");
+                    throw fieldInvalid(field, "고정 항목은 바꿀 수 없습니다");
                 }
                 continue;
             }
             switch (value) {
                 case PUBLIC -> locked.remove(key);
                 case PIN -> locked.add(key);
-                default -> throw lockInvalid(field, "PUBLIC 또는 PIN이어야 합니다");
+                default -> throw fieldInvalid(field, "PUBLIC 또는 PIN이어야 합니다");
             }
         }
         pinLockedFeatures = join(locked);
@@ -280,7 +380,7 @@ public class Shop {
                 .findFirst();
     }
 
-    private static ApiException lockInvalid(String field, String reason) {
+    private static ApiException fieldInvalid(String field, String reason) {
         return new ApiException(
                 ErrorCode.INVALID, reason, List.of(new FieldViolation(field, reason)));
     }

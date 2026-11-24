@@ -19,4 +19,10 @@ public interface StaffReservations {
 
     /** 이 스탭의 확정 예약 전부(지난 · 앞으로, 고객 없는 예약 포함), 시작 시각순. 비활성화를 막는다 (FR-ACC-04, F34) */
     List<Booked> allConfirmed(long shopId, long staffId);
+
+    /** 시작 · 종료 시각이 있는 예약. 영업시간을 바꿀 때 밀리는지 본다 */
+    record Timed(long id, LocalDateTime startAt, LocalDateTime endAt, String customerName) {}
+
+    /** 매장 전체(모든 스탭)의 확정 예약 중 {@code from} 이후, 시작 시각순. 고객 없는 예약 포함 (FR-SET-01 · 07, E3) */
+    List<Timed> shopConfirmedFrom(long shopId, LocalDateTime from);
 }
