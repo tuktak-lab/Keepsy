@@ -20,6 +20,7 @@ import {
 } from '@/lib/closing';
 import { formatWon } from '@/lib/format';
 import { detailsText } from '@/lib/reservationForm';
+import { ConsentRequests, PhotoPicker, uploadPhotos } from './ClosingExtras';
 import { CustomerSearch, type CustomerPick } from './CustomerSearch';
 import styleText from './SchedulePage.css?inline';
 
@@ -28,7 +29,8 @@ import styleText from './SchedulePage.css?inline';
 // 고객 없는 예약은 이 카드 안에서 고객을 연결하거나 「고객 없음」으로 마감한다 (E3).
 // 시술마다 [이번 시술 주기 계산 제외]를 체크할 수 있고, 「일반」 메뉴라면 메뉴 전체를 제외할지 묻는다 (FR-VIS-05).
 // API: GET · POST /api/reservations/{id}/closing, PUT …/customer, PATCH /api/service-menus/{id} (docs CONTRACTS 6장)
-// 사진 올리기와 동의 받기는 해당 API(#46 · #48)가 main에 생기면 붙인다.
+// 동의 받기(POST /api/customers/{id}/consents)는 누를 때 바로 저장하고, 사진은 마감 저장 응답의 방문 ID로 한 장씩 올린다 (F9).
+// 사진 일부가 실패해도 마감은 이미 저장됐으므로 마감을 다시 보내지 않는다 (추가 결제가 두 번 생기지 않게). 실패한 사진만 다시 올린다.
 
 type StaffRef = { id: number; name: string };
 type Menu = { id: number; name: string; price: number; durationMinutes: number; predictionAttribute: string };
@@ -39,7 +41,11 @@ type Closing = {
   visitId: number | null;
   customer: { id: number; name: string | null } | null;
   services: { serviceMenuId: number; name: string; price: number; predictionAttribute: string; staff: StaffRef; cycleExcluded: boolean }[];
+  photoAllowed: boolean;
+  consentsToRequest: string[];
 };
+/** 마감은 저장됐는데 사진 일부를 못 올린 상태 */
+type PhotoRetry = { visitId: number; failed: { file: File; reason: string }[]; busy: boolean };
 type Summary = { startAt: string; minutes: number; channel: Channel; staff: StaffRef };
 type Loaded = { id: number; closing?: Closing; error?: 'notfound' | 'conflict' | 'error'; message?: string };
 
@@ -65,6 +71,9 @@ export default function ClosingPage() {
   const [reload, setReload] = useState(0);
   const [noCustomer, setNoCustomer] = useState(false); // 고객 없는 예약을 「고객 없음」으로 마감 (E3)
   const [ask, setAsk] = useState<{ menuId: number; error: string; busy: boolean } | null>(null); // 「앞으로 이 메뉴를 모두 제외할까요?」 (FR-VIS-05)
+  const [agreed, setAgreed] = useState<string[]>([]); // 이 카드에서 방금 받은 동의 (목록에서 빼고, 사진 동의면 사진 칸을 연다)
+  const [photos, setPhotos] = useState<File[]>([]);
+  const [retry, setRetry] = useState<PhotoRetry | null>(null);
 
   // 시술별 담당 스탭 · 시술 추가에 쓰는 목록
   useEffect(() => {
@@ -110,6 +119,9 @@ export default function ClosingPage() {
   const needsCustomer = closing !== undefined && !completed && !hasCustomer; // 고객 없는 확정 예약: 연결하거나 「고객 없음」으로 마감
   const needsChoice = needsCustomer && !noCustomer; // 아직 둘 중 하나를 고르지 않음 → 폼을 열지 않는다
   const excludable = hasCustomer && !completed; // 주기 계산 제외는 고객이 있는 마감에서만 (E3)
+  // 동의 받기 · 사진은 고객이 있는 마감에서만 (E3). 사진은 사진 동의가 있을 때만 (FR-CUS-08)
+  const consentItems = hasCustomer ? (closing?.consentsToRequest ?? []).filter((c) => !agreed.includes(c)) : [];
+  const photoAllowed = hasCustomer && (!!closing?.photoAllowed || agreed.includes('PHOTO'));
 
   // 이름 · 가격 · 예측 속성: 새로 더한 시술은 메뉴 목록에서, 처음 채워진 시술은 마감 카드 응답에서
   const info = (menuId: number) => {
@@ -184,14 +196,34 @@ export default function ClosingPage() {
     setBusy(true);
     setError('');
     try {
-      await api(`/api/reservations/${id}/closing`, { method: 'POST', body: toClosingRequest(values, mode), silent: true });
+      const res = await api<{ visitId: number }>(`/api/reservations/${id}/closing`, { method: 'POST', body: toClosingRequest(values, mode), silent: true });
       toast(completed ? '추가 결제를 저장했어요.' : '시술 마감을 저장했어요.');
+      const toUpload = photoAllowed ? photos : [];
+      if (toUpload.length > 0 && res?.visitId) {
+        const failed = await uploadPhotos(res.visitId, toUpload);
+        if (failed.length > 0) {
+          // 마감은 저장됐다. 마감을 다시 보내지 않고 실패한 사진만 다시 올리게 한다
+          setRetry({ visitId: res.visitId, failed, busy: false });
+          return;
+        }
+        toast(`사진 ${toUpload.length}장을 올렸어요.`);
+      }
       router.push(`/reservations/detail?id=${id}`);
     } catch (err) {
       setError(err instanceof ApiError ? (err.code === 'invalid' ? (detailsText(err.details) ?? err.message) : err.message) : '잠시 후 다시 시도해 주세요');
     } finally {
       setBusy(false);
     }
+  }
+
+  async function retryPhotos() {
+    if (!retry) return;
+    setRetry({ ...retry, busy: true });
+    const failed = await uploadPhotos(retry.visitId, retry.failed.map((f) => f.file));
+    if (failed.length === 0) {
+      toast('남은 사진을 모두 올렸어요.');
+      router.push(`/reservations/detail?id=${id}`);
+    } else setRetry({ ...retry, failed, busy: false });
   }
 
   const at = summary ? seoulParts(summary.startAt) : null;
@@ -227,6 +259,29 @@ export default function ClosingPage() {
               <p className="meta">시술 마감 카드를 불러오지 못했어요. 잠시 후 다시 열어 주세요.</p>
             ) : !closing ? (
               <p className="meta">불러오는 중…</p>
+            ) : retry ? (
+              <div className="detail">
+                <div className="box warn" role="alert">
+                  <p>
+                    <b>{completed ? '추가 결제는' : '시술 마감은'} 저장됐어요.</b> 사진 {retry.failed.length}장을 올리지 못했어요. 마감은 다시 저장하지 않아도 돼요.
+                  </p>
+                  <ul style={{ margin: '8px 0 0', paddingLeft: 18 }}>
+                    {retry.failed.map((f, i) => (
+                      <li key={`${f.file.name}-${i}`} className="meta">
+                        {f.file.name} · {f.reason}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                  <AppLink href={backHref} className="btn">
+                    사진 없이 끝내기
+                  </AppLink>
+                  <button type="button" className="btn btn-p" disabled={retry.busy} onClick={() => void retryPhotos()}>
+                    {retry.busy ? '올리는 중…' : `${retry.failed.length}장 다시 올리기`}
+                  </button>
+                </div>
+              </div>
             ) : (
               <form className="detail" onSubmit={submit}>
                 <dl className="d-dl">
@@ -369,6 +424,16 @@ export default function ClosingPage() {
                         <span className="lbl">방문 메모</span>
                         <textarea className="inp" maxLength={1000} value={memo} onChange={(e) => setMemo(e.target.value)} placeholder="다음 방문에 참고할 내용" />
                       </div>
+                    ) : null}
+
+                    {closing.customer ? (
+                      <ConsentRequests customerId={closing.customer.id} items={consentItems} onAgreed={(item) => setAgreed((cur) => [...cur, item])} />
+                    ) : null}
+
+                    {photoAllowed ? (
+                      <PhotoPicker files={photos} onChange={setPhotos} disabled={busy} />
+                    ) : hasCustomer ? (
+                      <p className="meta">사진 동의가 없는 고객이라 사진을 올릴 수 없어요. 위 「동의 받기」에서 시술 사진 동의를 받으면 사진 칸이 열려요.</p>
                     ) : null}
                   </>
                 )}

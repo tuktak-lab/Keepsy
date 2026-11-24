@@ -81,3 +81,29 @@ export function toClosingRequest(v: ClosingValues, mode: ClosingMode) {
     memo: memo || null,
   };
 }
+
+// ── 마감 카드의 동의 받기 · 사진 (FR-PAY-04, FR-CUS-08 · 09, F9) ──
+// 동의는 POST /api/customers/{customerId}/consents, 사진은 마감 저장 응답의 방문 ID로 POST /api/visits/{visitId}/photos (CONTRACTS 4장)
+
+/** 마감 카드에서 받는 동의 항목 (GET …/closing의 consentsToRequest 값, 3절 순서) */
+export const CONSENT_REQUEST_LABEL: Record<string, { label: string; desc: string }> = {
+  PHOTO: { label: '시술 사진', desc: '시술 전후 사진을 기록하고 히스토리북에 보관합니다' },
+  MARKETING: { label: '마케팅 수신', desc: '재방문 안내 · 이벤트 문자를 받습니다' },
+  NIGHT_AD: { label: '야간 광고 수신', desc: '오후 9시 ~ 오전 8시 사이 광고 문자도 받습니다' },
+  HEALTH: { label: '건강 정보', desc: '알레르기 등 시술에 필요한 건강 주의사항을 기록합니다' },
+};
+
+/** 한 방문에 올릴 수 있는 사진 수 · 한 장 크기 (서버와 같음) */
+export const PHOTO_MAX = 10;
+export const PHOTO_MAX_BYTES = 10 * 1024 * 1024;
+
+/** 고른 사진의 첫 번째 오류 사유. 없으면 null. 형식은 서버가 파일 앞 바이트로 다시 판단한다 (NFR-08) */
+export function validatePhotos(files: { size: number; type: string }[]): string | null {
+  if (files.length > PHOTO_MAX) return `사진은 한 번에 ${PHOTO_MAX}장까지 올릴 수 있어요`;
+  for (const f of files) {
+    if (f.type !== 'image/jpeg' && f.type !== 'image/png') return 'JPG · PNG 사진만 올릴 수 있어요';
+    if (f.size === 0) return '빈 파일은 올릴 수 없어요';
+    if (f.size > PHOTO_MAX_BYTES) return '사진 한 장은 10MB 이하여야 해요';
+  }
+  return null;
+}

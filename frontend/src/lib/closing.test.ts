@@ -1,7 +1,17 @@
 // 실행: npm test
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { asksMenuExclusion, canExcludeFromCycle, parseAmount, sumPrices, toClosingRequest, validateClosing, type ClosingValues } from './closing.ts';
+import {
+  CONSENT_REQUEST_LABEL,
+  asksMenuExclusion,
+  canExcludeFromCycle,
+  parseAmount,
+  sumPrices,
+  toClosingRequest,
+  validateClosing,
+  validatePhotos,
+  type ClosingValues,
+} from './closing.ts';
 
 const base: ClosingValues = {
   services: [{ serviceMenuId: 1, staffId: 2 }],
@@ -97,4 +107,20 @@ test('요청 본문: 완료된 예약은 시술을 보내지 않고, 고객 없�
   assert.equal('services' in body, false);
   assert.equal(body.memo, null);
   assert.equal(body.amount, 58000);
+});
+
+test('validatePhotos: 10장 · JPG/PNG · 빈 파일 · 10MB', () => {
+  const jpg = { size: 1000, type: 'image/jpeg' };
+  assert.equal(validatePhotos([]), null);
+  assert.equal(validatePhotos([jpg, { size: 2000, type: 'image/png' }]), null);
+  assert.equal(validatePhotos(Array.from({ length: 10 }, () => jpg)), null);
+  assert.equal(validatePhotos(Array.from({ length: 11 }, () => jpg)), '사진은 한 번에 10장까지 올릴 수 있어요');
+  assert.equal(validatePhotos([{ size: 1000, type: 'image/gif' }]), 'JPG · PNG 사진만 올릴 수 있어요');
+  assert.equal(validatePhotos([{ size: 0, type: 'image/png' }]), '빈 파일은 올릴 수 없어요');
+  assert.equal(validatePhotos([{ size: 10 * 1024 * 1024, type: 'image/png' }]), null);
+  assert.equal(validatePhotos([{ size: 10 * 1024 * 1024 + 1, type: 'image/png' }]), '사진 한 장은 10MB 이하여야 해요');
+});
+
+test('CONSENT_REQUEST_LABEL: 마감 카드에서 받는 동의 4개 (PRIVACY 제외)', () => {
+  assert.deepEqual(Object.keys(CONSENT_REQUEST_LABEL), ['PHOTO', 'MARKETING', 'NIGHT_AD', 'HEALTH']);
 });
