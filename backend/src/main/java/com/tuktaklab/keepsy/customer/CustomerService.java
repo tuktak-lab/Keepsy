@@ -10,8 +10,10 @@ import com.tuktaklab.keepsy.common.web.PageResponse;
 import com.tuktaklab.keepsy.customer.query.ConsentHistoryQuery;
 import com.tuktaklab.keepsy.customer.query.CustomerDetailQuery;
 import com.tuktaklab.keepsy.customer.query.CustomerListQuery;
+import com.tuktaklab.keepsy.customer.query.HistoryQuery;
 import java.io.IOException;
 import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
@@ -42,6 +44,7 @@ public class CustomerService {
     private final CustomerListQuery listQuery;
     private final ConsentHistoryQuery consentHistoryQuery;
     private final CustomerDetailQuery detailQuery;
+    private final HistoryQuery historyQuery;
     private final PreferenceTagRepository preferenceTagRepository;
     private final AccessLogger accessLogger;
     private final PhotoStorage photoStorage;
@@ -352,6 +355,55 @@ public class CustomerService {
                 .findByIdAndShopIdAndStatus(customerId, shopId, Customer.Status.ACTIVE)
                 .map(Customer::getPhone)
                 .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND));
+    }
+
+    public record HistoryPhoto(long photoId, String url, OffsetDateTime uploadedAt) {}
+
+    /** CONTRACTS 6장 「`GET /api/customers/{customerId}/history` 항목 필드」. 결제 금액은 넣지 않는다 */
+    public record HistoryVisit(
+            long visitId,
+            LocalDate visitDate,
+            int serviceCount,
+            List<HistoryQuery.Service> services,
+            List<HistoryPhoto> photos,
+            List<HistoryQuery.Note> notes) {}
+
+    /**
+     * 시술 히스토리북 (FR-CUS-07). 사진은 사진 동의(PHOTO) 최신 행이 동의일 때만 짧은 만료의 서명 URL로 준다 (NFR-07, F16).
+     *
+     * @throws ApiException 다른 매장 · 삭제된 고객이면 {@code not_found}
+     */
+    @Transactional(readOnly = true)
+    public PageResponse<HistoryVisit> history(long shopId, long customerId, int page, int size) {
+        if (!customerRepository.existsByIdAndShopIdAndStatus(
+                customerId, shopId, Customer.Status.ACTIVE)) {
+            throw new ApiException(ErrorCode.NOT_FOUND);
+        }
+        boolean photoConsent =
+                consentRepository
+                        .findFirstByCustomerIdAndItemOrderByIdDesc(customerId, Consent.Item.PHOTO)
+                        .map(Consent::isAgreed)
+                        .orElse(false);
+        Instant now = clock.instant();
+        List<HistoryVisit> items =
+                historyQuery.find(shopId, customerId, photoConsent, page, size).stream()
+                        .map(v ->
+                                new HistoryVisit(
+                                        v.visitId(),
+                                        v.visitDate(),
+                                        v.services().size(),
+                                        v.services(),
+                                        v.photos().stream()
+                                                .map(ph ->
+                                                        new HistoryPhoto(
+                                                                ph.photoId(),
+                                                                photoStorage.signedUrl(
+                                                                        ph.photoId(), shopId, now),
+                                                                ph.uploadedAt()))
+                                                .toList(),
+                                        v.notes()))
+                        .toList();
+        return new PageResponse<>(items, page, size, historyQuery.count(shopId, customerId));
     }
 
     /**
