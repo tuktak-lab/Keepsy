@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 /** CONTRACTS 2장 모양과 HTTP 상태 (Keepsy #1 「작업 항목」 테스트). 스프링 컨텍스트 · DB 없이 돈다. */
 class GlobalExceptionHandlerTest {
@@ -41,6 +42,19 @@ class GlobalExceptionHandlerTest {
 
         @PostMapping("/api/test/form")
         void form(@Valid @RequestBody Form form) {}
+
+        @PostMapping("/api/test/upload")
+        void upload() {
+            throw new MaxUploadSizeExceededException(10L * 1024 * 1024);
+        }
+    }
+
+    @Test
+    void 업로드_크기_한도_초과는_413이_아니라_invalid_400() throws Exception {
+        mvc.perform(post("/api/test/upload"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("invalid"))
+                .andExpect(jsonPath("$.error.message").value("파일이 너무 큽니다"));
     }
 
     private final MockMvc mvc =

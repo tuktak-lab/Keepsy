@@ -25,6 +25,12 @@ spring:
           time_zone: Asia/Seoul
   flyway:
     enabled: true
+  # 시술 사진 업로드 장당 10MB (FR-CUS-08, C4). 한 요청에 사진 한 장이라 요청 전체는 여유를 조금 더 둔다.
+  # 넘으면 GlobalExceptionHandler가 invalid 400으로 바꾼다
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 11MB
 
 # 세션 쿠키 (NFR-02, CONTRACTS 1장). Secure는 Spring 기본값(false)을 그대로 쓴다. 로컬은 http이고, HTTPS로 운영하게 되면 그때 켠다
 # (docs DEVELOPMENT 5장, ARCHITECTURE 3장, 팀 결정).

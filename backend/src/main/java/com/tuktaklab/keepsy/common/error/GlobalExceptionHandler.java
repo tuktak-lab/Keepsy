@@ -9,6 +9,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 /**
@@ -53,6 +54,20 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 .body(
                         ErrorResponse.of(
                                 ErrorCode.INVALID, ErrorCode.INVALID.defaultMessage(), violations));
+    }
+
+    /**
+     * 업로드 크기 한도(`spring.servlet.multipart`) 초과. Spring 기본은 413이지만 파일 크기는 입력 오류라 CONTRACTS 2장대로
+     * {@code invalid} 400으로 맞춘다 (FR-CUS-08, C4)
+     */
+    @Override
+    protected ResponseEntity<Object> handleMaxUploadSizeExceededException(
+            MaxUploadSizeExceededException e,
+            HttpHeaders headers,
+            HttpStatusCode status,
+            WebRequest request) {
+        return ResponseEntity.badRequest()
+                .body(ErrorResponse.of(ErrorCode.INVALID, "파일이 너무 큽니다", null));
     }
 
     /** 그 밖의 Spring MVC 표준 예외: HTTP 상태는 그대로 두고 404는 not_found, 5xx는 internal_error, 나머지는 invalid */
