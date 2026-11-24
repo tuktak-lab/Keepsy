@@ -148,12 +148,19 @@ class CustomerController {
     @RequireFeature(FeatureKey.CONTACT_FULL)
     @GetMapping("/api/customers/{customerId}/contact")
     ContactResponse contact(@PathVariable long customerId) {
-        return new ContactResponse(customerService.contact(shopSession.shopId(), customerId));
+        String phone = customerService.contact(shopSession.shopId(), customerId);
+        accessLogger.record(
+                FeatureKey.CONTACT_FULL, AccessLogger.CUSTOMER, customerId, Action.VIEW);
+        return new ContactResponse(phone);
     }
 
     @RequireFeature(FeatureKey.CUSTOMER_VIEW)
     @GetMapping("/api/customers/{customerId}/consents")
     CustomerService.Consents consents(@PathVariable long customerId) {
-        return customerService.consents(shopSession.shopId(), customerId);
+        CustomerService.Consents consents =
+                customerService.consents(shopSession.shopId(), customerId);
+        accessLogger.record(
+                FeatureKey.CUSTOMER_VIEW, AccessLogger.CUSTOMER, customerId, Action.VIEW);
+        return consents;
     }
 }

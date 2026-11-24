@@ -1,5 +1,7 @@
 package com.tuktaklab.keepsy.reservation;
 
+import com.tuktaklab.keepsy.common.audit.AccessLogger;
+import com.tuktaklab.keepsy.common.audit.AccessLogger.Action;
 import com.tuktaklab.keepsy.common.security.FeatureGuard;
 import com.tuktaklab.keepsy.common.security.FeatureKey;
 import com.tuktaklab.keepsy.common.security.RequireFeature;
@@ -41,6 +43,7 @@ class ReservationController {
     private final ShopSession shopSession;
     private final FeatureGuard featureGuard;
     private final ReservationCalendarQuery calendar;
+    private final AccessLogger accessLogger;
 
     record AvailableTimesResponse(List<OffsetDateTime> startTimes) {}
 
@@ -97,7 +100,16 @@ class ReservationController {
 
     @GetMapping("/{reservationId}")
     ReservationAppService.ReservationDetail detail(@PathVariable long reservationId) {
-        return service.detail(shopId(), reservationId);
+        ReservationAppService.ReservationDetail detail = service.detail(shopId(), reservationId);
+        if (detail.customer() != null) {
+            // 고객 이름 · 주의사항을 보여 주므로 그 고객의 개인정보 조회 (NFR-06, CONTRACTS 6장)
+            accessLogger.record(
+                    FeatureKey.RESERVATION,
+                    AccessLogger.CUSTOMER,
+                    detail.customer().id(),
+                    Action.VIEW);
+        }
+        return detail;
     }
 
     @PostMapping("/{reservationId}/cancel")

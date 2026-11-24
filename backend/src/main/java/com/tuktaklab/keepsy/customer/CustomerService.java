@@ -1,7 +1,10 @@
 package com.tuktaklab.keepsy.customer;
 
+import com.tuktaklab.keepsy.common.audit.AccessLogger;
+import com.tuktaklab.keepsy.common.audit.AccessLogger.Action;
 import com.tuktaklab.keepsy.common.error.ApiException;
 import com.tuktaklab.keepsy.common.error.ErrorCode;
+import com.tuktaklab.keepsy.common.security.FeatureKey;
 import com.tuktaklab.keepsy.common.web.PageResponse;
 import com.tuktaklab.keepsy.customer.query.ConsentHistoryQuery;
 import com.tuktaklab.keepsy.customer.query.CustomerDetailQuery;
@@ -30,6 +33,7 @@ public class CustomerService {
     private final CustomerListQuery listQuery;
     private final ConsentHistoryQuery consentHistoryQuery;
     private final CustomerDetailQuery detailQuery;
+    private final AccessLogger accessLogger;
     private final Clock clock;
 
     /**
@@ -94,7 +98,9 @@ public class CustomerService {
             // 두 고객을 동시에 같은 번호로 바꾸면 고유 제약(uk_customer_shop_phone)이 하나만 남긴다
             throw duplicatePhone();
         }
-        // ponytail: 접근 로그(NFR-06, PIN 인증 스탭으로)는 기록 수단(#12)이 머지되면 여기서 수정으로 남긴다
+        // 수정과 접근 로그를 한 트랜잭션에 묶어, 바뀌었는데 기록이 없는 일이 없게 한다 (NFR-06)
+        accessLogger.record(
+                FeatureKey.CUSTOMER_EDIT, AccessLogger.CUSTOMER, customerId, Action.UPDATE);
     }
 
     /** 목록 항목 (CONTRACTS 6장 「고객 (CUS)」). 번호는 마스킹한다 (NFR-04) */
@@ -157,7 +163,6 @@ public class CustomerService {
      */
     @Transactional(readOnly = true)
     public CustomerDetailQuery.Detail detail(long shopId, long customerId) {
-        // ponytail: 접근 로그(NFR-06)는 기록 수단(#12)이 머지되면 여기서 개인정보 조회로 남긴다
         return detailQuery
                 .find(shopId, customerId)
                 .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND));
@@ -171,7 +176,6 @@ public class CustomerService {
      */
     @Transactional(readOnly = true)
     public String contact(long shopId, long customerId) {
-        // ponytail: 접근 로그(NFR-06, PIN 인증 스탭으로)는 기록 수단(#12)이 머지되면 여기서 남긴다
         return customerRepository
                 .findByIdAndShopIdAndStatus(customerId, shopId, Customer.Status.ACTIVE)
                 .map(Customer::getPhone)
@@ -196,7 +200,6 @@ public class CustomerService {
                 customerId, shopId, Customer.Status.ACTIVE)) {
             throw new ApiException(ErrorCode.NOT_FOUND);
         }
-        // ponytail: 접근 로그(NFR-06)는 기록 수단(#12)이 머지되면 여기서 개인정보 조회로 남긴다
         List<ConsentHistoryQuery.Row> history = consentHistoryQuery.find(shopId, customerId);
         Map<Consent.Item, ConsentHistoryQuery.Row> latest = new EnumMap<>(Consent.Item.class);
         history.forEach(r -> latest.put(r.item(), r));

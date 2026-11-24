@@ -227,7 +227,6 @@ public class ReservationAppService {
                         .map(ReservationService::getServiceMenuId)
                         .toList();
         Map<Long, MenuSummary> menus = refs.menuSummaries(shopId, menuIds);
-        // ponytail: 주의사항 조회 접근 로그(NFR-06)는 access_log(#11 · #12)가 생기면 여기서 남긴다
         CustomerView customer =
                 r.getCustomerId() == null
                         ? null
