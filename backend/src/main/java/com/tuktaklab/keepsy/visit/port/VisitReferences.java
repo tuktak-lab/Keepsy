@@ -25,6 +25,9 @@ public interface VisitReferences {
     /** 방문 삭제: 그 방문에 연결된 예약을 모두 확정으로 되돌린다 (F8) */
     void reopenReservations(long shopId, long visitId);
 
+    /** 방문 수정: 그 방문에 연결된 예약 중 가장 이른 예약 ID (새로 더한 시술의 예약, F25). 없으면 null */
+    Long earliestReservationId(long shopId, long visitId);
+
     /** 방문 삭제: 사진 행을 지우고, 파일은 트랜잭션이 커밋된 뒤 지운다 (F8, F16) */
     void deletePhotos(long shopId, long visitId);
 

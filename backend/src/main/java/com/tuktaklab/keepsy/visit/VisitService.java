@@ -64,4 +64,10 @@ public class VisitService {
         this.staffId = staffId;
         this.cycleExcluded = cycleExcluded;
     }
+
+    /** 방문 수정: 메뉴는 그대로 두고 담당 스탭 · 주기 계산 제외만 바꾼다 (귀속 유지, F25) */
+    void edit(long staffId, boolean cycleExcluded) {
+        this.staffId = staffId;
+        this.cycleExcluded = cycleExcluded;
+    }
 }
