@@ -139,6 +139,7 @@ public class ReservationAppService {
             ReservationStatus status,
             boolean consultFirst,
             boolean servicesConfirmed,
+            Long visitId,
             List<Long> plannedMenuIds) {}
 
     /** 예약을 행 잠금으로 읽는다. 같은 예약의 완료 · 마감이 동시에 들어와도 한 번만 처리된다 */
@@ -156,6 +157,7 @@ public class ReservationAppService {
                 r.getStatus(),
                 r.isConsultFirst(),
                 r.isServicesConfirmed(),
+                r.getVisitId(),
                 r.getServices().stream().map(ReservationService::getServiceMenuId).toList());
     }
 

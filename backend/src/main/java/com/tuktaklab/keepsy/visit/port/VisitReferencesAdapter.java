@@ -5,7 +5,9 @@ import com.tuktaklab.keepsy.reservation.ReservationAppService.ClosingTarget;
 import com.tuktaklab.keepsy.reservation.ReservationStatus;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Component;
@@ -30,6 +32,8 @@ class VisitReferencesAdapter implements VisitReferences {
                 t.staffId(),
                 t.date(),
                 t.status() == ReservationStatus.CONFIRMED,
+                t.status() == ReservationStatus.COMPLETED,
+                t.visitId(),
                 t.plannedMenuIds());
     }
 
@@ -52,6 +56,18 @@ class VisitReferencesAdapter implements VisitReferences {
                     result.put(rs.getLong("id"), rs.getString("category"));
                 });
         return result;
+    }
+
+    @Override
+    public Set<Long> shopStaffIds(long shopId, Collection<Long> staffIds) {
+        if (staffIds.isEmpty()) {
+            return Set.of();
+        }
+        return new HashSet<>(
+                jdbc.queryForList(
+                        "SELECT id FROM staff WHERE shop_id = :shopId AND id IN (:ids)",
+                        Map.of("shopId", shopId, "ids", staffIds),
+                        Long.class));
     }
 
     @Override

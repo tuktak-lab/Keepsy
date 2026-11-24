@@ -4,6 +4,7 @@ import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /** 방문이 다른 도메인(예약 · 시술 메뉴 · 고객)에서 필요한 값과 동작 (DEVELOPMENT 4장 「도메인 연동」). 모두 세션 매장 조건 (NFR-03) */
 public interface VisitReferences {
@@ -21,11 +22,19 @@ public interface VisitReferences {
     /** 고객 행을 트랜잭션 끝까지 잠근다. 같은 고객 · 같은 날 방문이 동시에 두 건 생기지 않게 한다 (C6) */
     void lockCustomer(long shopId, long customerId);
 
+    /** 그 매장 스탭 ID만 남긴다 (시술별 담당 스탭 확인) */
+    Set<Long> shopStaffIds(long shopId, Collection<Long> staffIds);
+
+    /**
+     * @param visitId 완료된 예약이면 연결된 방문
+     */
     record ReservationToClose(
             long id,
             Long customerId,
             long staffId,
             LocalDate date,
             boolean confirmed,
+            boolean completed,
+            Long visitId,
             List<Long> plannedMenuIds) {}
 }

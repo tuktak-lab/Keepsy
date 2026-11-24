@@ -5,20 +5,29 @@ import com.tuktaklab.keepsy.common.error.ErrorCode;
 import com.tuktaklab.keepsy.visit.Visit.ActualService;
 import com.tuktaklab.keepsy.visit.port.VisitReferences;
 import com.tuktaklab.keepsy.visit.port.VisitReferences.ReservationToClose;
+import java.time.Clock;
+import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/** 예약 완료로 방문을 만드는 규칙 (FR-VIS-01·02, A13, C6). 시술 마감 카드(FR-PAY-04)도 같은 규칙을 쓴다. */
+/**
+ * 예약 완료로 방문을 만드는 규칙 (FR-VIS-01·02, A13, C6)과 시술 마감 카드 저장 (FR-PAY-01·04, E3, E4). 결제 · 방문 생성 · 방문 메모
+ * · 예약 완료를 한 트랜잭션에서 처리한다 (ARCHITECTURE 4장, 점검표 D-7의 의식적 예외).
+ */
 @Service
 @RequiredArgsConstructor
 public class VisitAppService {
 
     private final VisitRepository visits;
+    private final PaymentRepository payments;
+    private final VisitNoteRepository notes;
     private final VisitReferences refs;
+    private final Clock clock;
 
     /**
      * {@code POST /api/reservations/{id}/complete}: 결제 없이 완료 처리 (FR-VIS-01).
@@ -35,30 +44,120 @@ public class VisitAppService {
         if (r.customerId() == null) {
             throw new ApiException(ErrorCode.CONFLICT, "고객 없는 예약은 시술 마감 카드에서 마감해 주세요");
         }
-        if (actualMenuIds != null && actualMenuIds.isEmpty()) {
+        List<Closing.Item> items =
+                actualMenuIds == null
+                        ? null
+                        : actualMenuIds.stream()
+                                .map(id -> new Closing.Item(id, r.staffId(), false))
+                                .toList();
+        return completeWithVisit(shopId, r, items).getId();
+    }
+
+    /**
+     * {@code POST /api/reservations/{id}/closing}: 시술 마감 카드 저장 (FR-PAY-04). 확정 예약이면 방문을 만들고 완료하고,
+     * 이미 완료된 예약이면 같은 방문에 결제 · 메모만 더한다 (E4).
+     *
+     * @param actorStaffId 현재 근무자 (메모 작성 스탭, FR-ACC-10)
+     * @return 방문 ID. 화면은 이 ID로 사진을 따로 올린다 (F9)
+     */
+    @Transactional
+    public long close(long shopId, long reservationId, Closing in, long actorStaffId) {
+        if (in.method() == null || in.amount() < 0) {
+            throw new ApiException(ErrorCode.INVALID, "금액과 결제 수단을 입력해 주세요");
+        }
+        ReservationToClose r = refs.lockReservation(shopId, reservationId);
+        boolean hasMemo = in.memo() != null && !in.memo().isBlank();
+        Visit visit;
+        if (r.confirmed()) {
+            if (r.customerId() == null && !in.noCustomer()) {
+                throw new ApiException(ErrorCode.CONFLICT, "고객을 먼저 연결하거나 고객 없음으로 마감해 주세요");
+            }
+            if (r.customerId() != null && in.noCustomer()) {
+                throw new ApiException(ErrorCode.INVALID, "고객이 연결된 예약은 고객 없음으로 마감할 수 없습니다");
+            }
+            if (in.noCustomer() && (hasMemo || anyCycleExcluded(in.services()))) {
+                throw new ApiException(ErrorCode.INVALID, "고객 없음으로 마감하면 메모와 주기 계산 제외를 남길 수 없습니다");
+            }
+            visit = completeWithVisit(shopId, r, in.services());
+        } else if (r.completed()) {
+            // 완료된 예약: 결제 · 메모만 더하고 실제 시술은 읽기 전용 (E4, 시술 수정은 FR-VIS-03)
+            if (in.services() != null) {
+                throw new ApiException(ErrorCode.INVALID, "완료된 예약의 실제 시술은 방문 수정에서 바꿔 주세요");
+            }
+            visit = visits.findById(r.visitId()).orElseThrow();
+            if (visit.getCustomerId() == null && hasMemo) {
+                throw new ApiException(ErrorCode.INVALID, "고객 없음으로 마감한 방문에는 메모를 남길 수 없습니다");
+            }
+        } else {
+            throw new ApiException(ErrorCode.CONFLICT, "취소 · 노쇼 예약은 마감할 수 없습니다");
+        }
+
+        LocalDateTime now = LocalDateTime.now(clock);
+        payments.save(
+                Payment.of(
+                        shopId,
+                        visit.getCustomerId(),
+                        r.id(),
+                        visit.getId(),
+                        in.amount(),
+                        in.method(),
+                        now));
+        if (hasMemo) {
+            notes.save(VisitNote.of(shopId, visit.getId(), actorStaffId, in.memo(), now));
+        }
+        // ponytail: 예측 재계산(FR-PRD-01) · 고객 마지막 방문일(FR-CUS-12) · 귀속(FR-VIS-04)은 그 서비스가 생기면 여기서 부른다
+        return visit.getId();
+    }
+
+    /** 확정 예약 하나를 방문에 붙이고 완료로 바꾼다. 고객이 있으면 같은 날 방문에 합치고, 없으면 예약마다 새 방문 (C6, E3) */
+    private Visit completeWithVisit(long shopId, ReservationToClose r, List<Closing.Item> items) {
+        if (items != null && items.isEmpty()) {
             throw new ApiException(ErrorCode.INVALID, "실제 시술을 1개 이상 골라 주세요");
         }
-        List<Long> menuIds = actualMenuIds != null ? actualMenuIds : r.plannedMenuIds();
-        Map<Long, String> categories = refs.menuCategories(shopId, new HashSet<>(menuIds));
-        if (!categories.keySet().containsAll(menuIds)) {
+        List<Closing.Item> actual =
+                items != null
+                        ? items
+                        : r.plannedMenuIds().stream()
+                                .map(id -> new Closing.Item(id, r.staffId(), false))
+                                .toList();
+        Set<Long> menuIds =
+                new HashSet<>(actual.stream().map(Closing.Item::serviceMenuId).toList());
+        Set<Long> staffIds = new HashSet<>(actual.stream().map(Closing.Item::staffId).toList());
+        Map<Long, String> categories = refs.menuCategories(shopId, menuIds);
+        if (!categories.keySet().containsAll(menuIds)
+                || !refs.shopStaffIds(shopId, staffIds).containsAll(staffIds)) {
             throw new ApiException(ErrorCode.NOT_FOUND);
         }
 
-        // 같은 고객 · 같은 날 방문 1건 (C6). 동시에 두 예약이 완료돼도 방문이 하나만 생기게 고객 행을 잠근다
-        refs.lockCustomer(shopId, r.customerId());
-        Visit visit =
-                visits.findByShopIdAndCustomerIdAndVisitDate(shopId, r.customerId(), r.date())
-                        .orElseGet(() ->
-                                visits.save(
-                                        Visit.fromReservation(shopId, r.customerId(), r.date())));
+        Visit visit;
+        if (r.customerId() == null) {
+            visit = visits.save(Visit.fromReservation(shopId, null, r.date()));
+        } else {
+            // 같은 고객 · 같은 날 방문 1건 (C6). 동시에 두 예약이 완료돼도 방문이 하나만 생기게 고객 행을 잠근다
+            refs.lockCustomer(shopId, r.customerId());
+            visit =
+                    visits.findByShopIdAndCustomerIdAndVisitDate(shopId, r.customerId(), r.date())
+                            .orElseGet(() ->
+                                    visits.save(
+                                            Visit.fromReservation(
+                                                    shopId, r.customerId(), r.date())));
+        }
         visit.addReservationServices(
                 r.id(),
-                r.staffId(),
-                menuIds.stream().map(id -> new ActualService(id, categories.get(id))).toList());
+                actual.stream()
+                        .map(i ->
+                                new ActualService(
+                                        i.serviceMenuId(),
+                                        categories.get(i.serviceMenuId()),
+                                        i.staffId(),
+                                        i.cycleExcluded()))
+                        .toList());
         visits.flush();
+        refs.completeReservation(shopId, r.id(), visit.getId(), items != null);
+        return visit;
+    }
 
-        refs.completeReservation(shopId, r.id(), visit.getId(), actualMenuIds != null);
-        // ponytail: 예측 재계산(FR-PRD-01) · 고객 마지막 방문일(FR-CUS-12) 갱신은 그 서비스가 생기면 여기서 부른다
-        return visit.getId();
+    private static boolean anyCycleExcluded(List<Closing.Item> items) {
+        return items != null && items.stream().anyMatch(Closing.Item::cycleExcluded);
     }
 }

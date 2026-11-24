@@ -73,6 +73,8 @@ public class TestShopData {
                     List.of(
                             "reservation_service",
                             "visit_service",
+                            "payment",
+                            "visit_note",
                             "reservation",
                             "visit",
                             "day_off",
