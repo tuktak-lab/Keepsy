@@ -5,6 +5,8 @@ import com.tuktaklab.keepsy.campaign.query.CampaignTargetQuery.Selection;
 import com.tuktaklab.keepsy.common.error.ApiException;
 import com.tuktaklab.keepsy.common.error.ErrorCode;
 import com.tuktaklab.keepsy.common.error.GlobalExceptionHandler.FieldViolation;
+import java.time.Clock;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -15,7 +17,7 @@ import org.springframework.jdbc.core.namedparam.SqlParameterSourceUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/** 캠페인 만들기 · 대조군 (FR-CMP-01 · 03 · 18, E2, 결정 F41) */
+/** 캠페인 만들기 · 대조군 · 검토 체크 (FR-CMP-01 · 03 · 06 · 18, E2, 결정 F41) */
 @Service
 @RequiredArgsConstructor
 public class CampaignService {
@@ -24,6 +26,7 @@ public class CampaignService {
     private final MessageTemplateRepository templates;
     private final CampaignTargets targets;
     private final NamedParameterJdbcTemplate jdbc;
+    private final Clock clock;
 
     /**
      * 대상을 다시 골라 {@code campaign_target}에 저장하고, 광고면 제외 후 대상 수 × 비율을 내림한 인원을 무작위로 대조군으로 정한다. 대조군
@@ -37,10 +40,10 @@ public class CampaignService {
     @Transactional
     public long create(
             long shopId, String name, long templateId, int controlPercent, Selection selection) {
+        // 템플릿 수정(F43)과 차례를 정하려고 템플릿 행을 잠근다. 수정이 먼저면 고친 템플릿으로 만든다
         MessageTemplate template =
                 templates
-                        .findById(templateId)
-                        .filter(t -> t.getShopId() == shopId)
+                        .findForUpdateByIdAndShopId(templateId, shopId)
                         .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND));
         boolean info = template.getPurpose().messageKind() == TemplatePurpose.MessageKind.INFO;
         if (info && controlPercent != 0) {
@@ -80,6 +83,22 @@ public class CampaignService {
                         + " VALUES (:shopId, :campaignId, :customerId, :control)",
                 SqlParameterSourceUtils.createBatch(rows));
         return campaign.getId();
+    }
+
+    /**
+     * 검토 체크 (FR-CMP-06 · 13). 작성 중일 때만 검토자 · 시각을 기록하고, 다시 체크하면 새로 쓴다.
+     *
+     * @param staffId 잠긴 상태면 PIN 인증 스탭, 공용이면 현재 근무자 (ARCHITECTURE 6장)
+     * @throws ApiException 다른 매장 · 없는 캠페인이면 {@code not_found}, 작성 중이 아니면 {@code conflict}
+     */
+    @Transactional
+    public void review(long shopId, long campaignId, long staffId) {
+        if (campaigns.review(campaignId, shopId, staffId, LocalDateTime.now(clock)) == 1) {
+            return;
+        }
+        throw campaigns.existsByIdAndShopId(campaignId, shopId)
+                ? new ApiException(ErrorCode.CONFLICT, "작성 중인 캠페인만 검토할 수 있습니다")
+                : new ApiException(ErrorCode.NOT_FOUND);
     }
 
     private static ApiException invalid(String field, String reason) {

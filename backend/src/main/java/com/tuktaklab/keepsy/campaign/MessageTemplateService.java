@@ -48,6 +48,7 @@ public class MessageTemplateService {
     private static final Pattern VARIABLE = Pattern.compile("\\{([^{}]*)\\}");
 
     private final MessageTemplateRepository templates;
+    private final CampaignRepository campaigns;
 
     public record TemplateItem(
             long id,
@@ -77,12 +78,25 @@ public class MessageTemplateService {
         return templates.save(MessageTemplate.of(shopId, name, body, purpose)).getId();
     }
 
-    /** {@code PATCH /api/message-templates/{id}}: 같은 본문을 통째로 바꾼다 */
+    /**
+     * {@code PATCH /api/message-templates/{id}}: 같은 본문을 통째로 바꾼다. 작성 중 · 예약 발송 대기 캠페인이 쓰면 거부한다 (F43)
+     *
+     * @throws ApiException 다른 매장 · 없는 템플릿이면 {@code not_found}, 발송 전 캠페인이 쓰면 {@code conflict}
+     */
     @Transactional
     public void update(
             long shopId, long templateId, String name, String body, TemplatePurpose purpose) {
         validate(body, purpose);
-        find(shopId, templateId).update(name, body, purpose);
+        // 캠페인 만들기도 이 행을 잠그므로, 만들기가 먼저 커밋되면 아래 확인이 그 캠페인을 본다
+        MessageTemplate template =
+                templates
+                        .findForUpdateByIdAndShopId(templateId, shopId)
+                        .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND));
+        if (campaigns.existsByShopIdAndTemplateIdAndStatusIn(
+                shopId, templateId, List.of(Campaign.Status.DRAFT, Campaign.Status.SCHEDULED))) {
+            throw new ApiException(ErrorCode.CONFLICT, "발송 전 캠페인이 쓰는 템플릿은 고칠 수 없습니다");
+        }
+        template.update(name, body, purpose);
     }
 
     /**

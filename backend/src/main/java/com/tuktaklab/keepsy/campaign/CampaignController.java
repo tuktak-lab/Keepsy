@@ -1,10 +1,12 @@
 package com.tuktaklab.keepsy.campaign;
 
 import com.tuktaklab.keepsy.campaign.query.CampaignTargetQuery.Selection;
+import com.tuktaklab.keepsy.common.security.FeatureGuard;
 import com.tuktaklab.keepsy.common.security.FeatureKey;
 import com.tuktaklab.keepsy.common.security.RequireFeature;
 import com.tuktaklab.keepsy.common.security.ShopSession;
 import com.tuktaklab.keepsy.prediction.PredictionStatus;
+import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -17,6 +19,7 @@ import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -31,6 +34,7 @@ class CampaignController {
     private final CampaignTargets targets;
     private final CampaignService campaigns;
     private final ShopSession shopSession;
+    private final FeatureGuard featureGuard;
 
     /** 대상 고르기 (CONTRACTS 6장). 캠페인 만들기도 같은 칸을 받는다 */
     record TargetsRequest(
@@ -103,5 +107,15 @@ class CampaignController {
                                 r.predictionStatus(),
                                 r.lastServiceFrom(),
                                 r.lastServiceTo())));
+    }
+
+    /** 검토 체크 (FR-CMP-06). 본문 없음 */
+    @PostMapping("/api/campaigns/{campaignId}/review")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    void review(@PathVariable long campaignId, HttpSession session) {
+        campaigns.review(
+                shopSession.shopId(),
+                campaignId,
+                featureGuard.actorStaffId(session, FeatureKey.CAMPAIGN_SEND));
     }
 }
