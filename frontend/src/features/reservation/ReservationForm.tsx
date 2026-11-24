@@ -1,20 +1,18 @@
 import { useEffect, useState } from 'react';
 import { toast } from '@/components/common/Toast';
-import { ApiError, api, type Page } from '@/lib/api';
+import { ApiError, api } from '@/lib/api';
 import { CHANNEL_LABEL, hmOf, seoulParts, type Channel, type DateStr } from '@/lib/calendar';
 import { defaultMinutes, detailsText, MINUTE_STEPS, toRequest, validate, type FormValues } from '@/lib/reservationForm';
-import { nameFromSearch } from '@/lib/newCustomer';
 import { ACTION_TEXT, actionPath, canMarkNoShow, confirmText, NO_SHOW_TOO_EARLY, type StatusAction } from '@/lib/reservationActions';
-import { NewCustomerForm } from './NewCustomerForm';
+import { CustomerSearch, type CustomerPick } from './CustomerSearch';
 
 // 예약 등록 · 일정 변경 폼 (FR-RSV-01 · 04). 요청 규칙은 docs CONTRACTS 6장 「예약 (RSV)」.
 // 시작 시각은 서버가 알려 주는 가능 시각(영업시간 밖 · 휴무 · 겹침 제외)에서만 고른다. 저장할 때 서버가 다시 검사한다.
-// 검색에 없는 고객은 여기서 바로 등록한다 (NewCustomerForm). 고객 없는 예약에 고객 연결은 예약 상세(#128)에서 한다.
+// 고객은 CustomerSearch로 찾거나 바로 등록한다. 고객 없는 예약에 고객 연결은 예약 상세(#128)에서 한다.
 // 일정 변경 창에서는 예약 취소 · 노쇼 처리도 한다 (FR-RSV-03, lib/reservationActions). 되돌릴 수 없어 한 번 더 확인한다.
 
 type StaffRef = { id: number; name: string };
 type Menu = { id: number; name: string; durationMinutes: number };
-type CustomerItem = { customerId: number; name: string; phone: string };
 type Detail = {
   startAt: string;
   minutes: number;
@@ -61,9 +59,6 @@ export function ReservationForm(props: {
   const [hadCustomer, setHadCustomer] = useState(false);
   const [customerName, setCustomerName] = useState('');
   const [noShow, setNoShow] = useState<number | null>(null);
-  const [search, setSearch] = useState('');
-  const [results, setResults] = useState<CustomerItem[]>([]);
-  const [creating, setCreating] = useState(false); // 신규 고객 등록 칸을 펼침
   const [timesFor, setTimesFor] = useState<{ key: string; list: string[] } | null>(null);
   const [tick, setTick] = useState(0); // 겹침으로 거절되면 가능 시각을 다시 읽는다
   const [error, setError] = useState('');
@@ -135,22 +130,6 @@ export function ReservationForm(props: {
   const options = loaded ? [...new Set([...loaded, ...(keepOwn ? [own.hm] : [])])].sort() : [];
   const startTime = options.includes(v.startTime) ? v.startTime : '';
 
-  // 고객 검색 (이름 포함 · 휴대폰 뒷 4자리, FR-CUS-02). 입력이 멈추면 한 번만 부른다
-  useEffect(() => {
-    const q = search.trim();
-    if (!q) return;
-    let cancelled = false;
-    const timer = setTimeout(() => {
-      api<Page<CustomerItem>>(`/api/customers?q=${encodeURIComponent(q)}&size=8`, { silent: true })
-        .then((p) => !cancelled && setResults(p.items))
-        .catch(() => !cancelled && setResults([]));
-    }, 250);
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, [search]);
-
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && !busy && onClose();
     window.addEventListener('keydown', onKey);
@@ -162,27 +141,16 @@ export function ReservationForm(props: {
     setV((cur) => ({ ...cur, ...patch }));
   };
 
-  const pickCustomer = (c: CustomerItem) => {
-    set({ customerId: c.customerId });
-    setCustomerName(c.name);
-    setSearch('');
-    setResults([]);
-    setNoShow(null);
-    // 고객을 고르면 그 고객의 노쇼 횟수를 함께 보여 준다 (C8)
-    api<{ noShowCount: number }>(`/api/customers/${c.customerId}`, { silent: true })
-      .then((d) => setNoShow(d.noShowCount))
-      .catch(() => setNoShow(null));
-  };
-
-  // 방금 등록한 고객을 이 예약의 고객으로 고른다 (새 고객은 노쇼가 없다)
-  const createdCustomer = (c: { id: number; name: string }) => {
+  const pickCustomer = (c: CustomerPick, created: boolean) => {
     set({ customerId: c.id });
     setCustomerName(c.name);
-    setCreating(false);
-    setSearch('');
-    setResults([]);
-    setNoShow(0);
-    toast('고객을 등록했어요.');
+    // 고객을 고르면 그 고객의 노쇼 횟수를 함께 보여 준다 (C8). 방금 등록한 고객은 노쇼가 없다
+    setNoShow(created ? 0 : null);
+    if (!created) {
+      api<{ noShowCount: number }>(`/api/customers/${c.id}`, { silent: true })
+        .then((d) => setNoShow(d.noShowCount))
+        .catch(() => setNoShow(null));
+    }
   };
 
   const hasCustomer = editing ? hadCustomer : v.customerMode === 'pick';
@@ -271,46 +239,14 @@ export function ReservationForm(props: {
                       </button>
                     </div>
                   ) : (
-                    <>
-                      <input
-                        className="inp"
-                        placeholder="이름 또는 휴대폰 뒷 4자리로 검색"
-                        value={search}
-                        disabled={v.customerMode === 'none' || creating}
-                        onChange={(e) => setSearch(e.target.value)}
-                        autoFocus
-                      />
-                      {!creating && search.trim() && results.length > 0 ? (
-                        <ul className="cust-list">
-                          {results.map((c) => (
-                            <li key={c.customerId}>
-                              <button type="button" onClick={() => pickCustomer(c)}>
-                                <b>{c.name}</b>
-                                <span className="num">{c.phone}</span>
-                              </button>
-                            </li>
-                          ))}
-                        </ul>
-                      ) : null}
-                      {!creating && search.trim() && results.length === 0 ? <p className="meta" style={{ marginTop: 6 }}>검색 결과가 없어요.</p> : null}
-                      {v.customerMode === 'pick' && !creating ? (
-                        <button type="button" className="linkbtn" onClick={() => setCreating(true)}>
-                          + 신규 고객 등록
-                        </button>
-                      ) : null}
-                      {v.customerMode === 'pick' && creating ? (
-                        <NewCustomerForm initialName={nameFromSearch(search)} onCreated={createdCustomer} onCancel={() => setCreating(false)} />
-                      ) : null}
-                    </>
+                    // key: 「고객 없이 시간만 막기」를 켰다 끄면 검색 · 등록 칸을 처음 상태로 되돌린다
+                    <CustomerSearch key={v.customerMode} disabled={v.customerMode === 'none'} onPick={pickCustomer} />
                   )}
                   <label className="chk" style={{ marginTop: '8px' }}>
                     <input
                       type="checkbox"
                       checked={v.customerMode === 'none'}
-                      onChange={(e) => {
-                        setCreating(false);
-                        set(e.target.checked ? { customerMode: 'none', customerId: null, memo: '' } : { customerMode: 'pick' });
-                      }}
+                      onChange={(e) => set(e.target.checked ? { customerMode: 'none', customerId: null, memo: '' } : { customerMode: 'pick' })}
                     />
                     <span>고객 없이 시간만 막기 (다른 앱으로 받은 예약)</span>
                   </label>
