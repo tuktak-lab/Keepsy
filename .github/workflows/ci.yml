@@ -1,7 +1,6 @@
-# 백엔드 CI: PR과 main push에서 test · build (docs DEVELOPMENT 7장 「CI (개발 저장소)」).
+# CI: PR과 main push에서 백엔드 test · build, 프론트 lint · build (docs DEVELOPMENT 7장 「CI (개발 저장소)」).
 # job 이름 `backend`는 main 브랜치 보호의 필수 status check 이름과 같아야 한다.
 # DB가 필요한 테스트는 내장 DB 대신 MySQL 8.4 서비스 컨테이너로 돌린다 (compose.yaml과 같은 버전).
-# 프론트 lint · build job은 frontend/가 올라온 뒤 추가한다.
 name: ci
 
 on:
@@ -58,3 +57,21 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - name: Test and build
         run: ./gradlew build
+
+  frontend:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: frontend/.nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
