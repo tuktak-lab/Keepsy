@@ -1,0 +1,27 @@
+/* 매장 가입. 카드 · 입력 · 버튼은 LoginPage.module.css를 같이 쓰고, 칸이 많아 간격만 줄인다. */
+.card {
+  padding-top: 48px;
+  padding-bottom: 40px;
+}
+
+.card form {
+  gap: 14px;
+}
+
+.card input {
+  height: 50px;
+}
+
+.hint {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.fieldError {
+  font-size: 13px;
+  color: #8a2f3f;
+}
+
+.invalid {
+  border-color: #c0697a;
+}
