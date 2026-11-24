@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import '@/styles/base.css';
+import { ClientEffects } from '@/components/common/ClientEffects';
 
 export const metadata: Metadata = {
   title: 'Keepsy',
@@ -21,7 +22,10 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400;500;600&family=Playfair+Display:wght@400;500;600&display=swap"
         />
       </head>
-      <body>{children}</body>
+      <body>
+        {children}
+        <ClientEffects />
+      </body>
     </html>
   );
 }

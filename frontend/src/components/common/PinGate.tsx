@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useState, useSyncExternalStore, type ReactNode } from 'react';
 
 // 기획서 8장: 잠긴 기능(캠페인·성과·설정 등)은 허용된 스탭이 PIN을 다시 입력해야 열립니다.
 // 시연용: PIN은 1234, 한 번 열면 이 브라우저 탭이 닫힐 때까지 유지됩니다(sessionStorage).
@@ -12,8 +12,18 @@ function readUnlocked(id: string): boolean {
   }
 }
 
+// sessionStorage 는 브라우저에만 있으므로 정적 빌드(서버)에서는 늘 잠김으로 그린다.
+// useSyncExternalStore 로 서버 값(false)과 브라우저 값을 나눠 받아, 이미 연 화면도 hydration 불일치 없이 열린다.
+const noSubscribe = () => () => {};
+
 export function PinGate(props: { id: string; title: string; children: ReactNode }) {
-  const [open, setOpen] = useState(() => readUnlocked(props.id));
+  const savedOpen = useSyncExternalStore(
+    noSubscribe,
+    () => readUnlocked(props.id),
+    () => false,
+  );
+  const [justOpened, setOpen] = useState(false);
+  const open = savedOpen || justOpened;
   const [pin, setPin] = useState('');
   const [err, setErr] = useState(false);
 
@@ -54,8 +64,8 @@ export function PinGate(props: { id: string; title: string; children: ReactNode 
         }}
       >
         <div style={{ fontSize: '28px', lineHeight: 1 }} aria-hidden="true">🔒</div>
-        <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 600, color: '#2F2826' }}>{props.title}</h2>
-        <p style={{ margin: 0, fontSize: '13px', color: '#7A6D68', lineHeight: 1.6 }}>
+        <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 600, color: '#221D1B' }}>{props.title}</h2>
+        <p style={{ margin: 0, fontSize: '13px', color: '#6B605B', lineHeight: 1.6 }}>
           잠긴 기능입니다. 사용이 허용된 스탭의 PIN을 입력해 주세요.
         </p>
         <input
@@ -83,11 +93,11 @@ export function PinGate(props: { id: string; title: string; children: ReactNode 
         {err && <span style={{ fontSize: '12px', color: '#8F2F2F' }}>PIN이 맞지 않아요. 다시 입력해 주세요.</span>}
         <button
           type="submit"
-          style={{ height: '46px', border: 0, borderRadius: '12px', background: '#85505A', color: '#fff', font: "500 14px 'Noto Sans KR', sans-serif", cursor: 'pointer' }}
+          style={{ height: '46px', border: 0, borderRadius: '12px', background: '#7A4450', color: '#fff', font: "500 14px 'Noto Sans KR', sans-serif", cursor: 'pointer' }}
         >
           열기
         </button>
-        <span style={{ fontSize: '11.5px', color: '#9A8D88' }}>시연용 PIN: 1234</span>
+        <span style={{ fontSize: '11.5px', color: '#6B605B' }}>시연용 PIN: 1234</span>
       </form>
     </div>
   );
