@@ -1,22 +1,66 @@
 package com.tuktaklab.keepsy.account;
 
+import com.tuktaklab.keepsy.account.ShopInfoService.ShopInfo;
+import com.tuktaklab.keepsy.common.security.RequireWorker;
+import com.tuktaklab.keepsy.common.security.ShopSession;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
+import java.time.DayOfWeek;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-/** 매장 가입 API (CONTRACTS 4 · 6장 [제안]). 비로그인 */
+/** 매장 가입(비로그인) · 매장 정보 조회(근무자) API (CONTRACTS 4 · 6장 [제안]) */
 @RestController
 @RequiredArgsConstructor
 class ShopController {
+
+    /** 날짜 없는 시각 (CONTRACTS 3장 「시:분」, F20) */
+    private static final DateTimeFormatter HH_MM = DateTimeFormatter.ofPattern("HH:mm");
+
+    private final ShopInfoService infoService;
+    private final ShopSession shopSession;
+
+    record OpeningHoursResponse(DayOfWeek dayOfWeek, String open, String close) {}
+
+    record ShopResponse(
+            String name,
+            String phone,
+            String senderNumber,
+            String unsubscribeNumber,
+            List<OpeningHoursResponse> openingHours) {}
+
+    /** 매장 정보 · 영업시간 (FR-SET-01). 근무자. 매장 설정 화면과 예약 화면이 함께 쓴다 (F20) */
+    @RequireWorker
+    @GetMapping("/api/shop")
+    ShopResponse shop() {
+        ShopInfo info = infoService.get(shopSession.shopId());
+        return new ShopResponse(
+                info.name(),
+                info.phone(),
+                info.senderNumber(),
+                info.unsubscribeNumber(),
+                info.openingHours().stream()
+                        .map(h ->
+                                new OpeningHoursResponse(
+                                        h.dayOfWeek(), hhmm(h.open()), hhmm(h.close())))
+                        .toList());
+    }
+
+    private static String hhmm(LocalTime time) {
+        return time == null ? null : time.format(HH_MM);
+    }
 
     private final ShopSignupService signupService;
 

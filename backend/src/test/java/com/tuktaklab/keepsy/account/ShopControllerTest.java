@@ -12,6 +12,7 @@ import com.tuktaklab.keepsy.common.error.ApiException;
 import com.tuktaklab.keepsy.common.error.ErrorCode;
 import com.tuktaklab.keepsy.common.error.GlobalExceptionHandler;
 import com.tuktaklab.keepsy.common.security.SecurityConfig;
+import com.tuktaklab.keepsy.common.security.ShopSession;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -20,13 +21,17 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-/** POST /api/shops 요청 검증 · 응답 모양 (Keepsy #14, CONTRACTS 6장). DB 없이 돈다. */
+/**
+ * POST /api/shops 요청 검증 · 응답 모양 (Keepsy #14, CONTRACTS 6장). DB 없이 돈다. GET /api/shop은 권한 검사까지 보려고
+ * {@link ShopInfoTest}에서 실제 MySQL로 확인한다.
+ */
 @WebMvcTest(ShopController.class)
-@Import({SecurityConfig.class, GlobalExceptionHandler.class})
+@Import({SecurityConfig.class, GlobalExceptionHandler.class, ShopSession.class})
 class ShopControllerTest {
 
     @Autowired MockMvc mvc;
     @MockitoBean ShopSignupService signupService;
+    @MockitoBean ShopInfoService infoService;
 
     private static String body(String email, String password, String pin) {
         return """
