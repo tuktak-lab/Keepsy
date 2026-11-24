@@ -9,7 +9,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-/** 매장 · 스탭 임시 휴무일 (명세서 5장 day_off, FR-SET-07). 등록 · 삭제(#32)는 이 엔티티로 한다 */
+/** 매장 · 스탭 임시 휴무일 (명세서 5장 day_off, FR-SET-07). 등록 · 삭제 (#32, F32) */
 @Entity
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -27,4 +27,17 @@ public class DayOff {
     private LocalDate offDate;
 
     private String reason;
+
+    /**
+     * @param staffId 매장 휴무면 null
+     * @param reason 앞뒤 공백을 빼고 빈 값이면 null
+     */
+    static DayOff create(long shopId, Long staffId, LocalDate offDate, String reason) {
+        DayOff d = new DayOff();
+        d.shopId = shopId;
+        d.staffId = staffId;
+        d.offDate = offDate;
+        d.reason = reason == null || reason.isBlank() ? null : reason.strip();
+        return d;
+    }
 }
