@@ -47,7 +47,7 @@ public class ShopSettingsService {
     }
 
     /**
-     * 기능별 공용/PIN을 보낸 키만 바꾼다 (FR-ACC-05, F34). 권한 검사가 요청마다 이 칸을 읽으므로 커밋 직후 요청부터 반영된다.
+     * 기능별 공용/PIN을 보낸 키만 바꾼다 (FR-ACC-05, F38). 권한 검사가 요청마다 이 칸을 읽으므로 커밋 직후 요청부터 반영된다.
      *
      * @throws ApiException 규칙을 어기면 {@code invalid} ({@link Shop#changeFeatureLocks})
      */

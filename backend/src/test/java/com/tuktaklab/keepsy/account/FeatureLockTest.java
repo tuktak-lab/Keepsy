@@ -27,7 +27,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
 /**
- * PUT /api/feature-locks 기능별 공용/PIN 변경 (Keepsy #24, CONTRACTS 6장 ACC, FR-ACC-05, F34). 실제 MySQL에서
+ * PUT /api/feature-locks 기능별 공용/PIN 변경 (Keepsy #24, CONTRACTS 6장 ACC, FR-ACC-05, F38). 실제 MySQL에서
  * 돈다. 모의 데이터만 쓴다.
  */
 @SpringBootTest

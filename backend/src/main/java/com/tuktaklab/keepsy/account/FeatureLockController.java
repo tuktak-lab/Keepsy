@@ -24,7 +24,7 @@ class FeatureLockController {
     /** 키 · 값 검사는 Shop.changeFeatureLocks가 칸별 사유와 함께 한다 */
     record LocksRequest(@NotNull(message = "바꿀 기능을 보내 주세요") Map<String, String> features) {}
 
-    /** 보낸 키만 공용/PIN을 바꾼다 (FR-ACC-05, F34). 원장 PIN */
+    /** 보낸 키만 공용/PIN을 바꾼다 (FR-ACC-05, F38). 원장 PIN */
     @RequireFeature(FeatureKey.OWNER_PIN)
     @PutMapping("/api/feature-locks")
     @ResponseStatus(HttpStatus.NO_CONTENT)

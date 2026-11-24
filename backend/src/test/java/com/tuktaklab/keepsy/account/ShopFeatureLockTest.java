@@ -10,7 +10,7 @@ import java.util.HashMap;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
-/** 기능별 공용/PIN 변경 규칙 (Keepsy #24, FR-ACC-05, F34). DB 없이 돈다. */
+/** 기능별 공용/PIN 변경 규칙 (Keepsy #24, FR-ACC-05, F38). DB 없이 돈다. */
 class ShopFeatureLockTest {
 
     private final Shop shop = Shop.create("owner@example.com", "hash", "테스트 네일");

@@ -237,7 +237,7 @@ public class Shop {
     }
 
     /**
-     * 보낸 키만 공용/PIN을 바꾼다 (FR-ACC-05, F34). 하나라도 틀리면 아무것도 바꾸지 않는다.
+     * 보낸 키만 공용/PIN을 바꾼다 (FR-ACC-05, F38). 하나라도 틀리면 아무것도 바꾸지 않는다.
      *
      * @param changes 기능 키 이름 → {@code PUBLIC} | {@code PIN}
      * @throws ApiException 빈 값, 모르는 키 · 값, 고정 키를 다른 값으로, 토글 키에 {@code OWNER_PIN}이면 {@code invalid}
