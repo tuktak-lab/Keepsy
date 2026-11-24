@@ -57,6 +57,9 @@ class OwnerPinResetTest {
                 passwordEncoder.encode(PASSWORD),
                 shop);
         owner = data.staff(shop, "ACTIVE", true);
+        // 가입으로 만든 원장(Staff.owner)처럼 "잠긴 기능 사용 허용"을 켠다. TestShopData는 원장도 DB 기본값(false)으로 넣어
+        // 잠긴 기능 PIN 인증(FR-ACC-08)에서 원장이 비교 대상에서 빠진다
+        jdbc.update("UPDATE staff SET locked_feature_allowed = TRUE WHERE id = ?", owner);
     }
 
     @AfterEach
