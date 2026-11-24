@@ -17,6 +17,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
+import java.util.List;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -34,6 +35,9 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequiredArgsConstructor
 class CustomerController {
+
+    /** CONTRACTS 3장 「시술 카테고리」 */
+    private static final String CATEGORY = "NAIL|LASH|WAXING|SEMI_PERMANENT|ETC";
 
     private final CustomerService customerService;
     private final ShopSession shopSession;
@@ -82,6 +86,43 @@ class CustomerController {
                         r.acquisitionChannel()));
     }
 
+    record TagRequest(
+            @NotNull(message = "시술 카테고리를 골라 주세요")
+                    @Pattern(regexp = CATEGORY, message = "시술 카테고리 값이 아닙니다")
+                    String category,
+            @NotBlank(message = "태그를 입력해 주세요") @Size(max = 50, message = "태그는 50자 이하입니다")
+                    String tag) {}
+
+    /** 태그 목록과 메모를 통째로 보낸다 (CONTRACTS 6장) */
+    record PreferencesRequest(
+            @NotNull(message = "태그 목록을 보내 주세요") @Size(max = 50, message = "태그는 50개까지입니다")
+                    List<@NotNull @Valid TagRequest> tags,
+            @Size(max = 1000, message = "취향 메모는 1,000자 이하입니다") String memo) {}
+
+    @RequireFeature(FeatureKey.CUSTOMER_WRITE)
+    @PutMapping("/api/customers/{customerId}/preferences")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    void changePreferences(
+            @PathVariable long customerId, @Valid @RequestBody PreferencesRequest r) {
+        customerService.changePreferences(
+                shopSession.shopId(),
+                customerId,
+                r.tags().stream()
+                        .map(t -> new CustomerService.TagInput(t.category(), t.tag()))
+                        .toList(),
+                r.memo());
+    }
+
+    record ShopTagsResponse(List<String> tags) {}
+
+    @RequireFeature(FeatureKey.CUSTOMER_VIEW)
+    @GetMapping("/api/preference-tags")
+    ShopTagsResponse shopTags(
+            @RequestParam @Pattern(regexp = CATEGORY, message = "시술 카테고리 값이 아닙니다")
+                    String category) {
+        return new ShopTagsResponse(customerService.shopTags(shopSession.shopId(), category));
+    }
+
     /** 두 칸을 통째로 보낸다. 비우면 지운다 (CONTRACTS 6장) */
     record CautionsRequest(
             @Size(max = 1000, message = "시술 주의사항은 1,000자 이하입니다") String serviceCaution,
@@ -121,10 +162,7 @@ class CustomerController {
             @RequestParam(required = false) String q,
             @RequestParam(required = false) Integer visitCountMin,
             @RequestParam(required = false) Integer visitCountMax,
-            @RequestParam(required = false)
-                    @Pattern(
-                            regexp = "NAIL|LASH|WAXING|SEMI_PERMANENT|ETC",
-                            message = "시술 카테고리 값이 아닙니다")
+            @RequestParam(required = false) @Pattern(regexp = CATEGORY, message = "시술 카테고리 값이 아닙니다")
                     String category,
             @RequestParam(required = false) PredictionStatus predictionStatus,
             @RequestParam(required = false) Long staffId,
