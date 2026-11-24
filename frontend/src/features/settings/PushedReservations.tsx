@@ -7,11 +7,15 @@ import { formatDateTime } from '@/lib/format';
 
 export type PushedReservation = { id: number; startAt: string; customerName: string | null };
 
-export function PushedReservations(props: { items: PushedReservation[]; onDismiss?: () => void }) {
+/** `title`: 무엇 때문에 밀렸는지 (기본 「영업시간 밖으로 밀린」, 휴무일이면 「휴무일에 걸린」) */
+export function PushedReservations(props: { items: PushedReservation[]; onDismiss?: () => void; title?: string }) {
   if (props.items.length === 0) return null;
   return (
     <div className="st-note st-pushed" role="status">
-      <b>영업시간 밖으로 밀린 확정 예약이 {props.items.length}건 있어요.</b> 자동으로 취소하지 않아요. 예약을 열어 시간을 옮기거나 취소해 주세요.
+      <b>
+        {props.title ?? '영업시간 밖으로 밀린'} 확정 예약이 {props.items.length}건 있어요.
+      </b>{' '}
+      자동으로 취소하지 않아요. 예약을 열어 시간을 옮기거나 취소해 주세요.
       <ul>
         {props.items.map((r) => (
           <li key={r.id}>
