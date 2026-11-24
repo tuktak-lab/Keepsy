@@ -109,6 +109,53 @@ public class VisitAppService {
         return visit.getId();
     }
 
+    /** {@code PATCH /api/payments/{id}}: 금액 · 결제 수단 수정 (FR-PAY-02). 취소된 결제는 {@code conflict} */
+    @Transactional
+    public void updatePayment(long shopId, long paymentId, int amount, PaymentMethod method) {
+        findPayment(shopId, paymentId).update(amount, method);
+    }
+
+    /** {@code POST /api/payments/{id}/cancel}: 결제만 취소하고 방문은 둔다 (FR-PAY-02, F8) */
+    @Transactional
+    public void cancelPayment(long shopId, long paymentId) {
+        findPayment(shopId, paymentId).cancel();
+    }
+
+    /** 방문 삭제 전에 결제 권한(PAYMENT_EDIT)도 검사해야 하는지: 아직 취소되지 않은 결제가 있으면 true (CONTRACTS 4장) */
+    @Transactional(readOnly = true)
+    public boolean hasActivePayments(long shopId, long visitId) {
+        return payments.findByShopIdAndVisitId(shopId, visitId).stream()
+                .anyMatch(p -> !p.isCanceled());
+    }
+
+    /**
+     * {@code DELETE /api/visits/{id}}: 방문 삭제 = 그 방문의 마감 되돌리기 (FR-VIS-03, F8). 한 트랜잭션에서 연결된 예약을 모두
+     * 확정으로, 결제를 모두 취소 표시 · 방문 연결 해제(이력 보존), 시술 · 방문 메모 · 사진 행과 방문을 지운다. 사진 파일은 커밋 뒤에 지운다.
+     */
+    @Transactional
+    public void deleteVisit(long shopId, long visitId) {
+        Visit visit =
+                visits.findForUpdateByIdAndShopId(visitId, shopId)
+                        .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND));
+        if (visit.getCustomerId() == null) {
+            // 되돌리면 다시 마감할 때 고객을 연결할 수 있어 "고객 없음 방문은 나중에 고객과 연결하지 않음"(E3)을 우회한다
+            throw new ApiException(ErrorCode.CONFLICT, "고객 없음으로 마감한 방문은 삭제할 수 없습니다");
+        }
+        refs.reopenReservations(shopId, visitId);
+        payments.findByShopIdAndVisitId(shopId, visitId).forEach(Payment::detachFromDeletedVisit);
+        payments.flush();
+        notes.deleteVisitNotes(shopId, visitId);
+        refs.deletePhotos(shopId, visitId);
+        visits.delete(visit);
+        // ponytail: 예측 재계산(FR-PRD-01) · 고객 마지막 방문일(FR-CUS-12)은 그 서비스가 생기면 여기서 부른다. 스냅샷 재평가 · 귀속 승계는
+        // 하지 않는다 (#71)
+    }
+
+    private Payment findPayment(long shopId, long paymentId) {
+        return payments.findByIdAndShopId(paymentId, shopId)
+                .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND));
+    }
+
     /** 확정 예약 하나를 방문에 붙이고 완료로 바꾼다. 고객이 있으면 같은 날 방문에 합치고, 없으면 예약마다 새 방문 (C6, E3) */
     private Visit completeWithVisit(long shopId, ReservationToClose r, List<Closing.Item> items) {
         if (items != null && items.isEmpty()) {

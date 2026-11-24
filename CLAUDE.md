@@ -50,3 +50,13 @@
 - 의존성 · 설정 파일은 사용자가 IntelliJ에서 직접 만드는 것이 기본이다. "IntelliJ 메뉴 경로 → 파일 위치 → 붙여 넣을 내용" 순서로 안내하고, 직접 써 달라고 하면 그때 만든다.
 - 버전 · 명령은 추측하지 말고 확인한다. 실제로 돌려서 확인된 실행 명령만 `../docs/docs/DEVELOPMENT.md` 6장 「실행 명령」에 반영한다.
 - commit · push · 이슈 생성 · 저장소 설정 변경은 요청받을 때만 한다.
+
+## 충돌 줄이기
+
+여러 사람이 각자 Claude Code 세션에서 동시에 작업한다. 세션끼리는 서로의 진행 중인 작업을 모르므로 아래를 지킨다.
+
+- **PR을 올리기 직전에** `git fetch && git rebase origin/main` 후 `./gradlew build`(프론트면 `npm run build`)를 다시 돌린다. 충돌은 작성자가 자기 세션에서 푼다.
+- **PR을 쌓지 않는다.** 앞 PR이 머지된 뒤 `main`에서 새 브랜치를 딴다. 꼭 쌓았다면 앞 PR이 squash 머지된 직후 `git rebase --onto origin/main <앞 PR의 마지막 커밋>` 후 `git push --force-with-lease`(자기 브랜치만).
+- 머지할 때 다른 PR이 base로 쓰는 브랜치는 지우지 않는다. 그 PR의 base를 `main`으로 바꾼 뒤 지운다 (지우면 그 PR이 닫힌다).
+- **공용 파일은 끝에 덧붙이지 말고 정해진 자리에 넣는다.** `../docs/docs/CONTRACTS.md` 6장은 4장 순서(ACC → CUS → RSV → VIS → PAY → PRD → CMP → …), enum · 목록(`ErrorCode`, `FeatureKey`, `support/TestShopData` 정리 목록 등)은 관련 값 옆에 넣는다.
+- 공용 파일(`common/`, `application.yaml`, `SecurityConfig`, 테스트 지원 클래스)을 바꾸는 변경은 기능 PR과 나누어 작게 올린다.

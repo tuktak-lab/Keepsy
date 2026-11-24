@@ -167,6 +167,13 @@ public class ReservationAppService {
         find(shopId, reservationId).complete(visitId, confirmServices);
     }
 
+    /** 방문 삭제(마감 되돌리기): 그 방문에 연결된 예약을 모두 확정으로 되돌린다 (FR-VIS-03, F8). visit 도메인이 Port로 부른다 */
+    @Transactional
+    public void reopenForVisit(long shopId, long visitId) {
+        reservations.findByShopIdAndVisitId(shopId, visitId).forEach(Reservation::reopen);
+        reservations.flush();
+    }
+
     /** 세션 매장의 예약. 없거나 다른 매장 것이면 똑같이 404 (NFR-03) */
     private Reservation find(long shopId, long reservationId) {
         return reservations

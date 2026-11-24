@@ -26,12 +26,11 @@ spring:
   flyway:
     enabled: true
 
-# 세션 쿠키 (NFR-02, CONTRACTS 1장). 로컬은 HTTPS가 없지만 Chrome · Edge · Firefox는 http://localhost에서도 Secure 쿠키를 받는다.
-# Safari로 http://localhost를 열 때 로그인이 유지되지 않으면 .env에 SESSION_COOKIE_SECURE=false를 넣는다 (로컬에서만).
+# 세션 쿠키 (NFR-02, CONTRACTS 1장). Secure는 Spring 기본값(false)을 그대로 쓴다. 로컬은 http이고, HTTPS로 운영하게 되면 그때 켠다
+# (docs DEVELOPMENT 5장, ARCHITECTURE 3장, 팀 결정).
 server:
   servlet:
     session:
       cookie:
         http-only: true
-        secure: ${SESSION_COOKIE_SECURE:true}
         same-site: lax

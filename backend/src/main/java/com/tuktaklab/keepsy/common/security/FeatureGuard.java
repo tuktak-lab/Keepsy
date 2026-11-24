@@ -8,6 +8,9 @@ import java.lang.annotation.Annotation;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.EnumMap;
+import java.util.Map;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.web.method.HandlerMethod;
@@ -94,11 +97,25 @@ public class FeatureGuard {
         return true;
     }
 
+    /** 매장의 기능별 공용/PIN 설정 전부. 화면이 잠긴 영역을 가릴 때 쓴다 (GET /api/session). 검사와 같은 계산이다 */
+    public Map<FeatureKey, Access> accessByFeature(long shopId) {
+        Set<FeatureKey> locked = settings.lockedFeatures(shopId);
+        Map<FeatureKey, Access> result = new EnumMap<>(FeatureKey.class);
+        for (FeatureKey feature : FeatureKey.values()) {
+            result.put(feature, resolve(feature, locked));
+        }
+        return result;
+    }
+
     private Access access(long shopId, FeatureKey feature) {
+        return resolve(feature, settings.lockedFeatures(shopId));
+    }
+
+    private static Access resolve(FeatureKey feature, Set<FeatureKey> locked) {
         if (feature.fixed() != null) {
             return feature.fixed();
         }
-        return settings.lockedFeatures(shopId).contains(feature) ? Access.PIN : Access.PUBLIC;
+        return locked.contains(feature) ? Access.PIN : Access.PUBLIC;
     }
 
     private Long validPinStaff(HttpSession session) {

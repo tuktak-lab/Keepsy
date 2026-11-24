@@ -8,6 +8,10 @@ import org.springframework.data.jpa.repository.Lock;
 
 public interface VisitRepository extends JpaRepository<Visit, Long> {
 
+    /** 방문 삭제 · 수정 때 행 잠금. 같은 방문을 동시에 지우면 하나만 성공한다 */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    Optional<Visit> findForUpdateByIdAndShopId(long id, long shopId);
+
     /** 같은 고객 · 같은 날 방문 (C6). 잠금 읽기라 트랜잭션 스냅샷과 상관없이 방금 커밋된 방문도 보인다 (동시 완료에서 방문이 두 건 생기지 않게) */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<Visit> findByShopIdAndCustomerIdAndVisitDate(

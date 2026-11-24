@@ -142,6 +142,15 @@ public class Reservation {
         this.visitId = visitId;
     }
 
+    /** 완료 → 확정, 방문 연결 해제. 방문 삭제(마감 되돌리기)에서만 쓴다 (FR-VIS-03, F8) */
+    public void reopen() {
+        if (status != ReservationStatus.COMPLETED) {
+            throw new ApiException(ErrorCode.CONFLICT, "완료된 예약만 되돌릴 수 있습니다");
+        }
+        status = ReservationStatus.CONFIRMED;
+        visitId = null;
+    }
+
     /**
      * 고객 없는 확정 예약에 고객을 연결한다 (FR-RSV-01, FR-DSH-01, E3). 완료된 예약은 마감 카드에서 고객 없음으로 마감한 것이라 연결하지 않는다
      * (FR-VIS-03).

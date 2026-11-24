@@ -75,6 +75,7 @@ public class TestShopData {
                             "visit_service",
                             "payment",
                             "visit_note",
+                            "photo",
                             "reservation",
                             "visit",
                             "day_off",
