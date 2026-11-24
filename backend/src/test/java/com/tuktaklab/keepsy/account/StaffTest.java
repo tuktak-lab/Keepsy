@@ -56,4 +56,18 @@ class StaffTest {
                 .isEqualTo(ErrorCode.INVALID);
         assertThat(owner.getPinHash()).isEqualTo("old");
     }
+
+    @Test
+    void 직원은_비활성이_되고_원장은_비활성화할_수_없다() {
+        Staff staff = Staff.member(1L, "모의 스탭", "hash", false, List.of());
+        staff.deactivate();
+        assertThat(staff.getStatus()).isEqualTo(StaffStatus.INACTIVE);
+
+        Staff owner = Staff.owner(1L, "원장", "hash");
+        assertThatThrownBy(owner::deactivate)
+                .isInstanceOf(ApiException.class)
+                .extracting(e -> ((ApiException) e).errorCode())
+                .isEqualTo(ErrorCode.INVALID);
+        assertThat(owner.getStatus()).isEqualTo(StaffStatus.ACTIVE);
+    }
 }
