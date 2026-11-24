@@ -46,9 +46,12 @@ public class FeatureGuard {
     }
 
     /**
+     * 기능 키 하나를 검사한다. 애너테이션 검사 외에, 조건에 따라 두 번째 기능 키가 필요한 API(예: 방문 삭제에 취소할 결제가 있으면 {@code
+     * PAYMENT_EDIT}, CONTRACTS 4장)가 서비스 판단 뒤에 부른다. 통과하면 PIN 만료를 연장한다.
+     *
      * @param feature null이면 근무자만 확인
      */
-    void check(HttpSession session, FeatureKey feature) {
+    public void check(HttpSession session, FeatureKey feature) {
         Long shopId = shopSession.shopId();
         if (shopId == null || session == null) {
             throw new ApiException(ErrorCode.UNAUTHORIZED);
