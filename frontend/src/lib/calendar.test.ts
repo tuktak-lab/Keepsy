@@ -7,9 +7,11 @@ import {
   closedRanges,
   dayIndex,
   dayOffOn,
+  hoursOfDay,
   layout,
   monthCells,
   seoulParts,
+  staffColumns,
   toneOf,
   weekDates,
   weekStart,
@@ -117,6 +119,28 @@ test('영업시간 밖 구간: 앞뒤를 막고, 정기 휴무 요일은 하루 
   ]);
   assert.deepEqual(closedRanges(hours('09:00', '21:00'), 0, axis), []);
   assert.deepEqual(closedRanges(hours('10:00', '19:00'), 6, axis), [[540, 1260]]);
+});
+
+test('그 요일의 영업시간만 고른다 (일간 보기 시간축)', () => {
+  const week = hours('10:00', '19:00');
+  assert.deepEqual(hoursOfDay(week, 0).map((h) => h.dayOfWeek), ['MONDAY']);
+  assert.deepEqual(hoursOfDay(week, 6).map((h) => h.open), [null]); // 일요일은 정기 휴무
+  assert.deepEqual(axisRange(hoursOfDay(hours('11:00', '18:00'), 2), []), { start: 11, end: 18 });
+});
+
+test('일간 보기 스탭 열: 필터가 없으면 전체, 있으면 그 스탭만, 목록에 없는 스탭의 예약도 열로 남긴다', () => {
+  const staff = [
+    { id: 1, name: '원장' },
+    { id: 2, name: '하나' },
+  ];
+  const onlyActive = [{ staff: staff[0] }, { staff: staff[1] }];
+  assert.deepEqual(staffColumns(staff, onlyActive, null).map((s) => s.id), [1, 2]);
+  assert.deepEqual(staffColumns(staff, onlyActive, 2).map((s) => s.id), [2]);
+  // 비활성이 된 스탭(3)에게 남은 예약
+  const withInactive = [...onlyActive, { staff: { id: 3, name: '퇴사' } }, { staff: { id: 3, name: '퇴사' } }];
+  assert.deepEqual(staffColumns(staff, withInactive, null).map((s) => s.id), [1, 2, 3]);
+  assert.deepEqual(staffColumns(staff, withInactive, 3).map((s) => s.id), [3]);
+  assert.deepEqual(staffColumns([], [], null), []);
 });
 
 test('휴무일: 매장 휴무는 항상, 스탭 휴무는 그 스탭을 볼 때만', () => {

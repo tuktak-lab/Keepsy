@@ -186,6 +186,23 @@ export function closedRanges(
   return ranges;
 }
 
+/** 그 요일(0 = 월요일)의 영업시간만 */
+export const hoursOfDay = (hours: OpeningHour[], index: number): OpeningHour[] => hours.filter((h) => h.dayOfWeek === DAY_OF_WEEK[index]);
+
+export type StaffCol = { id: number; name: string };
+
+/**
+ * 일간 보기의 스탭 열. 스탭 필터가 없으면 활성 스탭 전체, 있으면 그 스탭만.
+ * 비활성이 되었지만 그 날 예약이 남아 있는 스탭도 열로 만들어, 예약이 화면에서 사라지지 않게 한다 (목록 뒤에 붙임).
+ */
+export function staffColumns(staff: StaffCol[], reservations: { staff: StaffCol }[], staffId: number | null): StaffCol[] {
+  const all = [...staff];
+  for (const r of reservations) {
+    if (!all.some((s) => s.id === r.staff.id)) all.push({ id: r.staff.id, name: r.staff.name });
+  }
+  return staffId === null ? all : all.filter((s) => s.id === staffId);
+}
+
 export type DayOff = { id: number; date: DateStr; staffId: number | null; reason: string | null };
 
 /** 그날의 휴무 사유. 매장 휴무는 항상, 스탭 휴무는 그 스탭만 보고 있을 때. 없으면 null (사유가 비어 있으면 빈 문자열) */
