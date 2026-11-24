@@ -2,6 +2,7 @@ package com.tuktaklab.keepsy.customer;
 
 import com.tuktaklab.keepsy.common.audit.AccessLogger;
 import com.tuktaklab.keepsy.common.audit.AccessLogger.Action;
+import com.tuktaklab.keepsy.common.security.FeatureGuard;
 import com.tuktaklab.keepsy.common.security.FeatureKey;
 import com.tuktaklab.keepsy.common.security.RequireFeature;
 import com.tuktaklab.keepsy.common.security.ShopSession;
@@ -42,6 +43,7 @@ class CustomerController {
     private final CustomerService customerService;
     private final ShopSession shopSession;
     private final AccessLogger accessLogger;
+    private final FeatureGuard featureGuard;
 
     record RegisterRequest(
             @NotBlank(message = "이름을 입력해 주세요") @Size(max = 50, message = "이름은 50자 이하입니다")
@@ -254,5 +256,23 @@ class CustomerController {
                         r.agreed(),
                         r.method(),
                         r.withdrawalPath()));
+    }
+
+    record CorrectionRequest(@NotNull(message = "올바른 동의 여부를 보내 주세요") Boolean agreed) {}
+
+    /** 잘못 입력한 동의 정정 (CONTRACTS 6장, F44). 처리 스탭은 잠긴 상태면 PIN 인증 스탭 */
+    @RequireFeature(FeatureKey.CUSTOMER_EDIT)
+    @PostMapping("/api/consents/{consentId}/corrections")
+    @ResponseStatus(HttpStatus.CREATED)
+    IdResponse correctConsent(
+            @PathVariable long consentId,
+            @Valid @RequestBody CorrectionRequest r,
+            HttpSession session) {
+        return new IdResponse(
+                customerService.correctConsent(
+                        shopSession.shopId(),
+                        featureGuard.actorStaffId(session, FeatureKey.CUSTOMER_EDIT),
+                        consentId,
+                        r.agreed()));
     }
 }

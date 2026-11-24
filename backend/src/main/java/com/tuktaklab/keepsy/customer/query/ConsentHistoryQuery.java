@@ -28,7 +28,8 @@ public class ConsentHistoryQuery {
             OffsetDateTime recordedAt,
             StaffRef staff,
             Consent.Method method,
-            String withdrawalPath) {}
+            String withdrawalPath,
+            Long correctsConsentId) {}
 
     private final NamedParameterJdbcTemplate jdbc;
 
@@ -36,6 +37,7 @@ public class ConsentHistoryQuery {
     public List<Row> find(long shopId, long customerId) {
         return jdbc.query(
                 "SELECT cs.id, cs.item, cs.agreed, cs.recorded_at, cs.method, cs.withdrawal_path,"
+                        + " cs.corrects_consent_id,"
                         + " st.id AS staff_id, st.name AS staff_name"
                         + " FROM consent cs LEFT JOIN staff st ON st.id = cs.staff_id"
                         + " WHERE cs.shop_id = :shopId AND cs.customer_id = :customerId"
@@ -53,7 +55,8 @@ public class ConsentHistoryQuery {
                                     ? null
                                     : new StaffRef(staffId, rs.getString("staff_name")),
                             method == null ? null : Consent.Method.valueOf(method),
-                            rs.getString("withdrawal_path"));
+                            rs.getString("withdrawal_path"),
+                            rs.getObject("corrects_consent_id", Long.class));
                 });
     }
 }
