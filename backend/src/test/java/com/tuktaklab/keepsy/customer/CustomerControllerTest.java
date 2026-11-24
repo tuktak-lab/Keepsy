@@ -10,6 +10,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.tuktaklab.keepsy.common.audit.AccessLogger;
+import com.tuktaklab.keepsy.common.audit.AccessLogger.Action;
 import com.tuktaklab.keepsy.common.error.GlobalExceptionHandler;
 import com.tuktaklab.keepsy.common.security.FeatureGuard;
 import com.tuktaklab.keepsy.common.security.FeatureKey;
@@ -67,6 +69,7 @@ class CustomerControllerTest {
     @Autowired MockMvc mvc;
     @MockitoBean CustomerService service;
     @MockitoBean FeatureSettingsReader settings;
+    @MockitoBean AccessLogger accessLogger;
 
     private static final String BODY =
             """
@@ -137,6 +140,8 @@ class CustomerControllerTest {
         MockHttpSession session = signIn();
         mvc.perform(get("/api/customers/3").session(session)).andExpect(status().isOk());
         verify(service).detail(1L, 3L);
+        verify(accessLogger)
+                .record(FeatureKey.CUSTOMER_VIEW, AccessLogger.CUSTOMER, 3L, Action.VIEW);
 
         when(settings.lockedFeatures(1L)).thenReturn(Set.of(FeatureKey.CUSTOMER_VIEW));
         mvc.perform(get("/api/customers/3").session(session))
