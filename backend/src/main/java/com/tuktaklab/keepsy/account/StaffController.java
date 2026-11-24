@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
@@ -51,6 +52,11 @@ class StaffController {
             Boolean lockedFeatureAllowed,
             List<@NotNull DayOfWeek> regularDaysOff) {}
 
+    record PinRequest(
+            @NotNull(message = "PIN을 입력해 주세요")
+                    @Pattern(regexp = "\\d{4,6}", message = "PIN은 숫자 4~6자리입니다")
+                    String pin) {}
+
     record IdResponse(long id) {}
 
     record PushedReservation(long id, OffsetDateTime startAt, String customerName) {}
@@ -71,6 +77,14 @@ class StaffController {
                                 Boolean.TRUE.equals(req.lockedFeatureAllowed()),
                                 req.regularDaysOff() == null ? List.of() : req.regularDaysOff()));
         return new IdResponse(id);
+    }
+
+    /** 스탭 PIN 재설정 (FR-ACC-03). 원장 PIN. 원장 스탭의 PIN은 여기서 바꾸지 않는다 (FR-ACC-09) */
+    @RequireFeature(FeatureKey.OWNER_PIN)
+    @PutMapping("/api/staff/{staffId}/pin")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    void resetPin(@PathVariable long staffId, @Valid @RequestBody PinRequest req) {
+        commandService.resetPin(shopSession.shopId(), staffId, req.pin());
     }
 
     /** 스탭 수정 (FR-ACC-03, FR-SET-07). 원장 PIN. 정기 휴무로 밀리는 확정 예약을 돌려주고 자동 취소하지 않는다 (F12) */

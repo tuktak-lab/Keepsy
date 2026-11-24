@@ -42,4 +42,18 @@ class StaffTest {
         staff.allowLockedFeatures(false);
         assertThat(staff.isLockedFeatureAllowed()).isFalse();
     }
+
+    @Test
+    void 직원_PIN은_재설정되고_원장_PIN은_여기서_바꿀_수_없다() {
+        Staff staff = Staff.member(1L, "모의 스탭", "old", false, List.of());
+        staff.resetPin("new");
+        assertThat(staff.getPinHash()).isEqualTo("new");
+
+        Staff owner = Staff.owner(1L, "원장", "old");
+        assertThatThrownBy(() -> owner.resetPin("new"))
+                .isInstanceOf(ApiException.class)
+                .extracting(e -> ((ApiException) e).errorCode())
+                .isEqualTo(ErrorCode.INVALID);
+        assertThat(owner.getPinHash()).isEqualTo("old");
+    }
 }

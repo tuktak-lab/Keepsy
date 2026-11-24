@@ -43,14 +43,7 @@ public class StaffCommandService {
     @Transactional
     public long create(long shopId, NewStaff in) {
         requireDistinct(in.regularDaysOff());
-        // 같은 PIN을 동시에 등록해도 하나만 통과하도록 매장 행을 잠근다 (PIN 인증과 같은 방식, F14)
-        ShopScope.orNotFound(shopRepository.findForUpdateById(shopId));
-        // PIN은 해시라 DB 고유 제약을 걸 수 없어 하나씩 비교한다 (ARCHITECTURE 5장 「PIN 중복 검사」)
-        for (Staff s : staffRepository.findByShopIdOrderByStatusAscOwnerDescIdAsc(shopId)) {
-            if (passwordEncoder.matches(in.pin(), s.getPinHash())) {
-                throw new ApiException(ErrorCode.DUPLICATE, "같은 매장에 같은 PIN을 쓰는 스탭이 있습니다");
-            }
-        }
+        requireUniquePin(shopId, in.pin(), null);
         Staff staff =
                 Staff.member(
                         shopId,
@@ -80,6 +73,35 @@ public class StaffCommandService {
         requireDistinct(changes.regularDaysOff());
         staff.changeDaysOff(changes.regularDaysOff());
         return reservations.confirmedOn(shopId, staffId, staff.daysOff(), LocalDateTime.now(clock));
+    }
+
+    /**
+     * 스탭 PIN 재설정 (FR-ACC-03). 그 스탭의 세션(근무자 · PIN 인증)은 그대로 두고 다음 PIN 입력부터 새 PIN을 쓴다.
+     *
+     * @throws ApiException 다른 매장 · 없는 스탭이면 {@code not_found}, 원장 스탭이면 {@code invalid}, 같은 매장 다른
+     *     스탭(비활성 포함)과 PIN이 같으면 {@code duplicate}
+     */
+    @Transactional
+    public void resetPin(long shopId, long staffId, String pin) {
+        Staff staff = ShopScope.orNotFound(staffRepository.findByIdAndShopId(staffId, shopId));
+        staff.resetPin(passwordEncoder.encode(pin));
+        // 중복이면 예외로 트랜잭션 전체가 롤백되어 위 변경도 남지 않는다
+        requireUniquePin(shopId, pin, staffId);
+    }
+
+    /**
+     * PIN은 해시라 DB 고유 제약을 걸 수 없어 같은 매장 스탭(비활성 포함)의 해시와 하나씩 비교한다 (ARCHITECTURE 5장 「PIN 중복 검사」). 같은
+     * PIN을 동시에 등록 · 재설정해도 하나만 통과하도록 매장 행을 잠근 뒤 비교한다 (PIN 인증과 같은 방식, F14).
+     *
+     * @param exceptStaffId 재설정하는 스탭 자신. 자기 지금 PIN과 같은 것은 허용한다
+     */
+    private void requireUniquePin(long shopId, String pin, Long exceptStaffId) {
+        ShopScope.orNotFound(shopRepository.findForUpdateById(shopId));
+        for (Staff s : staffRepository.findByShopIdOrderByStatusAscOwnerDescIdAsc(shopId)) {
+            if (!s.getId().equals(exceptStaffId) && passwordEncoder.matches(pin, s.getPinHash())) {
+                throw new ApiException(ErrorCode.DUPLICATE, "같은 매장에 같은 PIN을 쓰는 스탭이 있습니다");
+            }
+        }
     }
 
     private static void requireDistinct(List<DayOfWeek> days) {
