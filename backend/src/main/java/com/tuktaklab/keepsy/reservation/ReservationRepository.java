@@ -1,9 +1,11 @@
 package com.tuktaklab.keepsy.reservation;
 
+import jakarta.persistence.LockModeType;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 
 public interface ReservationRepository extends JpaRepository<Reservation, Long> {
@@ -16,4 +18,7 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
             long shopId, long staffId, LocalDateTime from, LocalDateTime to);
 
     Optional<Reservation> findByIdAndShopId(long id, long shopId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    Optional<Reservation> findForUpdateByIdAndShopId(long id, long shopId);
 }

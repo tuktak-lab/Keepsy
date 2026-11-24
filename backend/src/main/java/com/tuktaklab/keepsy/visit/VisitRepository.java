@@ -1,0 +1,15 @@
+package com.tuktaklab.keepsy.visit;
+
+import jakarta.persistence.LockModeType;
+import java.time.LocalDate;
+import java.util.Optional;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+
+public interface VisitRepository extends JpaRepository<Visit, Long> {
+
+    /** 같은 고객 · 같은 날 방문 (C6). 잠금 읽기라 트랜잭션 스냅샷과 상관없이 방금 커밋된 방문도 보인다 (동시 완료에서 방문이 두 건 생기지 않게) */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    Optional<Visit> findByShopIdAndCustomerIdAndVisitDate(
+            long shopId, long customerId, LocalDate visitDate);
+}
