@@ -1,8 +1,8 @@
 import { images } from '@/assets/images';
 
-export function Photo(props: { kind?: string; h?: any; bg?: string; caption?: string; label?: string }) {
-  function renderVals(): any {
-    const U: any = {
+export function Photo(props: { kind?: string; h?: number | string; bg?: string; caption?: string; label?: string }) {
+  function renderVals() {
+    const U: Record<string, string> = {
       milky: images.nailMilky,
       hero: images.nailHero,
       gloss: images.nailGloss,
