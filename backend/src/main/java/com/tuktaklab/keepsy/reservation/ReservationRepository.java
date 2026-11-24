@@ -23,4 +23,12 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
     Optional<Reservation> findForUpdateByIdAndShopId(long id, long shopId);
 
     List<Reservation> findByShopIdAndVisitId(long shopId, long visitId);
+
+    /** 고객의 확정 · 완료 예약 중 {@code from} 이후 생성된 것, 예정 시술과 함께 (캠페인 귀속 · 승계, FR-ANL-03) */
+    @Query(
+            "select distinct r from Reservation r join fetch r.services where r.shopId = :shopId"
+                    + " and r.customerId = :customerId and r.createdAt >= :from"
+                    + " and r.status in (com.tuktaklab.keepsy.reservation.ReservationStatus.CONFIRMED,"
+                    + " com.tuktaklab.keepsy.reservation.ReservationStatus.COMPLETED)")
+    List<Reservation> findActiveWithServices(long shopId, long customerId, LocalDateTime from);
 }

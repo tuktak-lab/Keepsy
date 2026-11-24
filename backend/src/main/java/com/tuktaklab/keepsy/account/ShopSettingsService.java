@@ -39,6 +39,12 @@ public class ShopSettingsService {
         return new SendSettings(shop.getVirtualFailurePercent(), shop.getVirtualUnitPrice());
     }
 
+    /** 귀속 기간(일) (FR-SET-04, FR-ANL-03). 예약 · 방문의 캠페인 귀속이 읽는다 */
+    @Transactional(readOnly = true)
+    public int attributionDays(long shopId) {
+        return ShopScope.orNotFound(shopRepository.findById(shopId)).getAttributionDays();
+    }
+
     /** 카테고리 기본 주기 5개, CONTRACTS 3장 순서 (FR-SET-02) */
     @Transactional(readOnly = true)
     public List<CategoryCycle> categoryCycles(long shopId) {

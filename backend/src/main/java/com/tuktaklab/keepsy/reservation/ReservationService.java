@@ -40,4 +40,12 @@ public class ReservationService {
         this.shopId = shopId;
         this.serviceMenuId = serviceMenuId;
     }
+
+    /**
+     * 캠페인 귀속 · 승계 (FR-VIS-04, FR-ANL-03). 판정은 {@link com.tuktaklab.keepsy.analytics.Attribution}이
+     * 한다
+     */
+    void attribute(long messageId) {
+        this.attributedMessageId = messageId;
+    }
 }

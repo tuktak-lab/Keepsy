@@ -65,6 +65,11 @@ public class VisitService {
         this.cycleExcluded = cycleExcluded;
     }
 
+    /** 캠페인 귀속 (FR-VIS-04). 판정은 {@link com.tuktaklab.keepsy.analytics.Attribution}이 한다 */
+    void attribute(long messageId) {
+        this.attributedMessageId = messageId;
+    }
+
     /** 방문 수정: 메뉴는 그대로 두고 담당 스탭 · 주기 계산 제외만 바꾼다 (귀속 유지, F25) */
     void edit(long staffId, boolean cycleExcluded) {
         this.staffId = staffId;

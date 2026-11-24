@@ -1,13 +1,15 @@
 package com.tuktaklab.keepsy.reservation.port;
 
+import com.tuktaklab.keepsy.analytics.Attribution.SentAd;
 import com.tuktaklab.keepsy.reservation.AvailableTimes.OpeningHours;
 import java.time.LocalDate;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 /**
- * 예약이 다른 도메인(매장 설정 · 스탭 · 시술 메뉴 · 고객)에서 필요한 값 (DEVELOPMENT 4장 「도메인 연동」). 모두 세션 매장 조건으로 찾는다
+ * 예약이 다른 도메인(매장 설정 · 스탭 · 시술 메뉴 · 고객 · 발송 기록)에서 필요한 값 (DEVELOPMENT 4장 「도메인 연동」). 모두 세션 매장 조건으로 찾는다
  * (NFR-03).
  */
 public interface ReservationReferences {
@@ -29,6 +31,15 @@ public interface ReservationReferences {
 
     /** 그 매장 메뉴의 소요 시간(분). 다른 매장 · 없는 메뉴는 결과에서 빠진다 */
     Map<Long, Integer> menuDurations(long shopId, Collection<Long> serviceMenuIds);
+
+    /** 그 매장 메뉴의 시술 카테고리. 다른 매장 · 없는 메뉴는 결과에서 빠진다 */
+    Map<Long, String> menuCategories(long shopId, Collection<Long> serviceMenuIds);
+
+    /** 고객이 받은 발송 성공 광고 메시지. 실패 · 대조군 · 안내 메시지는 빠진다 (FR-ANL-03, 명세서 5장 campaign_message) */
+    List<SentAd> sentAds(long shopId, long customerId);
+
+    /** 매장 설정의 귀속 기간(일) (FR-SET-04) */
+    int attributionDays(long shopId);
 
     /** 정상 고객의 예약 제한 상태. 다른 매장 · 없는 · 삭제된 고객이면 비어 있다 */
     Optional<CustomerState> customer(long shopId, long customerId);
