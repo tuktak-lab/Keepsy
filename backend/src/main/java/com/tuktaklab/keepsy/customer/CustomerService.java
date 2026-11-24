@@ -2,21 +2,26 @@ package com.tuktaklab.keepsy.customer;
 
 import com.tuktaklab.keepsy.common.error.ApiException;
 import com.tuktaklab.keepsy.common.error.ErrorCode;
+import com.tuktaklab.keepsy.common.web.PageResponse;
+import com.tuktaklab.keepsy.customer.query.CustomerListQuery;
 import java.time.Clock;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.Year;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/** 고객 등록 (FR-CUS-01, E3, C12) */
+/** 고객 등록 · 목록 (FR-CUS-01 · 02, E3, C12) */
 @Service
 @RequiredArgsConstructor
 public class CustomerService {
 
     private final CustomerRepository customerRepository;
     private final ConsentRepository consentRepository;
+    private final CustomerListQuery listQuery;
     private final Clock clock;
 
     /**
@@ -57,6 +62,59 @@ public class CustomerService {
                                 Consent.agreed(customer, item, c.consentMethod(), staffId, now))
                         .toList());
         return customer.getId();
+    }
+
+    /** 목록 항목 (CONTRACTS 6장 「고객 (CUS)」). 번호는 마스킹한다 (NFR-04) */
+    public record ListItem(
+            long customerId,
+            String name,
+            String phone,
+            int visitCount,
+            LocalDate lastVisitDate,
+            boolean marketingConsent) {}
+
+    /**
+     * 고객 목록 · 검색 · 필터 (FR-CUS-02). 삭제된 고객은 빼고 최근 등록순.
+     *
+     * @param q 숫자 4자리면 휴대폰 뒷자리, 그 밖에는 이름 포함. 비어 있으면 검색하지 않는다
+     * @param filter 검색어 칸(앞 두 칸)은 무시하고 {@code q}로 채운다
+     * @throws ApiException 방문 횟수 범위가 음수이거나 최소가 최대보다 크면 {@code invalid}
+     */
+    @Transactional(readOnly = true)
+    public PageResponse<ListItem> list(
+            long shopId, String q, CustomerListQuery.Filter filter, int page, int size) {
+        Integer min = filter.visitCountMin();
+        Integer max = filter.visitCountMax();
+        if ((min != null && min < 0)
+                || (max != null && max < 0)
+                || (min != null && max != null && min > max)) {
+            throw new ApiException(ErrorCode.INVALID, "방문 횟수 범위를 확인해 주세요");
+        }
+        String query = q == null ? "" : q.strip();
+        boolean last4 = query.matches("\\d{4}");
+        CustomerListQuery.Filter f =
+                new CustomerListQuery.Filter(
+                        query.isEmpty() || last4 ? null : query,
+                        last4 ? query : null,
+                        min,
+                        max,
+                        filter.category(),
+                        filter.predictionStatus(),
+                        filter.staffId(),
+                        filter.marketingConsent());
+        LocalDate today = LocalDate.now(clock);
+        List<ListItem> items =
+                listQuery.find(shopId, f, today, page, size).stream()
+                        .map(r ->
+                                new ListItem(
+                                        r.customerId(),
+                                        r.name(),
+                                        Customer.maskPhone(r.phone()),
+                                        r.visitCount(),
+                                        r.lastVisitDate(),
+                                        r.marketingConsent()))
+                        .toList();
+        return new PageResponse<>(items, page, size, listQuery.count(shopId, f, today));
     }
 
     private static ApiException duplicatePhone() {

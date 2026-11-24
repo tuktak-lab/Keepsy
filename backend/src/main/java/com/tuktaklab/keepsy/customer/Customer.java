@@ -92,6 +92,11 @@ public class Customer {
         return customer;
     }
 
+    /** 응답용 마스킹 {@code 010-****-1234} (NFR-04, A4). 연락처 전체는 CONTACT_FULL 권한 API에서만 */
+    public static String maskPhone(String phone) {
+        return phone == null ? null : phone.substring(0, 4) + "****" + phone.substring(8);
+    }
+
     /** 형식은 요청 검증({@code 010-?\d{4}-?\d{4}})을 통과한 값. 하이픈 유무와 상관없이 {@code 010-0000-0000}으로 맞춘다 */
     static String normalizePhone(String phone) {
         String d = phone.replace("-", "");
