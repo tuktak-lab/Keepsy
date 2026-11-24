@@ -16,7 +16,7 @@ export const CHANNEL_LABEL: Record<Channel, string> = {
 };
 
 export const DOW_LABEL = ['월', '화', '수', '목', '금', '토', '일'];
-const DAY_OF_WEEK = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
+export const DAY_OF_WEEK = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
 
 const seoul = new Intl.DateTimeFormat('en-CA', {
   timeZone: 'Asia/Seoul',
