@@ -173,6 +173,7 @@ a.blk{cursor:pointer;color:#221D1B;text-decoration:none}
 .svc-row{display:grid;grid-template-columns:minmax(0,1fr) 140px 30px;align-items:center;gap:8px;padding:10px 12px;border:1px solid #E6DDD5;border-radius:8px}
 .svc-name{display:flex;flex-direction:column;min-width:0}
 .svc-name b{font-size:14px;color:#221D1B}
+.svc-opt{grid-column:1 / -1;margin:0;font-size:12.5px}
 @media (max-width:520px){.svc-row{grid-template-columns:1fr 1fr 30px}.svc-name{grid-column:1 / -1}}
 a.btn{display:inline-flex;align-items:center;justify-content:center;text-decoration:none}
 /* 예약 상세 */

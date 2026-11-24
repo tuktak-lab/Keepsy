@@ -1,7 +1,7 @@
 // 실행: npm test
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseAmount, sumPrices, toClosingRequest, validateClosing, type ClosingValues } from './closing.ts';
+import { asksMenuExclusion, canExcludeFromCycle, parseAmount, sumPrices, toClosingRequest, validateClosing, type ClosingValues } from './closing.ts';
 
 const base: ClosingValues = {
   services: [{ serviceMenuId: 1, staffId: 2 }],
@@ -43,11 +43,53 @@ test('검증: 완료된 예약은 시술을 보지 않는다 (읽기 전용, E4)
 
 test('요청 본문: 확정 예약은 시술을 보내고 금액은 숫자로', () => {
   assert.deepEqual(toClosingRequest({ ...base, memo: ' 다음엔 프렌치 ' }, open), {
-    services: [{ serviceMenuId: 1, staffId: 2 }],
+    services: [{ serviceMenuId: 1, staffId: 2, cycleExcluded: false }], // 고객이 있으면 주기 계산 제외 값도 함께 (FR-VIS-05)
     amount: 58000,
     method: 'CARD',
     memo: '다음엔 프렌치',
   });
+});
+
+test('요청 본문: 고객이 있으면 시술마다 주기 계산 제외를 보낸다 (FR-VIS-05)', () => {
+  const body = toClosingRequest(
+    {
+      ...base,
+      services: [
+        { serviceMenuId: 1, staffId: 2, cycleExcluded: true },
+        { serviceMenuId: 2, staffId: 2 },
+      ],
+    },
+    open,
+  );
+  assert.deepEqual(body.services, [
+    { serviceMenuId: 1, staffId: 2, cycleExcluded: true },
+    { serviceMenuId: 2, staffId: 2, cycleExcluded: false },
+  ]);
+  assert.equal('noCustomer' in body, false);
+});
+
+test('요청 본문: 고객 없음 마감은 noCustomer만 보내고 메모 · 주기 계산 제외는 보내지 않는다 (E3)', () => {
+  const body = toClosingRequest(
+    { ...base, memo: '무시됨', services: [{ serviceMenuId: 1, staffId: 2, cycleExcluded: true }] },
+    { completed: false, hasCustomer: false, noCustomer: true },
+  );
+  assert.equal(body.noCustomer, true);
+  assert.equal(body.memo, null);
+  assert.deepEqual(body.services, [{ serviceMenuId: 1, staffId: 2 }]);
+});
+
+test('noCustomer는 고객이 이미 있거나 완료된 예약에는 보내지 않는다 (서버가 invalid로 거절)', () => {
+  assert.equal('noCustomer' in toClosingRequest(base, { completed: false, hasCustomer: true, noCustomer: true }), false);
+  assert.equal('noCustomer' in toClosingRequest(base, { completed: true, hasCustomer: false, noCustomer: true }), false);
+});
+
+test('주기 계산 제외 안내: 일반 메뉴만 물어보고, 항상 제외인 메뉴는 체크를 보여 주지 않는다', () => {
+  assert.equal(asksMenuExclusion('NORMAL'), true);
+  assert.equal(asksMenuExclusion('END_SIGNAL'), false);
+  assert.equal(asksMenuExclusion('EXCLUDE'), false);
+  assert.equal(canExcludeFromCycle('EXCLUDE'), false);
+  assert.equal(canExcludeFromCycle('NORMAL'), true);
+  assert.equal(canExcludeFromCycle('END_SIGNAL'), true);
 });
 
 test('요청 본문: 완료된 예약은 시술을 보내지 않고, 고객 없는 방문은 메모를 보내지 않는다 (E3 · E4)', () => {
