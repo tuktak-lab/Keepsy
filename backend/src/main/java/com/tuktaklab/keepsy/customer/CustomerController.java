@@ -21,6 +21,7 @@ import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -51,6 +52,34 @@ class CustomerController {
             Customer.AcquisitionChannel acquisitionChannel) {}
 
     record RegisterResponse(long customerId) {}
+
+    /** 등록 요청에서 동의 칸을 뺀 기본 정보. 통째로 보낸다 (CONTRACTS 6장) */
+    record UpdateRequest(
+            @NotBlank(message = "이름을 입력해 주세요") @Size(max = 50, message = "이름은 50자 이하입니다")
+                    String name,
+            @NotNull(message = "휴대폰 번호를 입력해 주세요")
+                    @Pattern(regexp = "010-?\\d{4}-?\\d{4}", message = "휴대폰 번호는 010으로 시작하는 11자리입니다")
+                    String phone,
+            Customer.Gender gender,
+            @Min(value = 1900, message = "출생 연도는 1900년 이후입니다") Integer birthYear,
+            Customer.PreferredLanguage preferredLanguage,
+            Customer.AcquisitionChannel acquisitionChannel) {}
+
+    @RequireFeature(FeatureKey.CUSTOMER_EDIT)
+    @PatchMapping("/api/customers/{customerId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    void update(@PathVariable long customerId, @Valid @RequestBody UpdateRequest r) {
+        customerService.update(
+                shopSession.shopId(),
+                customerId,
+                new Customer.BasicInfo(
+                        r.name(),
+                        r.phone(),
+                        r.gender(),
+                        r.birthYear(),
+                        r.preferredLanguage(),
+                        r.acquisitionChannel()));
+    }
 
     @RequireFeature(FeatureKey.CUSTOMER_WRITE)
     @PostMapping("/api/customers")

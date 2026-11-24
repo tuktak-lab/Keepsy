@@ -92,6 +92,25 @@ public class Customer {
         return customer;
     }
 
+    /** 고객 기본 정보 (FR-CUS-01 항목). 수정은 통째로 바꾸므로 빈 선택 칸은 비운다 (CONTRACTS 6장) */
+    public record BasicInfo(
+            String name,
+            String phone,
+            Gender gender,
+            Integer birthYear,
+            PreferredLanguage preferredLanguage,
+            AcquisitionChannel acquisitionChannel) {}
+
+    /** 형식은 요청 검증을 통과한 값. 휴대폰은 {@code 010-0000-0000}으로 맞춘다 */
+    void changeBasicInfo(BasicInfo b) {
+        name = b.name();
+        phone = normalizePhone(b.phone());
+        gender = b.gender();
+        birthYear = b.birthYear();
+        preferredLanguage = b.preferredLanguage();
+        acquisitionChannel = b.acquisitionChannel();
+    }
+
     /** 응답용 마스킹 {@code 010-****-1234} (NFR-04, A4). 연락처 전체는 CONTACT_FULL 권한 API에서만 */
     public static String maskPhone(String phone) {
         return phone == null ? null : phone.substring(0, 4) + "****" + phone.substring(8);
