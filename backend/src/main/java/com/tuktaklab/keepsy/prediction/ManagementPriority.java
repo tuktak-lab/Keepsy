@@ -6,7 +6,8 @@ import java.util.Comparator;
 
 /**
  * 인사이트 · 오늘 관리할 고객의 정렬 규칙 (FR-PRD-09, E6, 기획서 9장 「오늘 관리할 고객 우선순위」). 값만으로 결과가 정해지는 규칙이라 DB · 스프링 없이
- * 단위 테스트한다 (DEVELOPMENT 4장).
+ * 단위 테스트한다 (DEVELOPMENT 4장). 목록 조회는 같은 정렬을 {@link ManagementPrioritySql}로 쓰므로 이 규칙을 바꾸면 그 SQL도 함께
+ * 바꾼다.
  */
 public final class ManagementPriority {
 
