@@ -130,13 +130,30 @@ class CustomerPredictionTest {
         visit(customer, TODAY.minusDays(10), lash);
         visit(customer, TODAY.minusDays(30), gel);
         recalc.recalculate(shop, customer);
-        reserveToday(customer, lash);
+        reserve(customer, lash, TODAY.atTime(23, 0));
 
         predictions(customer)
                 .andExpect(jsonPath("$.predictions[0].category").value("NAIL"))
                 .andExpect(jsonPath("$.predictions[0].status").isNotEmpty())
                 .andExpect(jsonPath("$.predictions[1].category").value("LASH"))
                 .andExpect(jsonPath("$.predictions[1].status").value(nullValue()));
+    }
+
+    @Test
+    void 시작_시각이_지난_오늘_미완료_예약도_빼고_취소_노쇼가_되면_돌아오고_지난_예약은_보지_않는다() throws Exception {
+        visit(customer, TODAY.minusDays(10), lash);
+        recalc.recalculate(shop, customer);
+        long today = reserve(customer, lash, TODAY.atStartOfDay());
+        predictions(customer).andExpect(jsonPath("$.predictions[0].status").value(nullValue()));
+
+        for (String s : List.of("CANCELED", "NO_SHOW")) {
+            jdbc.update("UPDATE reservation SET status = ? WHERE id = ?", s, today);
+            predictions(customer).andExpect(jsonPath("$.predictions[0].status").value("SCHEDULED"));
+        }
+
+        // 마감 안 된 어제 확정 예약은 다음 예약이 아니다 (오늘 이후만, A11)
+        reserve(customer, lash, TODAY.minusDays(1).atTime(10, 0));
+        predictions(customer).andExpect(jsonPath("$.predictions[0].status").value("SCHEDULED"));
     }
 
     @Test
@@ -225,8 +242,8 @@ class CustomerPredictionTest {
                 staff);
     }
 
-    /** 오늘 23:00 확정 예약 = 아직 완료되지 않은 오늘 예약 */
-    private void reserveToday(long customerId, long menuId) {
+    /** 확정 예약 30분. 오늘이면 아직 완료되지 않은 오늘 예약 */
+    private long reserve(long customerId, long menuId, LocalDateTime startAt) {
         long reservationId =
                 insert(
                         "reservation",
@@ -237,9 +254,9 @@ class CustomerPredictionTest {
                         "staff_id",
                         staff,
                         "start_at",
-                        TODAY.atTime(23, 0),
+                        startAt,
                         "end_at",
-                        TODAY.atTime(23, 30),
+                        startAt.plusMinutes(30),
                         "status",
                         "CONFIRMED",
                         "channel",
@@ -254,6 +271,7 @@ class CustomerPredictionTest {
                 reservationId,
                 "service_menu_id",
                 menuId);
+        return reservationId;
     }
 
     private long insert(String table, Object... columnsAndValues) {
