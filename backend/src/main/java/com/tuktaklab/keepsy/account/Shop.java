@@ -95,8 +95,20 @@ public class Shop {
     /** 이 시각 전까지 PIN 입력을 막는다 (F14) */
     private LocalDateTime pinLockedUntil;
 
+    /** 이탈 신호 기간 상한(일) (FR-SET-03, C15, 기본 120) */
+    private int churnSignalCapDays;
+
     /** 귀속 기간(일) (FR-SET-04, 기본 14) */
     private int attributionDays;
+
+    /** 일 발송 한도(건) (FR-SET-04, B1, 기본 500) */
+    private int dailySendLimit;
+
+    /** 재발송 제한 기간(일). 0이면 제한 없음 (FR-SET-04, B2, 기본 7) */
+    private int resendBlockDays;
+
+    /** 보관 기간(년) 1~5 (FR-SET-06, D3, 기본 3) */
+    private int retentionYears;
 
     /** 가상 발송 무작위 실패 비율 % (FR-CMP-10, FR-SET-04, 기본 0 F17) */
     private int virtualFailurePercent;
@@ -321,9 +333,39 @@ public class Shop {
         shop.changeCategoryCycle("WAXING", 28, 42);
         shop.changeCategoryCycle("SEMI_PERMANENT", 365, 730);
         shop.changeCategoryCycle("ETC", 28, 56);
-        shop.attributionDays = 14; // FR-SET-04 기본값
         shop.pinLockedFeatures = join(DEFAULT_PIN_LOCKED);
+        // 설정값 기본 (FR-SET-03 · 04 · 06, F17). V1 DB 기본값과 같다
+        shop.changeSettings(new Settings(120, 14, 500, 7, 0, 3));
         return shop;
+    }
+
+    /** 매장 설정값 (FR-SET-03 · 04 · 06). 범위는 요청에서 검사한다 (F40) */
+    public record Settings(
+            int churnSignalCapDays,
+            int attributionDays,
+            int dailySendLimit,
+            int resendBlockDays,
+            int virtualFailurePercent,
+            int retentionYears) {}
+
+    public Settings settings() {
+        return new Settings(
+                churnSignalCapDays,
+                attributionDays,
+                dailySendLimit,
+                resendBlockDays,
+                virtualFailurePercent,
+                retentionYears);
+    }
+
+    /** 통째로 바꾼다. 가상 단가는 화면에서 바꾸지 않아 여기 없다 (명세서 5장 shop) */
+    void changeSettings(Settings s) {
+        this.churnSignalCapDays = s.churnSignalCapDays();
+        this.attributionDays = s.attributionDays();
+        this.dailySendLimit = s.dailySendLimit();
+        this.resendBlockDays = s.resendBlockDays();
+        this.virtualFailurePercent = s.virtualFailurePercent();
+        this.retentionYears = s.retentionYears();
     }
 
     /** PIN으로 잠근 기능 키 */

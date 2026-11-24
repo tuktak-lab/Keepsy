@@ -40,6 +40,18 @@ public class ShopSettingsService {
         return new SendSettings(shop.getVirtualFailurePercent(), shop.getVirtualUnitPrice());
     }
 
+    /** 매장 설정값 6개 (FR-SET-03 · 04 · 06) */
+    @Transactional(readOnly = true)
+    public Shop.Settings settings(long shopId) {
+        return ShopScope.orNotFound(shopRepository.findById(shopId)).settings();
+    }
+
+    /** 통째로 바꾼다. 쓰는 계산은 다음 요청부터 이 값을 읽는다 (FR-SET-03 · 04 · 06, F40) */
+    @Transactional
+    public void updateSettings(long shopId, Shop.Settings settings) {
+        ShopScope.orNotFound(shopRepository.findById(shopId)).changeSettings(settings);
+    }
+
     /** 귀속 기간(일) (FR-SET-04, FR-ANL-03). 예약 · 방문의 캠페인 귀속이 읽는다 */
     @Transactional(readOnly = true)
     public int attributionDays(long shopId) {
