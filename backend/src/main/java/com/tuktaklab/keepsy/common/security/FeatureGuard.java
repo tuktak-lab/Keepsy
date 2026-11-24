@@ -57,7 +57,7 @@ public class FeatureGuard {
             throw new ApiException(ErrorCode.UNAUTHORIZED);
         }
         Long workerId = shopSession.currentStaffId(session);
-        // 비활성화된 스탭이 세션에 남아 있으면 근무자가 없는 것으로 본다 (F33)
+        // 비활성화된 스탭이 세션에 남아 있으면 근무자가 없는 것으로 본다 (F34)
         if (workerId == null || settings.isDeactivated(shopId, workerId)) {
             throw new ApiException(ErrorCode.WORKER_REQUIRED);
         }
@@ -126,7 +126,7 @@ public class FeatureGuard {
     private Long validPinStaff(HttpSession session) {
         Long staffId = shopSession.pinStaffId(session);
         LocalDateTime expiresAt = shopSession.pinExpiresAt(session);
-        // 비활성화된 스탭의 PIN 인증은 만료된 것으로 본다 (F33)
+        // 비활성화된 스탭의 PIN 인증은 만료된 것으로 본다 (F34)
         return staffId != null
                         && expiresAt != null
                         && expiresAt.isAfter(now())
