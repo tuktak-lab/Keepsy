@@ -16,7 +16,7 @@ import styleText from './SchedulePage.css?inline';
 
 // 예약 상세 (FR-RSV-03 상태, FR-DSH-01 · E3 고객 없는 예약의 [고객 연결]). 경로: /reservations/detail?id=
 // API: GET /api/reservations/{id} · PUT /api/reservations/{id}/customer · POST /api/reservations/{id}/cancel · /no-show (docs CONTRACTS 6장 「예약 (RSV)」)
-// 시술 마감(결제 · 방문 기록)은 #129의 별도 화면이다.
+// 시술 마감(결제 · 방문 기록)은 별도 화면(/reservations/closing, #129)이고, 여기서는 그리로 가는 진입 버튼만 둔다.
 
 type StaffRef = { id: number; name: string };
 type Detail = {
@@ -275,8 +275,11 @@ export default function ReservationDetailPage() {
                     </div>
                   ) : (
                     <div className="d-acts">
+                      <AppLink href={`/reservations/closing?id=${id}`} className="btn btn-p btn-w">
+                        시술 마감
+                      </AppLink>
                       <div className="act-2">
-                        <button type="button" className="btn btn-p btn-w" onClick={() => setEditing(true)} disabled={staff.length === 0}>
+                        <button type="button" className="btn btn-w" onClick={() => setEditing(true)} disabled={staff.length === 0}>
                           일정 변경
                         </button>
                         {!hasCustomer ? (
@@ -303,7 +306,14 @@ export default function ReservationDetailPage() {
                     </div>
                   )
                 ) : (
-                  <p className="meta">완료 · 취소 · 노쇼한 예약은 바꿀 수 없어요.</p>
+                  <div className="d-acts">
+                    {detail.status === 'COMPLETED' ? (
+                      <AppLink href={`/reservations/closing?id=${id}`} className="btn btn-w">
+                        추가 결제 · 메모
+                      </AppLink>
+                    ) : null}
+                    <p className="meta">완료 · 취소 · 노쇼한 예약은 일정을 바꿀 수 없어요.</p>
+                  </div>
                 )}
               </div>
             )}

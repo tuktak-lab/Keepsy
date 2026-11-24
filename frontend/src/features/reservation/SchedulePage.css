@@ -168,6 +168,13 @@ a{color:#7A4450;text-decoration:none}
 /* 예약 카드는 예약 상세로 가는 링크, "+N건"은 눌러도 동작이 없다 */
 .blk{cursor:default}
 a.blk{cursor:pointer;color:#221D1B;text-decoration:none}
+/* 시술 마감 카드 */
+.svc-list{display:flex;flex-direction:column;gap:8px;padding:0;list-style:none}
+.svc-row{display:grid;grid-template-columns:minmax(0,1fr) 140px 30px;align-items:center;gap:8px;padding:10px 12px;border:1px solid #E6DDD5;border-radius:8px}
+.svc-name{display:flex;flex-direction:column;min-width:0}
+.svc-name b{font-size:14px;color:#221D1B}
+@media (max-width:520px){.svc-row{grid-template-columns:1fr 1fr 30px}.svc-name{grid-column:1 / -1}}
+a.btn{display:inline-flex;align-items:center;justify-content:center;text-decoration:none}
 /* 예약 상세 */
 .detail-card{max-width:720px;padding:24px 28px}
 .st-chip.s-canceled{color:#6B605B}
