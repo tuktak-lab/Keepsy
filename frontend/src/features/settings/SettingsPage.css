@@ -45,5 +45,93 @@ h1,h2,h3,p,dl{margin:0}
 .st-pushed ul{margin:8px 0;padding-left:18px}
 .st-pushed li{font-size:13px}
 
-/* 문서형 화면: 카드 대신 여백과 구분선으로 섹션을 나눔 (카드 속 카드 방지) */
-:root .st-card{background:transparent;border:0;border-top:1px solid #E3D9D1;border-radius:0;box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none;padding:26px 0 8px}
+/* 설정 구역은 공통 유리 카드(base.css)를 그대로 쓴다. 안의 알림 상자는 카드 위에서 옅은 면으로만 보이게 한다 */
+.st-note{background:rgba(251,239,237,.7)}
+
+/* ── 입력칸 다듬기 (설정 화면 전용) ──
+   base.css 의 `:root .st-fld` 보다 우선하도록 `:root .st-wrap` 을 붙인다 */
+:root .st-wrap .st-grid{gap:18px 20px}
+:root .st-wrap .st-field{gap:8px}
+:root .st-wrap .st-lbl{font-size:12.5px;font-weight:600;color:#4a3f3b;letter-spacing:-0.01em}
+
+/* 글자 입력 · 숫자 입력 · 선택 상자: 높이 44, 넉넉한 안쪽 여백, 마우스를 올리면 살짝 밝아지고 포커스 때 와인색 고리 */
+:root .st-wrap .st-fld,
+:root .st-wrap .st-time{
+  height:44px;min-height:44px;padding:0 14px;
+  font:400 14px 'Noto Sans KR',sans-serif;color:#221d1b;
+  background:rgba(255,255,255,.62);
+  border:1px solid rgba(255,255,255,.95);
+  border-radius:12px;
+  box-shadow:inset 0 1px 2px rgba(120,80,88,.07),0 0 0 1px rgba(150,110,116,.16);
+  transition:background-color .18s ease,box-shadow .18s ease;
+}
+:root .st-wrap .st-fld::placeholder,
+:root .st-wrap .st-time::placeholder{color:#a39791}
+:root .st-wrap .st-fld:hover:not(:focus):not([disabled]),
+:root .st-wrap .st-time:hover:not(:focus):not([disabled]){
+  background:rgba(255,255,255,.8);
+  box-shadow:inset 0 1px 2px rgba(120,80,88,.07),0 0 0 1px rgba(150,110,116,.28);
+}
+:root .st-wrap .st-fld:focus,
+:root .st-wrap .st-time:focus{
+  outline:none;background:#fff;
+  box-shadow:0 0 0 3px rgba(122,68,80,.16),0 0 0 1px rgba(122,68,80,.5);
+}
+:root .st-wrap .st-fld[disabled],
+:root .st-wrap .st-time[disabled]{
+  background:rgba(255,255,255,.28);color:#a39791;box-shadow:0 0 0 1px rgba(150,110,116,.1);cursor:not-allowed;
+}
+
+/* 숫자(일 · 원) 칸은 가운데 정렬 */
+:root .st-wrap .st-time{width:112px;text-align:center;padding:0 10px}
+:root .st-wrap .st-time[type="time"]{width:136px}
+:root .st-wrap .st-time[type="time"]::-webkit-calendar-picker-indicator{opacity:.4;cursor:pointer}
+:root .st-wrap .st-time[type="time"]::-webkit-calendar-picker-indicator:hover{opacity:.75}
+
+/* 선택 상자: 브라우저 기본 화살표 대신 얇은 꺾쇠 */
+:root .st-wrap select.st-time,
+:root .st-wrap select.st-fld{
+  -webkit-appearance:none;appearance:none;width:auto;min-width:112px;text-align:left;
+  padding:0 34px 0 14px;cursor:pointer;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b605b' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 12px center;
+}
+
+/* 체크박스: 둥근 사각형, 선택되면 와인색 + 흰 체크 */
+:root .st-wrap .st-chk{gap:8px;font-size:13px;color:#4a3f3b;user-select:none}
+:root .st-wrap .st-chk input{
+  -webkit-appearance:none;appearance:none;margin:0;flex:none;
+  width:18px;height:18px;border-radius:6px;cursor:pointer;
+  background:rgba(255,255,255,.7);
+  box-shadow:inset 0 1px 2px rgba(120,80,88,.08),0 0 0 1px rgba(150,110,116,.35);
+  transition:background-color .15s ease,box-shadow .15s ease;
+}
+:root .st-wrap .st-chk input:checked{
+  background:#7a4450 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center/12px no-repeat;
+  box-shadow:0 0 0 1px #7a4450;
+}
+:root .st-wrap .st-chk input:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(122,68,80,.2),0 0 0 1px #7a4450}
+
+/* 요일별 영업시간 · 카테고리 기본 주기: 구분선 대신 한 줄씩 옅은 면. 정기 휴무인 줄은 흐리게 */
+:root .st-wrap .st-lbl + .st-row,
+:root .st-wrap .st-lbl + .st-meta + .st-row{margin-top:10px}
+:root .st-wrap .st-row:has(> .st-time){
+  border-top:0;margin-top:6px;padding:8px 14px;border-radius:14px;
+  background:rgba(255,255,255,.3);
+  transition:background-color .18s ease,opacity .18s ease;
+}
+:root .st-wrap .st-row:has(> .st-time):hover{background:rgba(255,255,255,.5)}
+:root .st-wrap .st-row:has(.st-chk input:checked){background:rgba(255,255,255,.14)}
+:root .st-wrap .st-row:has(.st-chk input:checked) > .nm{color:#a39791}
+:root .st-wrap .st-row > span:not([class]){color:#a39791}
+:root .st-wrap .st-row .st-chk{margin-left:8px}
+
+/* 메뉴 수정 · 추가 줄: 목록과 구분되는 밝은 편집 면 */
+:root .st-wrap .st-edit{
+  border-top:0;margin:6px 0;padding:14px 16px;border-radius:16px;
+  background:rgba(255,255,255,.55);
+  box-shadow:inset 0 1px 0 #fff,0 0 0 1px rgba(150,110,116,.14);
+}
+
+/* 저장 줄: 위와 살짝 띄우고 구분선 */
+:root .st-wrap .st-savebar{padding-top:14px;border-top:1px solid rgba(150,110,116,.14)}

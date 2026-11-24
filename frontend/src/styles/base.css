@@ -16,8 +16,8 @@ html {
      --ink   #221D1B  진한 차콜: 제목·고객명·핵심 수치
      --body  #3B302C  다크 브라운: 본문
      --muted #6B605B  웜그레이: 보조 설명 (이보다 연한 글씨는 쓰지 않음)
-   면
-     배경 아이보리 #F5F0EB / 카드 화이트 + 얇은 테두리 #E6DDD5
+   면 (글래스모피즘)
+     배경 연한 로즈 그라데이션 / 카드 반투명 화이트 + 블러 + 얇은 흰 테두리
    포인트
      딥 와인 #7A4450 (주요 버튼·선택 상태에만)
    ───────────────────────────────────────────────────────────── */
@@ -27,17 +27,34 @@ html {
   --muted: #6b605b;
   --line: #e6ddd5;
   --line-soft: #efe8e2;
-  --bg: #f5f0eb;
+  --bg: #f7ebe7;
   --wine: #7a4450;
   --wine-dark: #683945;
+  /* 유리 표면 (카드 · 패널 · 사이드바 · 버튼이 함께 쓴다)
+     위는 더 밝고 아래로 갈수록 투명해지는 그라데이션 + 강한 블러 + 위쪽 하이라이트 + 깊고 부드러운 로즈 그림자 */
+  /* 카드 · 내비게이션은 그라데이션 없이 단색 반투명 (그라데이션은 배경에만) */
+  --glass-bg: rgba(255, 255, 255, 0.44);
+  --glass-bg-strong: rgba(255, 255, 255, 0.66);
+  --glass-fill: rgba(255, 255, 255, 0.5); /* 단색이 필요한 곳 (입력칸 · 보조 버튼) */
+  --glass-border: rgba(255, 255, 255, 0.72);
+  --glass-edge: rgba(150, 100, 108, 0.12); /* 흰 테두리가 밝은 배경에서 사라질 때 받쳐 주는 아주 옅은 선 */
+  --glass-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.25),
+    0 1px 2px rgba(150, 90, 100, 0.05),
+    0 14px 40px -8px rgba(150, 90, 100, 0.16);
+  --glass-blur: blur(24px) saturate(1.15);
+  --radius-card: 22px;
+  --radius-ctl: 12px;
+  --wine-grad: linear-gradient(180deg, #8c5262 0%, #74404c 100%);
 }
 
 :root body {
-  /* 아이보리 바탕 + 크림·더스티 로즈 번짐 두 곳만: 글라스 패널이 은은하게 비치도록 */
+  /* 로즈 한 계열의 그라데이션: 위쪽은 밝은 블러시, 아래로 갈수록 더스티 로즈.
+     그 위에 body::before 의 같은 계열 번짐이 깔려 반투명 카드 너머로 비친다 */
   background:
-    radial-gradient(900px 640px at 4% 0%, rgba(226, 206, 190, 0.38), transparent 62%),
-    radial-gradient(820px 600px at 98% 16%, rgba(214, 180, 180, 0.2), transparent 60%),
-    var(--bg);
+    radial-gradient(1100px 720px at 8% -4%, rgba(252, 249, 248, 0.9), transparent 60%),
+    linear-gradient(160deg, #f9f4f3 0%, #f2e8e7 45%, #e9dcdc 100%);
   background-attachment: fixed;
   color: var(--body);
   font-size: 14px;
@@ -72,40 +89,63 @@ html {
   color: var(--muted);
 }
 
-/* ── 표면 2종으로 통일 (모든 카드가 같은 테두리·곡률 10px, 그림자 없음) ──
-   1) 기본 카드: 불투명 소프트 화이트 — 목록·표·캘린더·폼 등 일반 콘텐츠
-   2) .glass: 반투명 프로스티드 글라스 + 상단 흰 하이라이트 — 주요 분석 패널·플로팅 상세 패널에만 */
+/* 배경의 색 번짐: 로즈 한 계열(블러시 ~ 더스티 로즈)만 크게 흐려 화면 뒤에 고정. 반투명 표면 너머로 색이 비쳐 유리 느낌이 산다 */
+:root body::before {
+  content: '';
+  position: fixed;
+  inset: -10%;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(34% 40% at 30% 30%, rgba(212, 184, 188, 0.45), transparent 70%),
+    radial-gradient(30% 36% at 88% 14%, rgba(230, 214, 216, 0.55), transparent 70%),
+    radial-gradient(38% 44% at 76% 72%, rgba(202, 174, 180, 0.4), transparent 72%),
+    radial-gradient(34% 38% at 24% 92%, rgba(222, 204, 206, 0.45), transparent 72%),
+    radial-gradient(26% 30% at 56% 46%, rgba(248, 242, 242, 0.6), transparent 70%);
+  filter: blur(40px);
+}
+
+/* ── 표면: 모든 카드가 같은 유리 ──
+   1) 기본 카드: 위가 밝고 아래가 투명한 유리 + 강한 블러 — 배경의 색 번짐이 비친다
+   2) .glass: 더 진한 유리 — 주요 분석 패널 · 플로팅 상세 패널
+   3) 모달(.card.modal): 입력 · 읽기가 많아 거의 불투명하게
+   카드 속에 카드를 겹치지 않는다: 안쪽 보조 영역은 아래 .cp-box 처럼 테두리 없는 옅은 면만 */
 :root .card,
 :root .g,
 :root .kp-card,
 :root .st-card,
 :root .cp-card,
 :root .pf-card {
-  background: #fffefd;
-  border: 1px solid #e8dfd8;
-  border-radius: 10px;
-  box-shadow: none;
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--glass-shadow), 0 0 0 1px var(--glass-edge);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
 }
 :root .glass {
-  background: rgba(255, 255, 255, 0.64);
-  border: 1px solid rgba(255, 255, 255, 0.8);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.95), 0 0 0 1px rgba(110, 80, 70, 0.07),
-    0 6px 20px rgba(80, 55, 45, 0.05);
-  -webkit-backdrop-filter: blur(16px) saturate(1.15);
-  backdrop-filter: blur(16px) saturate(1.15);
+  background: var(--glass-bg-strong);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow), 0 0 0 1px var(--glass-edge);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+}
+:root .card.modal {
+  background: rgba(255, 255, 255, 0.93);
+  box-shadow: inset 0 1px 0 #fff, 0 30px 70px -10px rgba(110, 60, 72, 0.35);
 }
 /* 카드 안의 보조 영역: 카드 속 카드처럼 보이지 않게 테두리 없이 옅은 면만 */
 :root .cp-box,
 :root .pf-box,
 :root .pcard {
-  background: rgba(110, 80, 70, 0.035);
+  background: rgba(255, 255, 255, 0.42);
   border: 0;
-  border-radius: 8px;
+  border-radius: 14px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
 }
 
-/* 버튼: 높이 38 · 좌우 16 · 곡률 8 · 13px/500 으로 통일 */
+/* 버튼: 높이 38 · 좌우 16 · 곡률 12 · 13px/500
+   보조 버튼은 유리(반투명 흰 면 + 흰 테두리), 주요 버튼은 와인 그라데이션 + 은은한 광택 · 그림자 */
 :root .btn,
 :root .st-btn,
 :root .cp-btn,
@@ -125,14 +165,14 @@ html {
   min-height: 38px;
   padding: 0 16px;
   gap: 6px;
-  border-radius: 8px;
-  border: 1px solid #d8cdc5;
-  background: #fff;
+  border-radius: var(--radius-ctl);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  background: var(--glass-fill);
   color: var(--ink);
   font: 500 13px 'Noto Sans KR', sans-serif;
-  box-shadow: none;
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 1px 2px rgba(150, 90, 100, 0.08), 0 0 0 1px var(--glass-edge);
+  -webkit-backdrop-filter: blur(10px) saturate(1.3);
+  backdrop-filter: blur(10px) saturate(1.3);
 }
 :root .btn:hover,
 :root .st-btn:hover,
@@ -140,7 +180,7 @@ html {
 :root .pf-btn:hover,
 :root .kp-btn:hover,
 :root .kp-more:hover {
-  background: #f7f2ee;
+  background: rgba(255, 255, 255, 0.82);
   text-decoration: none;
 }
 :root .btn-p,
@@ -148,23 +188,25 @@ html {
 :root .cp-btn.p,
 :root .kp-btn.p,
 :root .kp-cta {
-  background: var(--wine);
-  border-color: var(--wine);
+  background: var(--wine-grad);
+  border-color: rgba(255, 255, 255, 0.18);
   color: #fff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), 0 6px 16px -4px rgba(122, 68, 80, 0.45);
 }
 :root .btn-p:hover,
 :root .st-btn.p:hover,
 :root .cp-btn.p:hover,
 :root .kp-btn.p:hover,
 :root .kp-cta:hover {
-  background: var(--wine-dark);
-  border-color: var(--wine-dark);
+  background: linear-gradient(180deg, #7d4656 0%, #683945 100%);
+  border-color: rgba(255, 255, 255, 0.18);
 }
 :root .btn-sm {
   height: 32px;
   min-height: 32px;
   padding: 0 12px;
   font-size: 12.5px;
+  border-radius: 10px;
 }
 :root .btn[disabled],
 :root .st-btn[disabled],
@@ -172,23 +214,52 @@ html {
 :root .pf-btn[disabled] {
   opacity: 0.45;
   cursor: not-allowed;
+  box-shadow: none;
+}
+/* 아이콘 버튼 · 선택 알약(.pill) · 스탭 선택도 같은 유리 */
+:root .ib,
+:root .pill,
+:root .staff button {
+  background: var(--glass-fill);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 0 0 1px var(--glass-edge);
+}
+:root .ib {
+  border-radius: 10px;
+}
+:root .pill,
+:root .staff button {
+  border-radius: 999px;
+}
+:root .pill[aria-pressed='true'],
+:root .staff button[aria-pressed='true'] {
+  background: var(--wine-grad);
+  border-color: rgba(255, 255, 255, 0.18);
+  color: #fff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), 0 4px 12px -4px rgba(122, 68, 80, 0.45);
 }
 
-/* 탭·세그먼트: 캡슐형 대신 8px 곡률로 통일 */
+/* 탭·세그먼트: 유리 트랙 위의 알약. 선택은 와인 그라데이션 알약이 움직인다 (.kp-ind) */
 :root .tabs,
 :root .kp-seg,
 :root .cp-seg,
 :root .pf-seg,
-:root .st-seg {
-  border-radius: 9px;
-  background: #ede6e0;
+:root .st-seg,
+:root .seg {
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.42);
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  box-shadow: inset 0 1px 2px rgba(150, 90, 100, 0.08), 0 0 0 1px var(--glass-edge);
+  -webkit-backdrop-filter: blur(12px) saturate(1.3);
+  backdrop-filter: blur(12px) saturate(1.3);
 }
 :root .tabs button,
 :root .kp-seg button,
 :root .cp-seg button,
 :root .pf-seg button,
-:root .st-seg button {
-  border-radius: 7px;
+:root .st-seg button,
+:root .seg button {
+  border-radius: 999px;
   color: var(--body);
 }
 :root .tabs button[aria-selected='true'],
@@ -196,26 +267,56 @@ html {
 :root .cp-seg button[aria-pressed='true'],
 :root .pf-seg button[aria-pressed='true'],
 :root .st-seg button[aria-pressed='true'] {
-  background: var(--wine);
+  background: var(--wine-grad);
   color: #fff;
 }
-
-/* 상태 칩: 작은 각진 배지로 통일 */
-:root .chip,
-:root .cp-chip,
-:root .st-tag {
-  border-radius: 6px;
+:root .seg-ind {
+  border-radius: 999px;
+  background: var(--wine-grad);
+  box-shadow: 0 4px 12px -4px rgba(122, 68, 80, 0.5);
 }
 
-/* 입력칸 */
+/* 상태 칩: 반투명 알약 */
+:root .chip,
+:root .cp-chip,
+:root .st-tag,
+:root .st-chip {
+  border-radius: 999px;
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+
+/* 입력칸: 반투명 흰 면 + 흰 테두리, 포커스 때 와인색 고리 */
 :root .inp,
 :root .fld,
 :root .sel,
 :root .st-fld,
+:root .st-time,
 :root .cp-fld {
-  border-color: #d8cdc5;
-  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: var(--radius-ctl);
   color: var(--ink);
+  box-shadow: inset 0 1px 2px rgba(150, 90, 100, 0.08), 0 0 0 1px var(--glass-edge);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  transition: background-color var(--t-hover, 180ms) ease, box-shadow var(--t-hover, 180ms) ease;
+}
+:root .inp:focus,
+:root .fld:focus,
+:root .sel:focus,
+:root .st-fld:focus,
+:root .st-time:focus,
+:root .cp-fld:focus {
+  outline: none;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 0 0 3px rgba(122, 68, 80, 0.18), 0 0 0 1px rgba(122, 68, 80, 0.45);
+}
+:root .inp[disabled],
+:root .st-fld[disabled],
+:root .st-time[disabled] {
+  background: rgba(255, 255, 255, 0.3);
+  color: var(--muted);
 }
 
 
@@ -274,8 +375,8 @@ html {
 :root .pf-btn:hover,
 :root .kp-btn:not(.p):hover,
 :root .kp-more:hover {
-  background: #fff;
-  border-color: #bfaea4;
+  background: rgba(255, 255, 255, 0.85);
+  border-color: #fff;
 }
 :root :focus-visible {
   outline: 2px solid rgba(122, 68, 80, 0.55);
@@ -294,8 +395,8 @@ html {
 :root a.kp-card:hover,
 :root a.card:hover,
 :root button.card:hover {
-  border-color: #cdb9b4;
-  box-shadow: 0 2px 10px rgba(80, 55, 45, 0.06);
+  border-color: #fff;
+  box-shadow: var(--glass-shadow), 0 0 0 1px rgba(150, 100, 108, 0.2), 0 18px 44px -10px rgba(150, 90, 100, 0.22);
 }
 :root .irow,
 :root .kp-segrow,
@@ -327,8 +428,9 @@ html {
   left: 0;
   top: 0;
   z-index: 0;
-  border-radius: 7px;
-  background: var(--wine);
+  border-radius: 999px;
+  background: var(--wine-grad);
+  box-shadow: 0 4px 12px -4px rgba(122, 68, 80, 0.5);
   pointer-events: none;
 }
 :root .kp-ind-ready > .kp-ind {
@@ -412,12 +514,15 @@ html {
   gap: 10px;
   max-width: min(420px, calc(100vw - 48px));
   padding: 11px 10px 11px 14px;
-  border-radius: 10px;
-  background: rgba(34, 29, 27, 0.94);
+  border-radius: 14px;
+  background: linear-gradient(145deg, rgba(52, 38, 42, 0.86), rgba(34, 26, 28, 0.78));
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  backdrop-filter: blur(16px) saturate(1.4);
   color: #fff;
   font: 500 13.5px 'Noto Sans KR', sans-serif;
   line-height: 1.5;
-  box-shadow: 0 10px 28px rgba(34, 29, 27, 0.22);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 16px 40px -8px rgba(34, 29, 27, 0.4);
   animation: kp-toast-in 240ms var(--ease) both;
 }
 .kp-toast.out {
@@ -506,12 +611,12 @@ html {
   flex-direction: column;
   font-family: 'Noto Sans KR', system-ui, sans-serif;
   color: #4a3f3b;
-  /* 은은한 반투명 화이트 표면 */
-  background: rgba(255, 255, 255, 0.46);
-  -webkit-backdrop-filter: blur(16px) saturate(1.1);
-  backdrop-filter: blur(16px) saturate(1.1);
-  border-right: 1px solid rgba(255, 255, 255, 0.85);
-  box-shadow: 1px 0 0 rgba(110, 80, 70, 0.08);
+  /* 투명한 유리 기둥 (그라데이션 없이 단색 반투명): 배경의 색 번짐이 비치고, 오른쪽 가장자리에 흰 하이라이트 */
+  background: rgba(255, 255, 255, 0.36);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border-right: 1px solid rgba(255, 255, 255, 0.75);
+  box-shadow: 1px 0 0 var(--glass-edge), 8px 0 32px -12px rgba(150, 90, 100, 0.12);
   scrollbar-width: thin;
 }
 .kp-nav-logo {
@@ -521,8 +626,10 @@ html {
   align-items: center;
   gap: 6px;
 }
+/* 로고 크기는 그대로 두고 획만 굵게: 같은 색 그림자를 좌우 · 위아래로 아주 조금씩 겹쳐 획을 두껍게 보이게 한다 */
 .kp-nav-logo img {
   width: 132px;
+  filter: drop-shadow(0.45px 0 0 #7a2a3c) drop-shadow(-0.45px 0 0 #7a2a3c) drop-shadow(0 0.3px 0 #7a2a3c);
   height: auto;
   display: block;
 }
@@ -545,8 +652,11 @@ html {
   top: 0;
   height: 54px;
   border-radius: 0 28px 28px 0;
-  background: #fffefd;
-  box-shadow: 0 1px 2px rgba(34, 29, 27, 0.05), 0 0 0 1px rgba(110, 80, 70, 0.06);
+  /* 선택된 메뉴: 떠 있는 밝은 유리 알약 */
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-left: 0;
+  box-shadow: inset 0 1px 0 #fff, 0 0 0 1px var(--glass-edge), 0 10px 24px -8px rgba(150, 90, 100, 0.25);
   pointer-events: none;
 }
 .kp-nav-mark::before {
@@ -601,14 +711,19 @@ html {
   transition: background-color var(--t-hover) var(--ease);
 }
 .kp-nav-item.on .kp-nav-ico {
-  background: #f9e8e5;
+  background: #efe1e2;
+  color: var(--wine);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
 }
 .kp-nav-card {
   margin: 56px 0 0 16px;
   padding: 22px 20px;
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.55);
-  border: 1px solid rgba(110, 80, 70, 0.08);
+  border-radius: 18px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow), 0 0 0 1px var(--glass-edge);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
   font-size: 12.5px;
   line-height: 1.7;
   color: #4a3f3b;
@@ -656,8 +771,8 @@ html {
     height var(--t-panel) var(--ease);
 }
 .kp-top.scrolled {
-  background: rgba(245, 240, 235, 0.82);
-  -webkit-backdrop-filter: blur(14px) saturate(1.1);
-  backdrop-filter: blur(14px) saturate(1.1);
-  box-shadow: 0 1px 0 rgba(110, 80, 70, 0.12);
+  background: rgba(255, 255, 255, 0.42);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.8), 0 10px 30px -14px rgba(150, 90, 100, 0.25);
 }
