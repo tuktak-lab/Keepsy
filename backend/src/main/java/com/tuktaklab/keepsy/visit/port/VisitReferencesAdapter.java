@@ -68,7 +68,8 @@ class VisitReferencesAdapter implements VisitReferences {
                 t.status() == ReservationStatus.COMPLETED,
                 t.visitId(),
                 t.plannedMenuIds(),
-                t.startAt());
+                t.startAt(),
+                t.attributedMessageIds());
     }
 
     @Override

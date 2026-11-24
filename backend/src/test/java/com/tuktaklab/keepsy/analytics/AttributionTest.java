@@ -7,6 +7,7 @@ import com.tuktaklab.keepsy.analytics.Attribution.Candidate;
 import com.tuktaklab.keepsy.analytics.Attribution.SentAd;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 
@@ -97,5 +98,56 @@ class AttributionTest {
         assertThatThrownBy(
                         () -> Attribution.attribute("NAIL", at(11, 10, 0), List.of(), Set.of(), 0))
                 .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void 귀속된_예약의_방문은_방문일이_귀속_기간_밖이어도_같은_카테고리_예약_발송을_이어받는다() {
+        // 11/1 A 발송 → 11/3 예약(A) → 11/20 방문 (F33). 날짜로만 보면 A에서 19일이라 연결되지 않는다
+        List<SentAd> sends = List.of(A);
+        LocalDateTime visitAt = at(11, 20, 15);
+
+        assertThat(Attribution.attribute("NAIL", visitAt, sends, Set.of(), DAYS)).isEmpty();
+        assertThat(
+                        Attribution.attributeVisit(
+                                "NAIL", Map.of("NAIL", 1L), visitAt, sends, Set.of(), DAYS))
+                .contains(1L);
+    }
+
+    @Test
+    void 예약에_없던_카테고리나_귀속되지_않은_예약의_방문은_방문일_기준으로_계산한다() {
+        SentAd waxing = new SentAd(3L, "WAXING", at(11, 15, 10));
+        List<SentAd> sends = List.of(A, waxing);
+        LocalDateTime visitAt = at(11, 20, 15);
+
+        assertThat(
+                        Attribution.attributeVisit(
+                                "WAXING", Map.of("NAIL", 1L), visitAt, sends, Set.of(), DAYS))
+                .contains(3L);
+        assertThat(Attribution.attributeVisit("NAIL", Map.of(), visitAt, sends, Set.of(), DAYS))
+                .isEmpty(); // A에서 19일
+        assertThat(
+                        Attribution.attributeVisit(
+                                "NAIL", Map.of(), at(11, 10, 15), sends, Set.of(), DAYS))
+                .contains(1L);
+    }
+
+    @Test
+    void 이어받을_발송을_다른_방문이_가졌으면_첫_방문이_아니라서_따로_계산한다() {
+        LocalDateTime visitAt = at(11, 20, 15);
+
+        assertThat(
+                        Attribution.attributeVisit(
+                                "NAIL", Map.of("NAIL", 1L), visitAt, List.of(A), Set.of(1L), DAYS))
+                .isEmpty();
+        // 따로 계산하면 기간 안의 새 발송 B(12일)에 연결된다
+        assertThat(
+                        Attribution.attributeVisit(
+                                "NAIL",
+                                Map.of("NAIL", 1L),
+                                visitAt,
+                                List.of(A, B),
+                                Set.of(1L),
+                                DAYS))
+                .contains(2L);
     }
 }

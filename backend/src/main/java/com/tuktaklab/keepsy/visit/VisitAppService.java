@@ -266,8 +266,9 @@ public class VisitAppService {
     }
 
     /**
-     * 예약 하나로 더한 실제 시술마다 캠페인 귀속을 계산해 저장한다 (FR-VIS-04, A8, E7). 기준 시각은 예약 시작 시각이다. 다른 방문 시술이 이미 가진
-     * 발송은 첫 방문이 아니라서 연결하지 않는다. 고객 없는 방문은 발송이 없고, 가져온 방문은 귀속에서 뺀다 (FR-CUS-13: 같은 날 가져온 방문에 합쳐진 경우).
+     * 예약 하나로 더한 실제 시술마다 캠페인 귀속을 저장한다 (FR-VIS-04, A8, E7, F33). 예약의 같은 카테고리 시술이 귀속돼 있으면 그 발송을
+     * 이어받고(방문일이 귀속 기간 밖이어도), 아니면 예약 시작 시각 기준으로 따로 계산한다. 다른 방문 시술이 이미 가진 발송은 첫 방문이 아니라서 연결하지 않는다. 고객
+     * 없는 방문은 발송이 없고, 가져온 방문은 귀속에서 뺀다 (FR-CUS-13: 같은 날 가져온 방문에 합쳐진 경우).
      */
     private void attribute(long shopId, Visit visit, ReservationToClose r) {
         if (visit.getCustomerId() == null || visit.getSource() == VisitSource.IMPORT) {
@@ -287,7 +288,13 @@ public class VisitAppService {
         visit.getServices().stream()
                 .filter(s -> Long.valueOf(r.id()).equals(s.getReservationId()))
                 .forEach(s ->
-                        Attribution.attribute(s.getCategory(), r.startAt(), sends, claimed, days)
+                        Attribution.attributeVisit(
+                                        s.getCategory(),
+                                        r.attributedMessageIds(),
+                                        r.startAt(),
+                                        sends,
+                                        claimed,
+                                        days)
                                 .ifPresent(s::attribute));
     }
 
