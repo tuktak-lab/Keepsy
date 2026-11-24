@@ -1,5 +1,7 @@
 package com.tuktaklab.keepsy.account;
 
+import com.tuktaklab.keepsy.common.error.ApiException;
+import com.tuktaklab.keepsy.common.error.ErrorCode;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -91,6 +93,75 @@ public class Shop {
     /** 가상 단가(원). 화면에서 바꾸지 않는다 (FR-CMP-05, 기본 0) */
     private int virtualUnitPrice;
 
+    // 카테고리 기본 주기(일). 메뉴 없는 가져온 방문의 예측에 쓴다 (FR-SET-02, E5, 기본값 C16)
+    private int nailCycleMinDays;
+    private int nailCycleMaxDays;
+    private int lashCycleMinDays;
+    private int lashCycleMaxDays;
+    private int waxingCycleMinDays;
+    private int waxingCycleMaxDays;
+    private int semiPermanentCycleMinDays;
+    private int semiPermanentCycleMaxDays;
+    private int etcCycleMinDays;
+    private int etcCycleMaxDays;
+
+    /** 시술 카테고리, CONTRACTS 3장 순서 */
+    public static final List<String> CATEGORIES =
+            List.of("NAIL", "LASH", "WAXING", "SEMI_PERMANENT", "ETC");
+
+    public record CategoryCycle(String category, int minDays, int maxDays) {}
+
+    /** 카테고리 기본 주기 5개, {@link #CATEGORIES} 순서 */
+    public List<CategoryCycle> categoryCycles() {
+        return List.of(
+                new CategoryCycle("NAIL", nailCycleMinDays, nailCycleMaxDays),
+                new CategoryCycle("LASH", lashCycleMinDays, lashCycleMaxDays),
+                new CategoryCycle("WAXING", waxingCycleMinDays, waxingCycleMaxDays),
+                new CategoryCycle(
+                        "SEMI_PERMANENT", semiPermanentCycleMinDays, semiPermanentCycleMaxDays),
+                new CategoryCycle("ETC", etcCycleMinDays, etcCycleMaxDays));
+    }
+
+    /**
+     * @return 값이 바뀌었으면 true (예측 재계산 대상, FR-SET-02)
+     * @throws ApiException 모르는 카테고리이거나 {@code 1 ≤ minDays ≤ maxDays}가 아니면 {@code invalid}
+     */
+    boolean changeCategoryCycle(String category, int minDays, int maxDays) {
+        if (minDays < 1 || minDays > maxDays) {
+            throw new ApiException(ErrorCode.INVALID, "기본 주기는 1일 이상이고 최소가 최대보다 클 수 없습니다");
+        }
+        boolean changed =
+                categoryCycles().stream()
+                        .noneMatch(c ->
+                                c.category().equals(category)
+                                        && c.minDays() == minDays
+                                        && c.maxDays() == maxDays);
+        switch (category) {
+            case "NAIL" -> {
+                nailCycleMinDays = minDays;
+                nailCycleMaxDays = maxDays;
+            }
+            case "LASH" -> {
+                lashCycleMinDays = minDays;
+                lashCycleMaxDays = maxDays;
+            }
+            case "WAXING" -> {
+                waxingCycleMinDays = minDays;
+                waxingCycleMaxDays = maxDays;
+            }
+            case "SEMI_PERMANENT" -> {
+                semiPermanentCycleMinDays = minDays;
+                semiPermanentCycleMaxDays = maxDays;
+            }
+            case "ETC" -> {
+                etcCycleMinDays = minDays;
+                etcCycleMaxDays = maxDays;
+            }
+            default -> throw new ApiException(ErrorCode.INVALID, "모르는 시술 카테고리입니다");
+        }
+        return changed;
+    }
+
     /** 한 요일의 영업시간. 정기 휴무면 open · close가 null */
     public record OpeningHours(DayOfWeek dayOfWeek, LocalTime open, LocalTime close) {}
 
@@ -120,6 +191,12 @@ public class Shop {
         shop.email = email;
         shop.passwordHash = passwordHash;
         shop.name = name;
+        // 매핑한 칸은 INSERT에 모두 들어가 V1의 DB 기본값이 쓰이지 않으므로 같은 값을 넣는다 (FR-SET-02 · C16)
+        shop.changeCategoryCycle("NAIL", 21, 28);
+        shop.changeCategoryCycle("LASH", 30, 60);
+        shop.changeCategoryCycle("WAXING", 28, 42);
+        shop.changeCategoryCycle("SEMI_PERMANENT", 365, 730);
+        shop.changeCategoryCycle("ETC", 28, 56);
         return shop;
     }
 
