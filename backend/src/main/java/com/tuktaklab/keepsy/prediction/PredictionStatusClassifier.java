@@ -5,7 +5,8 @@ import java.util.Optional;
 
 /**
  * 예측 상태 분류와 이탈 신호 기간 (FR-PRD-04, FR-SET-03, 기획서 9장). 값만으로 결과가 정해지는 규칙이라 DB · 스프링 없이 단위 테스트한다
- * (DEVELOPMENT 4장). 오늘 날짜는 호출하는 쪽이 Asia/Seoul 기준으로 넘긴다 (NFR-12).
+ * (DEVELOPMENT 4장). 오늘 날짜는 호출하는 쪽이 Asia/Seoul 기준으로 넘긴다 (NFR-12). 고객 목록의 상태 필터({@code
+ * customer.query.CustomerListQuery})가 같은 규칙을 SQL로 쓰므로 이 규칙을 바꾸면 그 SQL도 함께 바꾼다.
  */
 public final class PredictionStatusClassifier {
 
