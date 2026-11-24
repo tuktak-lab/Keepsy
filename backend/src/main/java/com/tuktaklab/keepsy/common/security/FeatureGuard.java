@@ -84,6 +84,19 @@ public class FeatureGuard {
                 : shopSession.pinStaffId(session);
     }
 
+    /**
+     * 원장 PIN 인증이 유효한지. 조건에 따라서만 원장 PIN이 필요한 API(예약 제한 고객 예약, FR-CUS-14)가 쓴다. 예외를 던지지 않고, 통과하면
+     * {@link #check}처럼 PIN 만료를 연장한다.
+     */
+    public boolean ownerPinVerified(HttpSession session) {
+        Long pinStaffId = validPinStaff(session);
+        if (pinStaffId == null || !settings.isOwner(shopSession.shopId(), pinStaffId)) {
+            return false;
+        }
+        shopSession.setPin(session, pinStaffId, now().plus(PIN_TIMEOUT));
+        return true;
+    }
+
     /** 매장의 기능별 공용/PIN 설정 전부. 화면이 잠긴 영역을 가릴 때 쓴다 (GET /api/session). 검사와 같은 계산이다 */
     public Map<FeatureKey, Access> accessByFeature(long shopId) {
         Set<FeatureKey> locked = settings.lockedFeatures(shopId);
