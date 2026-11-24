@@ -1,7 +1,10 @@
 package com.tuktaklab.keepsy.customer;
 
+import com.tuktaklab.keepsy.common.audit.AccessLogger;
+import com.tuktaklab.keepsy.common.audit.AccessLogger.Action;
 import com.tuktaklab.keepsy.common.error.ApiException;
 import com.tuktaklab.keepsy.common.error.ErrorCode;
+import com.tuktaklab.keepsy.common.security.FeatureKey;
 import com.tuktaklab.keepsy.common.web.PageResponse;
 import com.tuktaklab.keepsy.customer.query.ConsultNoteQuery;
 import java.time.Clock;
@@ -18,6 +21,7 @@ public class ConsultNoteService {
     private final CustomerRepository customerRepository;
     private final ConsultNoteRepository noteRepository;
     private final ConsultNoteQuery noteQuery;
+    private final AccessLogger accessLogger;
     private final Clock clock;
 
     /**
@@ -49,6 +53,41 @@ public class ConsultNoteService {
                 page,
                 size,
                 noteQuery.count(shopId, customerId));
+    }
+
+    /**
+     * 내용 수정 (C5). 접근 로그를 같은 트랜잭션에 남긴다 (NFR-06).
+     *
+     * @throws ApiException 다른 매장 · 없는 메모면 {@code not_found}
+     */
+    @Transactional
+    public void edit(long shopId, long noteId, String content) {
+        ConsultNote note = find(shopId, noteId);
+        note.edit(content);
+        log(note, Action.UPDATE);
+    }
+
+    /**
+     * 삭제 (C5). 접근 로그를 같은 트랜잭션에 남긴다 (NFR-06).
+     *
+     * @throws ApiException 다른 매장 · 없는 메모면 {@code not_found}
+     */
+    @Transactional
+    public void delete(long shopId, long noteId) {
+        ConsultNote note = find(shopId, noteId);
+        noteRepository.delete(note);
+        log(note, Action.DELETE);
+    }
+
+    private ConsultNote find(long shopId, long noteId) {
+        return noteRepository
+                .findByIdAndShopId(noteId, shopId)
+                .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND));
+    }
+
+    private void log(ConsultNote note, Action action) {
+        accessLogger.record(
+                FeatureKey.CUSTOMER_EDIT, AccessLogger.CUSTOMER, note.getCustomerId(), action);
     }
 
     private void requireCustomer(long shopId, long customerId) {

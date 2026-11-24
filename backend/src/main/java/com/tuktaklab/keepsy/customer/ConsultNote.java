@@ -40,4 +40,9 @@ public class ConsultNote {
         n.writtenAt = now;
         return n;
     }
+
+    /** 내용만 바꾼다. 작성 스탭 · 작성 시각은 처음 값 그대로 (C5) */
+    void edit(String content) {
+        this.content = content;
+    }
 }

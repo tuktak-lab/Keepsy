@@ -15,7 +15,9 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -37,6 +39,20 @@ class ConsultNoteController {
                     String content) {}
 
     record WriteResponse(long noteId) {}
+
+    @RequireFeature(FeatureKey.CUSTOMER_EDIT)
+    @PatchMapping("/api/consult-notes/{noteId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    void edit(@PathVariable long noteId, @Valid @RequestBody WriteRequest r) {
+        service.edit(shopSession.shopId(), noteId, r.content());
+    }
+
+    @RequireFeature(FeatureKey.CUSTOMER_EDIT)
+    @DeleteMapping("/api/consult-notes/{noteId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    void delete(@PathVariable long noteId) {
+        service.delete(shopSession.shopId(), noteId);
+    }
 
     @RequireFeature(FeatureKey.CUSTOMER_WRITE)
     @PostMapping("/api/customers/{customerId}/consult-notes")
