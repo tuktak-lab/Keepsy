@@ -100,6 +100,43 @@ public class ReservationAppService {
         return reservations.save(reservation).getId();
     }
 
+    /** {@code POST /api/reservations/{id}/cancel}. 확정 예약만 (FR-RSV-03) */
+    @Transactional
+    public void cancel(long shopId, long reservationId) {
+        find(shopId, reservationId).cancel();
+    }
+
+    /** {@code POST /api/reservations/{id}/no-show}. 시작 시각이 지난 확정 예약만 (C8). 고객 없는 예약도 된다 (E3) */
+    @Transactional
+    public void markNoShow(long shopId, long reservationId) {
+        find(shopId, reservationId).markNoShow(LocalDateTime.now(clock));
+    }
+
+    /**
+     * {@code PUT /api/reservations/{id}/customer}. 고객 없는 확정 예약에 고객을 연결한다 (FR-RSV-01, FR-DSH-01). 예약
+     * 제한 고객이어도 PIN 없이 연결하고 안내만 돌려준다 (FR-CUS-14, E3).
+     *
+     * @return 예약 제한 고객이면 "예약 제한 고객입니다. 사유: …" 안내
+     */
+    @Transactional
+    public Optional<String> linkCustomer(long shopId, long reservationId, long customerId) {
+        Reservation reservation = find(shopId, reservationId);
+        CustomerState customer =
+                refs.customer(shopId, customerId)
+                        .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND));
+        reservation.linkCustomer(customerId);
+        return customer.restricted()
+                ? Optional.of("예약 제한 고객입니다. 사유: " + customer.restrictReason())
+                : Optional.empty();
+    }
+
+    /** 세션 매장의 예약. 없거나 다른 매장 것이면 똑같이 404 (NFR-03) */
+    private Reservation find(long shopId, long reservationId) {
+        return reservations
+                .findByIdAndShopId(reservationId, shopId)
+                .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND));
+    }
+
     /** 그 매장 스탭이 아니면 404, 비활성이면 담당으로 지정할 수 없다 (FR-ACC-04) */
     private static void requireStaff(Optional<StaffState> staff) {
         if (!staff.orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND)).active()) {

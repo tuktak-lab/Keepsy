@@ -2,6 +2,7 @@ package com.tuktaklab.keepsy.reservation;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
@@ -13,4 +14,6 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
                     + " and r.startAt >= :from and r.startAt < :to")
     List<Reservation> findStaffReservations(
             long shopId, long staffId, LocalDateTime from, LocalDateTime to);
+
+    Optional<Reservation> findByIdAndShopId(long id, long shopId);
 }

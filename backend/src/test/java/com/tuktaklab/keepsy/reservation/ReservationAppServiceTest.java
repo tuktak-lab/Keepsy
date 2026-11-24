@@ -206,6 +206,65 @@ class ReservationAppServiceTest {
         assertThat(conflicts).isEqualTo(threads - 1);
     }
 
+    /** 지난 날짜에 잡아 둔 예약 (노쇼는 시작 시각이 지나야 한다). 날짜가 흘러도 테스트가 바뀌지 않게 먼 과거 · 먼 미래를 쓴다 */
+    private long reservationOn(LocalDate date, Long customerId) {
+        return service.create(
+                shop,
+                new NewReservation(
+                        customerId,
+                        staff,
+                        date.atTime(11, 0),
+                        null,
+                        null,
+                        false,
+                        null,
+                        List.of(care)),
+                false);
+    }
+
+    @Test
+    void 취소하면_그_시간을_다시_잡을_수_있고_두_번_취소하면_conflict() {
+        long id = service.create(shop, at(11, customer, List.of(care)), false);
+        service.cancel(shop, id);
+
+        assertThat(reservations.findById(id).orElseThrow().getStatus())
+                .isEqualTo(ReservationStatus.CANCELED);
+        assertThat(service.create(shop, at(11, customer, List.of(care)), false)).isPositive();
+        assertError(() -> service.cancel(shop, id), ErrorCode.CONFLICT);
+    }
+
+    @Test
+    void 노쇼는_시작_시각이_지난_뒤에만_되고_고객_없는_예약도_된다() {
+        long past = reservationOn(LocalDate.of(2020, 1, 7), null);
+        long future = reservationOn(LocalDate.of(2099, 1, 6), customer);
+
+        service.markNoShow(shop, past);
+
+        assertThat(reservations.findById(past).orElseThrow().getStatus())
+                .isEqualTo(ReservationStatus.NO_SHOW);
+        assertError(() -> service.markNoShow(shop, future), ErrorCode.CONFLICT);
+    }
+
+    @Test
+    void 고객_연결은_고객_없는_예약에만_되고_예약_제한_고객이면_안내만_돌려준다() {
+        long id = service.create(shop, at(11, null, List.of(care)), false);
+
+        assertThat(service.linkCustomer(shop, id, restricted))
+                .hasValueSatisfying(notice -> assertThat(notice).contains("노쇼 3회"));
+        assertThat(reservations.findById(id).orElseThrow().getCustomerId()).isEqualTo(restricted);
+        assertError(() -> service.linkCustomer(shop, id, customer), ErrorCode.CONFLICT);
+    }
+
+    @Test
+    void 다른_매장_예약이나_고객이면_not_found() {
+        long id = service.create(shop, at(11, null, List.of(care)), false);
+        long otherCustomer = insertCustomer(otherShop, false, null);
+
+        assertError(() -> service.cancel(otherShop, id), ErrorCode.NOT_FOUND);
+        assertError(() -> service.markNoShow(otherShop, id), ErrorCode.NOT_FOUND);
+        assertError(() -> service.linkCustomer(shop, id, otherCustomer), ErrorCode.NOT_FOUND);
+    }
+
     private long insertShop(String email) {
         return insert(
                 "INSERT INTO shop (email, password_hash, name,"
