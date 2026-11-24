@@ -4,6 +4,7 @@ import com.tuktaklab.keepsy.common.security.FeatureKey;
 import com.tuktaklab.keepsy.common.security.RequireFeature;
 import com.tuktaklab.keepsy.common.security.ShopSession;
 import com.tuktaklab.keepsy.common.web.PageResponse;
+import com.tuktaklab.keepsy.customer.query.CustomerDetailQuery;
 import com.tuktaklab.keepsy.customer.query.CustomerListQuery;
 import com.tuktaklab.keepsy.prediction.PredictionStatus;
 import jakarta.servlet.http.HttpSession;
@@ -98,6 +99,12 @@ class CustomerController {
                         marketingConsent),
                 page,
                 size);
+    }
+
+    @RequireFeature(FeatureKey.CUSTOMER_VIEW)
+    @GetMapping("/api/customers/{customerId}")
+    CustomerDetailQuery.Detail detail(@PathVariable long customerId) {
+        return customerService.detail(shopSession.shopId(), customerId);
     }
 
     @RequireFeature(FeatureKey.CUSTOMER_VIEW)
