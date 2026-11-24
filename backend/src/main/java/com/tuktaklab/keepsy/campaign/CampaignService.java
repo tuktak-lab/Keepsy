@@ -2,10 +2,13 @@ package com.tuktaklab.keepsy.campaign;
 
 import com.tuktaklab.keepsy.campaign.CampaignTargets.Target;
 import com.tuktaklab.keepsy.campaign.query.CampaignTargetQuery.Selection;
+import com.tuktaklab.keepsy.campaign.query.ConsentReconfirmQuery;
 import com.tuktaklab.keepsy.common.error.ApiException;
 import com.tuktaklab.keepsy.common.error.ErrorCode;
 import com.tuktaklab.keepsy.common.error.GlobalExceptionHandler.FieldViolation;
+import com.tuktaklab.keepsy.common.web.PageResponse;
 import java.time.Clock;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -26,6 +29,7 @@ public class CampaignService {
     private final MessageTemplateRepository templates;
     private final CampaignTargets targets;
     private final NamedParameterJdbcTemplate jdbc;
+    private final ConsentReconfirmQuery reconfirmQuery;
     private final Clock clock;
 
     /**
@@ -99,6 +103,18 @@ public class CampaignService {
         throw campaigns.existsByIdAndShopId(campaignId, shopId)
                 ? new ApiException(ErrorCode.CONFLICT, "작성 중인 캠페인만 검토할 수 있습니다")
                 : new ApiException(ErrorCode.NOT_FOUND);
+    }
+
+    /** 동의 재확인 대상 (FR-CMP-13, D1, F45). 오늘은 Asia/Seoul (NFR-12) */
+    @Transactional(readOnly = true)
+    public PageResponse<ConsentReconfirmQuery.Row> reconfirmTargets(
+            long shopId, int page, int size) {
+        LocalDate today = LocalDate.now(clock);
+        return new PageResponse<>(
+                reconfirmQuery.find(shopId, today, page, size),
+                page,
+                size,
+                reconfirmQuery.count(shopId, today));
     }
 
     private static ApiException invalid(String field, String reason) {
