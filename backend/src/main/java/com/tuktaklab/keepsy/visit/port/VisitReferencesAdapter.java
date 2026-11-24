@@ -126,4 +126,14 @@ class VisitReferencesAdapter implements VisitReferences {
                 Map.of("shopId", shopId, "customerId", customerId),
                 Long.class);
     }
+
+    @Override
+    public boolean isActiveCustomer(long shopId, long customerId) {
+        return Boolean.TRUE.equals(
+                jdbc.queryForObject(
+                        "SELECT EXISTS (SELECT 1 FROM customer WHERE id = :customerId"
+                                + " AND shop_id = :shopId AND status = 'ACTIVE')",
+                        Map.of("shopId", shopId, "customerId", customerId),
+                        Boolean.class));
+    }
 }
