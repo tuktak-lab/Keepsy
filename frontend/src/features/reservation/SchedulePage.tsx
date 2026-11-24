@@ -1,7 +1,8 @@
-import { useEffect, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Topbar } from '@/components/layout/Topbar';
 import styleText from './SchedulePage.css?inline';
+import { ReservationForm } from './ReservationForm';
 import { useStyleSheet } from '@/hooks/useStyleSheet';
 import { api } from '@/lib/api';
 import {
@@ -29,9 +30,9 @@ import {
   type Tone,
 } from '@/lib/calendar';
 
-// 예약 캘린더 (FR-RSV-02 주간 · FR-RSV-03 상태 표시). 이 화면은 읽기 전용이다.
-// 예약 등록 · 수정, 취소 · 노쇼, 일간 보기는 다음 PR, 예약 상세는 #128, 시술 마감은 #129.
-// API: GET /api/reservations · /api/staff · /api/shop · /api/day-offs (docs CONTRACTS 4장 · 6장)
+// 예약 캘린더 (FR-RSV-02 주간 · FR-RSV-03 상태 표시 · FR-RSV-01 등록 · 수정).
+// 취소 · 노쇼, 일간 보기, 신규 고객 등록은 다음 PR, 예약 상세는 #128, 시술 마감은 #129.
+// API: GET /api/reservations · /api/staff · /api/shop · /api/day-offs (docs CONTRACTS 4장 · 6장). 등록 · 수정은 ReservationForm
 
 type StaffRef = { id: number; name: string };
 type Reservation = {
@@ -79,6 +80,7 @@ export default function SchedulePage() {
   const [week, setWeek] = useState<WeekData | null>(null);
   const [failed, setFailed] = useState<DateStr | null>(null);
   const [reload, setReload] = useState(0);
+  const [form, setForm] = useState<{ editId: number | null } | null>(null); // 등록(null) · 일정 변경(예약 ID) 창
 
   // 스탭 · 영업시간은 한 번만 읽는다. 실패하면 api()가 오류 안내를 띄우고, 이 화면은 기본값(스탭 필터 없음, 9~20시)으로 그린다.
   useEffect(() => {
@@ -122,6 +124,14 @@ export default function SchedulePage() {
     setFailed(null);
     setReload((n) => n + 1);
   };
+  const closeForm = useCallback(() => setForm(null), []);
+  // 저장하면 그 예약이 있는 주로 옮겨 다시 읽는다
+  const saved = useCallback((date: DateStr) => {
+    setForm(null);
+    setPicked(date);
+    setMiniPick(null);
+    setReload((n) => n + 1);
+  }, []);
 
   const dates = from ? weekDates(from) : [];
   const data = week && week.from === from ? week : null;
@@ -171,20 +181,21 @@ export default function SchedulePage() {
     const label = r.consultFirst ? `${TONE_LABEL[tone]} · 상담 후 진행` : TONE_LABEL[tone];
     const who = r.customer ? (r.customer.name ?? '이름 없음') : route; // 고객 없는 예약은 이름 대신 예약 경로 (E3)
     const range = `${formatMinutes(b.start)}–${formatMinutes(b.end)}`;
-    return (
-      <div
-        key={b.id}
-        role="group"
-        className={`blk s-${tone} l${lines}${r.customer ? '' : ' nocust'}${h < 44 ? ' short' : ''}${over ? ' over' : ''}`}
-        aria-label={`${r.customer ? who : `고객 없는 예약 ${route}`} · ${treat} · ${range} · ${label} · ${r.staff.name}`}
-        title={`${r.staff.name} · ${range}`}
-        style={{
-          top: topOf(b.start) + 2,
-          height: h,
-          left: `calc(${left}% + 3px)`,
-          width: `calc(${width}% - 6px)`,
-        }}
-      >
+    // 확정 예약만 일정을 바꿀 수 있다 (완료 · 취소 · 노쇼는 수정 불가, F22)
+    const editable = r.status === 'CONFIRMED';
+    const props = {
+      className: `blk s-${tone} l${lines}${r.customer ? '' : ' nocust'}${h < 44 ? ' short' : ''}${over ? ' over' : ''}`,
+      'aria-label': `${r.customer ? who : `고객 없는 예약 ${route}`} · ${treat} · ${range} · ${label} · ${r.staff.name}${editable ? ' · 눌러서 일정 변경' : ''}`,
+      title: `${r.staff.name} · ${range}`,
+      style: {
+        top: topOf(b.start) + 2,
+        height: h,
+        left: `calc(${left}% + 3px)`,
+        width: `calc(${width}% - 6px)`,
+      },
+    };
+    const inner = (
+      <>
         <span className="b1">
           <b>{who}</b>
           <span className="num">{formatMinutes(b.start)}</span>
@@ -192,6 +203,15 @@ export default function SchedulePage() {
         <span className="bt num">{range}</span>
         <span className="b2">{treat}</span>
         <span className="b3">{label}</span>
+      </>
+    );
+    return editable ? (
+      <button key={b.id} type="button" {...props} onClick={() => setForm({ editId: r.id })}>
+        {inner}
+      </button>
+    ) : (
+      <div key={b.id} role="group" {...props}>
+        {inner}
       </div>
     );
   };
@@ -207,8 +227,11 @@ export default function SchedulePage() {
           <header className="head">
             <div>
               <h1 className="h1 serif">예약 · 일정 관리</h1>
-              <p className="sub">날짜를 고르면 그 주의 예약을 스탭별로 볼 수 있어요.</p>
+              <p className="sub">날짜를 고르면 그 주의 예약을 스탭별로 볼 수 있어요. 예약을 누르면 일정을 바꿀 수 있어요.</p>
             </div>
+            <button type="button" className="btn btn-p" onClick={() => setForm({ editId: null })} disabled={staff.length === 0}>
+              + 예약 등록
+            </button>
           </header>
 
           {anchor ? (
@@ -418,6 +441,7 @@ export default function SchedulePage() {
           ) : null}
         </div>
       </main>
+      {form ? <ReservationForm key={form.editId ?? 'new'} editId={form.editId} initialDate={anchor} staff={staff} onClose={closeForm} onSaved={saved} /> : null}
     </div>
   );
 }
