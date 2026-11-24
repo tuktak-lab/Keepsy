@@ -283,6 +283,16 @@ public class ReservationAppService {
         reservations.flush();
     }
 
+    /** 그 방문에 연결된 예약 중 가장 이른 예약 ID. 방문 수정으로 더한 시술의 예약이다 (F25). visit 도메인이 Port로 부른다 */
+    @Transactional(readOnly = true)
+    public Optional<Long> earliestReservationIdForVisit(long shopId, long visitId) {
+        return reservations.findByShopIdAndVisitId(shopId, visitId).stream()
+                .min(
+                        Comparator.comparing(Reservation::getStartAt)
+                                .thenComparing(Reservation::getId))
+                .map(Reservation::getId);
+    }
+
     /** 세션 매장의 예약. 없거나 다른 매장 것이면 똑같이 404 (NFR-03) */
     private Reservation find(long shopId, long reservationId) {
         return reservations

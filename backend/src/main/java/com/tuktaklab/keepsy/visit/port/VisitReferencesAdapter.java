@@ -65,6 +65,11 @@ class VisitReferencesAdapter implements VisitReferences {
     }
 
     @Override
+    public Long earliestReservationId(long shopId, long visitId) {
+        return reservations.earliestReservationIdForVisit(shopId, visitId).orElse(null);
+    }
+
+    @Override
     public void deletePhotos(long shopId, long visitId) {
         Map<String, Object> p = Map.of("shopId", shopId, "visitId", visitId);
         List<String> keys =

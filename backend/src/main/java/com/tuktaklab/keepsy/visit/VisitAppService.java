@@ -192,6 +192,33 @@ public class VisitAppService {
         // ponytail: 고객 마지막 방문일(FR-CUS-12)은 그 서비스가 생기면 여기서 부른다. 스냅샷 재평가 · 귀속 승계는 하지 않는다 (#71)
     }
 
+    /**
+     * {@code PATCH /api/visits/{id}}: 방문의 실제 시술 · 담당 스탭 · 주기 계산 제외 수정 (FR-VIS-03 · 05, F25). 고객이
+     * 있으면 같은 트랜잭션에서 예측을 다시 계산한다. "앞으로 이 메뉴를 모두 제외할까요?" 안내는 화면이 메뉴 예측 속성으로 띄운다 (CONTRACTS 6장)
+     */
+    @Transactional
+    public void editVisit(long shopId, long visitId, List<Closing.Item> items) {
+        if (items == null || items.isEmpty()) {
+            throw new ApiException(ErrorCode.INVALID, "실제 시술을 1개 이상 골라 주세요");
+        }
+        Visit visit =
+                visits.findForUpdateByIdAndShopId(visitId, shopId)
+                        .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND));
+        if (visit.getSource() == VisitSource.IMPORT) {
+            // 메뉴 · 스탭 없이 카테고리만 있는 방문. 가져오기(FR-CUS-13)를 구현할 때 다시 정한다 (F25)
+            throw new ApiException(ErrorCode.CONFLICT, "가져온 방문은 수정할 수 없습니다");
+        }
+        if (visit.getCustomerId() == null && anyCycleExcluded(items)) {
+            throw new ApiException(ErrorCode.INVALID, "고객 없음으로 마감한 방문에는 주기 계산 제외를 남길 수 없습니다");
+        }
+        visit.replaceServices(
+                toActualServices(shopId, items), refs.earliestReservationId(shopId, visitId));
+        visits.flush();
+        if (visit.getCustomerId() != null) {
+            refs.recalculatePrediction(shopId, visit.getCustomerId());
+        }
+    }
+
     private Payment findPayment(long shopId, long paymentId) {
         return payments.findByIdAndShopId(paymentId, shopId)
                 .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND));
@@ -208,14 +235,7 @@ public class VisitAppService {
                         : r.plannedMenuIds().stream()
                                 .map(id -> new Closing.Item(id, r.staffId(), false))
                                 .toList();
-        Set<Long> menuIds =
-                new HashSet<>(actual.stream().map(Closing.Item::serviceMenuId).toList());
-        Set<Long> staffIds = new HashSet<>(actual.stream().map(Closing.Item::staffId).toList());
-        Map<Long, String> categories = refs.menuCategories(shopId, menuIds);
-        if (!categories.keySet().containsAll(menuIds)
-                || !refs.shopStaffIds(shopId, staffIds).containsAll(staffIds)) {
-            throw new ApiException(ErrorCode.NOT_FOUND);
-        }
+        List<ActualService> actualServices = toActualServices(shopId, actual);
 
         Visit visit;
         if (r.customerId() == null) {
@@ -230,16 +250,7 @@ public class VisitAppService {
                                             Visit.fromReservation(
                                                     shopId, r.customerId(), r.date())));
         }
-        visit.addReservationServices(
-                r.id(),
-                actual.stream()
-                        .map(i ->
-                                new ActualService(
-                                        i.serviceMenuId(),
-                                        categories.get(i.serviceMenuId()),
-                                        i.staffId(),
-                                        i.cycleExcluded()))
-                        .toList());
+        visit.addReservationServices(r.id(), actualServices);
         visits.flush();
         refs.completeReservation(shopId, r.id(), visit.getId(), items != null);
         if (visit.getCustomerId() != null) {
@@ -247,6 +258,25 @@ public class VisitAppService {
             refs.recalculatePrediction(shopId, visit.getCustomerId());
         }
         return visit;
+    }
+
+    /** 그 매장의 메뉴 · 스탭인지 확인하고 메뉴의 시술 카테고리를 붙인다. 다른 매장 것이면 not_found (NFR-03) */
+    private List<ActualService> toActualServices(long shopId, List<Closing.Item> items) {
+        Set<Long> menuIds = new HashSet<>(items.stream().map(Closing.Item::serviceMenuId).toList());
+        Set<Long> staffIds = new HashSet<>(items.stream().map(Closing.Item::staffId).toList());
+        Map<Long, String> categories = refs.menuCategories(shopId, menuIds);
+        if (!categories.keySet().containsAll(menuIds)
+                || !refs.shopStaffIds(shopId, staffIds).containsAll(staffIds)) {
+            throw new ApiException(ErrorCode.NOT_FOUND);
+        }
+        return items.stream()
+                .map(i ->
+                        new ActualService(
+                                i.serviceMenuId(),
+                                categories.get(i.serviceMenuId()),
+                                i.staffId(),
+                                i.cycleExcluded()))
+                .toList();
     }
 
     private static boolean anyCycleExcluded(List<Closing.Item> items) {
