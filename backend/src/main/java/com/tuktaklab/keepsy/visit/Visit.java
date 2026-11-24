@@ -57,8 +57,7 @@ public class Visit {
      *
      * @return 새로 더했으면 true
      */
-    public boolean addReservationServices(
-            long reservationId, long staffId, List<ActualService> actualServices) {
+    public boolean addReservationServices(long reservationId, List<ActualService> actualServices) {
         boolean already =
                 services.stream()
                         .anyMatch(s -> Long.valueOf(reservationId).equals(s.getReservationId()));
@@ -73,10 +72,12 @@ public class Visit {
                                 reservationId,
                                 a.serviceMenuId(),
                                 a.category(),
-                                staffId)));
+                                a.staffId(),
+                                a.cycleExcluded())));
         return true;
     }
 
-    /** 실제 시술 한 건: 메뉴와 그 메뉴의 시술 카테고리 */
-    public record ActualService(long serviceMenuId, String category) {}
+    /** 실제 시술 한 건: 메뉴, 그 메뉴의 시술 카테고리, 시술 담당 스탭, 이번 주기 계산 제외 (A13, FR-VIS-05) */
+    public record ActualService(
+            long serviceMenuId, String category, long staffId, boolean cycleExcluded) {}
 }

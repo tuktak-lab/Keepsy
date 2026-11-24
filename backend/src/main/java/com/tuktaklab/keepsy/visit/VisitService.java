@@ -54,12 +54,14 @@ public class VisitService {
             Long reservationId,
             Long serviceMenuId,
             String category,
-            Long staffId) {
+            Long staffId,
+            boolean cycleExcluded) {
         this.visit = visit;
         this.shopId = shopId;
         this.reservationId = reservationId;
         this.serviceMenuId = serviceMenuId;
         this.category = category;
         this.staffId = staffId;
+        this.cycleExcluded = cycleExcluded;
     }
 }
