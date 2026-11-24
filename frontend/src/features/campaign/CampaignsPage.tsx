@@ -165,7 +165,7 @@ function Body() {
         <div className="cp-card cp-kpi"><span>예약 발송</span><b className="num">{camps.filter((x) => x.status === '예약 발송').length}건</b><em>발송 전까지 수정 가능</em></div>
         <div className="cp-card cp-kpi"><span>이번 달 발송</span><b className="num">{totalSent}건</b><em>가상 발송 기준</em></div>
         <div className="cp-card cp-kpi"><span>캠페인 수</span><b className="num">{camps.length}건</b><em>예약·완료 포함</em></div>
-        <div className="cp-card cp-kpi"><span>성과 확인</span><b style={{ fontSize: 16, paddingTop: 8 }}><AppLink href="/performance" style={{ color: '#85505A' }}>성과 분석 보기 →</AppLink></b><em>귀속 14일 기준</em></div>
+        <div className="cp-card cp-kpi"><span>성과 확인</span><b style={{ fontSize: 16, paddingTop: 8 }}><AppLink href="/analytics" style={{ color: '#85505A' }}>성과 분석 보기 →</AppLink></b><em>귀속 14일 기준</em></div>
       </section>
 
       <div className="cp-grid">
@@ -340,7 +340,7 @@ function Body() {
                     <button type="button" className="cp-btn" style={{ color: '#8F2F2F' }}>예약 발송 취소</button>
                   </>
                 ) : (
-                  <AppLink href="/performance" className="cp-btn p">성과 자세히 보기</AppLink>
+                  <AppLink href="/analytics" className="cp-btn p">성과 자세히 보기</AppLink>
                 )}
               </div>
             </>

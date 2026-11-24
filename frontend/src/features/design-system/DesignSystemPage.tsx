@@ -1,6 +1,9 @@
 import { Avatar } from '@/components/common/Avatar';
 import { Photo } from '@/components/common/Photo';
-import logo from '@/assets/images/keepsy-logo-thin.png';
+import logoImg from '@/assets/images/keepsy-logo-thin.png';
+
+// Next.js는 이미지 import를 { src, width, height } 객체로 준다 (Vite는 URL 문자열).
+const logo = logoImg.src;
 import styleText from './DesignSystemPage.css?inline';
 import { useStyleSheet } from '@/hooks/useStyleSheet';
 

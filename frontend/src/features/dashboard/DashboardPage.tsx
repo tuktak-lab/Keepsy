@@ -3,7 +3,10 @@ import { AppLink } from '@/components/common/AppLink';
 import { Avatar } from '@/components/common/Avatar';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Topbar } from '@/components/layout/Topbar';
-import logo from '@/assets/images/keepsy-logo-thin.png';
+import logoImg from '@/assets/images/keepsy-logo-thin.png';
+
+// Next.js는 이미지 import를 { src, width, height } 객체로 준다 (Vite는 URL 문자열).
+const logo = logoImg.src;
 import styleText from './DashboardPage.css?inline';
 import { useStyleSheet } from '@/hooks/useStyleSheet';
 
@@ -73,8 +76,8 @@ export default function DashboardPage() {
 
   const kpis = [
     { label: '전체 고객', value: '248', icon: ICON.users, delta: '+12%', extra: '', series: [3, 4, 3.6, 5, 4.6, 6, 7], href: '/customers' },
-    { label: '오늘 예약', value: '9', icon: ICON.cal, delta: '', extra: '확정 7 · 상담 후 진행 2', series: [3, 3.4, 3.2, 4.4, 4, 5, 5.6], href: '/schedule' },
-    { label: '마감 안 된 예약', value: '2', icon: ICON.done, delta: '', extra: '지난 예약 · 시술 마감 필요', series: [2, 3, 2.6, 3.6, 2.4, 3, 2], href: '/schedule' },
+    { label: '오늘 예약', value: '9', icon: ICON.cal, delta: '', extra: '확정 7 · 상담 후 진행 2', series: [3, 3.4, 3.2, 4.4, 4, 5, 5.6], href: '/reservations' },
+    { label: '마감 안 된 예약', value: '2', icon: ICON.done, delta: '', extra: '지난 예약 · 시술 마감 필요', series: [2, 3, 2.6, 3.6, 2.4, 3, 2], href: '/reservations' },
     { label: '주기 도래 고객', value: '14', icon: ICON.heart, delta: '', extra: '예약 없음 · 우선순위 순', series: [2, 2.6, 2.4, 3.4, 3.8, 3.6, 5], href: '/insights' },
   ];
 
@@ -236,7 +239,7 @@ export default function DashboardPage() {
                   <Icon d={ICON.spark} size={24} />
                   최근 캠페인 성과
                 </h2>
-                <AppLink href="/performance" className="kp-circle-btn" aria-label="성과 분석 보기">
+                <AppLink href="/analytics" className="kp-circle-btn" aria-label="성과 분석 보기">
                   <Icon d={ICON.arrow} size={16} />
                 </AppLink>
               </div>
@@ -263,7 +266,7 @@ export default function DashboardPage() {
                   <br />
                   기준 값이에요.
                 </span>
-                <AppLink href="/performance" className="kp-more">
+                <AppLink href="/analytics" className="kp-more">
                   더보기
                   <Icon d={ICON.arrow} size={14} />
                 </AppLink>
