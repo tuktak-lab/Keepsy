@@ -1,0 +1,97 @@
+/* 근무자 PIN 화면. 카드 · 제목 · 버튼은 LoginPage.module.css를 같이 쓰고, 여기에는 PIN 입력과 숫자 패드만 둔다. */
+.shop {
+  margin: -12px 0 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--wine);
+}
+
+.current {
+  color: var(--ink);
+}
+
+.pin {
+  width: 100%;
+  height: 58px;
+  box-sizing: border-box;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  font: inherit;
+  font-size: 28px;
+  letter-spacing: 0.5em;
+  text-align: center;
+  color: var(--ink);
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.pin::placeholder {
+  font-size: 16px;
+  letter-spacing: 0;
+  color: #a59a94;
+}
+
+.pin:focus {
+  border-color: var(--wine);
+  box-shadow: 0 0 0 3px rgba(122, 68, 80, 0.12);
+}
+
+.keypad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin: 14px 0 16px;
+}
+
+.key {
+  height: 50px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.85);
+  font: inherit;
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--ink);
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.key:hover {
+  border-color: var(--wine);
+  background: #fff;
+}
+
+.key:active {
+  background: #f3ebe6;
+}
+
+.keySub {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.submit {
+  width: 100%;
+  margin-top: 4px;
+}
+
+.linkButton {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-weight: 600;
+  color: var(--wine);
+  cursor: pointer;
+}
+
+.linkButton:hover {
+  text-decoration: underline;
+}
+
+.error {
+  margin-bottom: 14px;
+  text-align: center;
+}
