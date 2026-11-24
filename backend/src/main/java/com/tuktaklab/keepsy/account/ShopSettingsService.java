@@ -7,6 +7,7 @@ import com.tuktaklab.keepsy.common.error.ErrorCode;
 import com.tuktaklab.keepsy.common.security.ShopScope;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -43,6 +44,16 @@ public class ShopSettingsService {
     @Transactional(readOnly = true)
     public int attributionDays(long shopId) {
         return ShopScope.orNotFound(shopRepository.findById(shopId)).getAttributionDays();
+    }
+
+    /**
+     * 기능별 공용/PIN을 보낸 키만 바꾼다 (FR-ACC-05, F34). 권한 검사가 요청마다 이 칸을 읽으므로 커밋 직후 요청부터 반영된다.
+     *
+     * @throws ApiException 규칙을 어기면 {@code invalid} ({@link Shop#changeFeatureLocks})
+     */
+    @Transactional
+    public void updateFeatureLocks(long shopId, Map<String, String> changes) {
+        ShopScope.orNotFound(shopRepository.findById(shopId)).changeFeatureLocks(changes);
     }
 
     /** 카테고리 기본 주기 5개, CONTRACTS 3장 순서 (FR-SET-02) */
