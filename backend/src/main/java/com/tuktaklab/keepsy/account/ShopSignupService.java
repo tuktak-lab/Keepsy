@@ -1,5 +1,6 @@
 package com.tuktaklab.keepsy.account;
 
+import com.tuktaklab.keepsy.account.port.ShopDefaults;
 import com.tuktaklab.keepsy.common.error.ApiException;
 import com.tuktaklab.keepsy.common.error.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -8,7 +9,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/** 매장 가입 (FR-ACC-01): 매장 1개와 원장 스탭을 함께 만든다 */
+/** 매장 가입 (FR-ACC-01): 매장 1개와 원장 스탭, 매장 기본 템플릿(FR-CMP-03)을 함께 만든다 */
 @Service
 @RequiredArgsConstructor
 public class ShopSignupService {
@@ -16,6 +17,7 @@ public class ShopSignupService {
     private final ShopRepository shopRepository;
     private final StaffRepository staffRepository;
     private final PasswordEncoder passwordEncoder;
+    private final ShopDefaults shopDefaults;
 
     /**
      * @return 만든 매장 ID
@@ -38,6 +40,7 @@ public class ShopSignupService {
         }
         staffRepository.save(
                 Staff.owner(shop.getId(), ownerName, passwordEncoder.encode(ownerPin)));
+        shopDefaults.create(shop.getId());
         return shop.getId();
     }
 

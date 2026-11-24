@@ -33,6 +33,8 @@ class ShopLoginServiceTest {
     @AfterEach
     void cleanUp() {
         for (long shopId : createdShops) {
+            // 가입 때 만든 기본 템플릿 (FR-CMP-03)
+            jdbc.update("DELETE FROM message_template WHERE shop_id = ?", shopId);
             jdbc.update("DELETE FROM staff WHERE shop_id = ?", shopId);
             jdbc.update("DELETE FROM shop WHERE id = ?", shopId);
         }
