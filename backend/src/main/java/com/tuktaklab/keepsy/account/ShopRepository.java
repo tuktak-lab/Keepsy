@@ -15,4 +15,8 @@ interface ShopRepository extends JpaRepository<Shop, Long> {
      */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<Shop> findByEmail(String email);
+
+    /** PIN 확인용: 로그인과 같은 이유로 매장 행을 잠근다 (F14) */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    Optional<Shop> findForUpdateById(Long id);
 }

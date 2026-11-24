@@ -9,6 +9,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -43,6 +44,65 @@ class SessionControllerTest {
     @Autowired MockMvc mvc;
     @MockitoBean ShopLoginService loginService;
     @MockitoBean SessionQueryService queryService;
+    @MockitoBean StaffPinVerifier pinVerifier;
+
+    private static org.springframework.test.web.servlet.RequestBuilder putWorker(
+            MockHttpSession session, String pin) {
+        return put("/api/session/worker")
+                .session(session)
+                .with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"pin\":\"" + pin + "\"}");
+    }
+
+    @Test
+    void 근무자_PIN이_맞으면_그_스탭이_현재_근무자가_된다_교대도_같은_API() throws Exception {
+        MockHttpSession session = loggedIn();
+        Staff worker = org.mockito.Mockito.mock(Staff.class);
+        when(worker.getId()).thenReturn(10L);
+        when(worker.getName()).thenReturn("근무자");
+        when(pinVerifier.verify(3L, "5678")).thenReturn(worker);
+
+        mvc.perform(putWorker(session, "5678"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(10))
+                .andExpect(jsonPath("$.name").value("근무자"));
+
+        assertThat(session.getAttribute("keepsy.currentStaffId")).isEqualTo(10L);
+    }
+
+    @Test
+    void 근무자_PIN이_틀리면_pin_invalid_400이고_근무자는_그대로() throws Exception {
+        MockHttpSession session = loggedIn();
+        session.setAttribute("keepsy.currentStaffId", 10L);
+        when(pinVerifier.verify(3L, "0000")).thenThrow(new ApiException(ErrorCode.PIN_INVALID));
+
+        mvc.perform(putWorker(session, "0000"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("pin_invalid"));
+
+        assertThat(session.getAttribute("keepsy.currentStaffId")).isEqualTo(10L);
+    }
+
+    @Test
+    void PIN_형식이_틀리면_invalid_400이고_확인하지_않는다() throws Exception {
+        MockHttpSession session = loggedIn();
+
+        mvc.perform(putWorker(session, "12ab"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("invalid"));
+        verifyNoInteractions(pinVerifier);
+    }
+
+    @Test
+    void 로그인하지_않고_근무자_PIN을_넣으면_unauthorized_401() throws Exception {
+        mvc.perform(
+                        put("/api/session/worker")
+                                .with(csrf())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"pin\":\"1234\"}"))
+                .andExpect(status().isUnauthorized());
+    }
 
     private MockHttpSession loggedIn() throws Exception {
         when(loginService.login("owner@example.com", "password1"))
