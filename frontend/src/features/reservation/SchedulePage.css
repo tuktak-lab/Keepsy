@@ -14,9 +14,8 @@ a{color:#7A4450;text-decoration:none}
 .head{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:16px}
 .head .sub{margin-top:6px}
 
-/* 3단 레이아웃 */
-.layout{display:grid;grid-template-columns:232px minmax(0,1fr) 296px;gap:16px;align-items:start}
-@media (max-width:1240px){.layout{grid-template-columns:240px minmax(0,1fr)}.right{grid-column:1 / -1}}
+/* 2단 레이아웃: 좌(미니 달력·요약·스탭) / 중앙(주간 캘린더). 우측 예약 상세는 #128 별도 화면 */
+.layout{display:grid;grid-template-columns:232px minmax(0,1fr);gap:16px;align-items:start}
 @media (max-width:900px){.layout{grid-template-columns:1fr}}
 .left{display:flex;flex-direction:column;gap:0;min-width:0;padding:4px 0}
 /* 좌측은 한 카드 안에서 구분선으로만 나눔 */
@@ -165,8 +164,13 @@ a{color:#7A4450;text-decoration:none}
 .blk.flash.f1{animation:blk-flash1 250ms var(--ease) 1}
 @keyframes blk-flash0{0%{box-shadow:0 0 0 0 rgba(122,68,80,.55)}60%{box-shadow:0 0 0 4px rgba(122,68,80,.28)}100%{box-shadow:0 0 0 6px rgba(122,68,80,0)}}
 @keyframes blk-flash1{0%{box-shadow:0 0 0 0 rgba(122,68,80,.55)}60%{box-shadow:0 0 0 4px rgba(122,68,80,.28)}100%{box-shadow:0 0 0 6px rgba(122,68,80,0)}}
-.blk-more{position:absolute;box-sizing:border-box;border-radius:6px;border:1px dashed #B88A90;background:#fff;color:#7A4450;font:600 12.5px 'Noto Sans KR',sans-serif;cursor:pointer}
-.blk-more:hover{background:#FAF6F3}
+.blk-more{position:absolute;box-sizing:border-box;border-radius:6px;border:1px dashed #B88A90;background:#fff;color:#7A4450;font:600 12.5px 'Noto Sans KR',sans-serif;cursor:default;display:flex;align-items:center;justify-content:center}
+/* 읽기 전용 단계: 예약 카드와 "+N건"은 눌러도 동작이 없어 손가락 커서를 쓰지 않는다 */
+.blk{cursor:default}
+/* 선택할 수 없는 시간 (영업시간 밖 · 정기 휴무 요일 · 매장/스탭 휴무일) */
+.off{position:absolute;box-sizing:border-box;background:repeating-linear-gradient(135deg,rgba(107,96,91,.09) 0 4px,rgba(107,96,91,.03) 4px 9px);pointer-events:auto;display:flex;align-items:flex-start;justify-content:center}
+.off span{margin-top:8px;padding:2px 8px;border-radius:6px;background:#fff;border:1px solid #E6DDD5;font-size:12px;font-weight:600;color:#6B605B;max-width:90%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sw.off{position:static;background:repeating-linear-gradient(135deg,rgba(107,96,91,.25) 0 2px,rgba(107,96,91,.08) 2px 5px);border:1px solid #D8CDC5}
 
 /* 월간 */
 .month{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));border-top:1px solid #E6DDD5;border-left:1px solid #EFE8E2}
