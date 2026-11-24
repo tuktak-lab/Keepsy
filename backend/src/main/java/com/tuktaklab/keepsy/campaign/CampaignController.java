@@ -1,10 +1,12 @@
 package com.tuktaklab.keepsy.campaign;
 
 import com.tuktaklab.keepsy.campaign.query.CampaignTargetQuery.Selection;
+import com.tuktaklab.keepsy.campaign.query.ConsentReconfirmQuery;
 import com.tuktaklab.keepsy.common.security.FeatureGuard;
 import com.tuktaklab.keepsy.common.security.FeatureKey;
 import com.tuktaklab.keepsy.common.security.RequireFeature;
 import com.tuktaklab.keepsy.common.security.ShopSession;
+import com.tuktaklab.keepsy.common.web.PageResponse;
 import com.tuktaklab.keepsy.prediction.PredictionStatus;
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
@@ -19,9 +21,11 @@ import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -117,5 +121,14 @@ class CampaignController {
                 shopSession.shopId(),
                 campaignId,
                 featureGuard.actorStaffId(session, FeatureKey.CAMPAIGN_SEND));
+    }
+
+    /** 동의 재확인 대상 (CONTRACTS 6장, F45). 조회라 클래스의 CAMPAIGN_SEND 대신 CAMPAIGN_VIEW */
+    @RequireFeature(FeatureKey.CAMPAIGN_VIEW)
+    @GetMapping("/api/consent-reconfirm-targets")
+    PageResponse<ConsentReconfirmQuery.Row> reconfirmTargets(
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
+        return campaigns.reconfirmTargets(shopSession.shopId(), page, size);
     }
 }
