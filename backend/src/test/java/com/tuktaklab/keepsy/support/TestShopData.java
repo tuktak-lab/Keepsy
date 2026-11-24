@@ -79,6 +79,7 @@ public class TestShopData {
                             "reservation",
                             "visit",
                             "day_off",
+                            "consent",
                             "customer",
                             "service_menu",
                             "staff")) {
