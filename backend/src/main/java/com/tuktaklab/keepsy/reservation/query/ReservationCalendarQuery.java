@@ -3,6 +3,7 @@ package com.tuktaklab.keepsy.reservation.query;
 import com.tuktaklab.keepsy.common.error.ApiException;
 import com.tuktaklab.keepsy.common.error.ErrorCode;
 import com.tuktaklab.keepsy.common.time.TimeConfig;
+import com.tuktaklab.keepsy.common.web.PageResponse;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -18,8 +19,9 @@ import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * 기간 예약 · 주간 캘린더 · 일간 보기 (FR-RSV-02 · 05, CONTRACTS 6장 「예약 (RSV)」). 예약 · 스탭 · 고객 · 메뉴를 함께 읽는 화면용 횡단
- * 조회라 조회 전용 SQL로 필요한 칼럼만 가져온다 (DEVELOPMENT 4장 「도메인 연동」). 최대 7일, 페이징 없음 (F13).
+ * 기간 예약 · 주간 캘린더 · 일간 보기 (FR-RSV-02 · 05)와 고객의 예약 목록 (FR-CUS-03), CONTRACTS 6장 「예약 (RSV)」. 예약 · 스탭
+ * · 고객 · 메뉴를 함께 읽는 화면용 횡단 조회라 조회 전용 SQL로 필요한 칼럼만 가져온다 (DEVELOPMENT 4장 「도메인 연동」). 기간 조회는 최대 7일, 페이징
+ * 없음 (F13).
  */
 @Repository
 @RequiredArgsConstructor
@@ -53,11 +55,52 @@ public class ReservationCalendarQuery {
         if (from.isAfter(to) || ChronoUnit.DAYS.between(from, to) >= MAX_DAYS) {
             throw new ApiException(ErrorCode.INVALID, "기간은 7일 이내로 조회해 주세요");
         }
-        Map<String, Object> p =
+        return items(
+                " AND r.start_at >= :from AND r.start_at < :toExclusive ORDER BY r.start_at, r.id",
                 Map.of(
                         "shopId", shopId,
                         "from", from.atStartOfDay(),
-                        "toExclusive", to.plusDays(1).atStartOfDay());
+                        "toExclusive", to.plusDays(1).atStartOfDay()));
+    }
+
+    /**
+     * 고객의 예약 목록 (FR-CUS-03, CONTRACTS 6장 「예약 (RSV)」). 시작 시각이 늦은 순, 상태와 관계없이.
+     *
+     * @throws ApiException 다른 매장 · 없는 · 삭제된 고객이면 {@code not_found}
+     */
+    @Transactional(readOnly = true)
+    public PageResponse<Item> findByCustomer(long shopId, long customerId, int page, int size) {
+        Map<String, Object> p = Map.of("shopId", shopId, "customerId", customerId);
+        if (jdbc.queryForList(
+                        "SELECT 1 FROM customer WHERE id = :customerId AND shop_id = :shopId"
+                                + " AND status = 'ACTIVE'",
+                        p)
+                .isEmpty()) {
+            throw new ApiException(ErrorCode.NOT_FOUND);
+        }
+        long total =
+                jdbc.queryForObject(
+                        "SELECT COUNT(*) FROM reservation r WHERE r.shop_id = :shopId"
+                                + " AND r.customer_id = :customerId",
+                        p,
+                        Long.class);
+        Map<String, Object> paged = new HashMap<>(p);
+        paged.put("limit", size);
+        paged.put("offset", (long) page * size);
+        return new PageResponse<>(
+                items(
+                        " AND r.customer_id = :customerId ORDER BY r.start_at DESC, r.id DESC"
+                                + " LIMIT :limit OFFSET :offset",
+                        paged),
+                page,
+                size,
+                total);
+    }
+
+    /**
+     * @param tail 매장 조건 뒤에 붙일 조건 · 정렬 (사용자 입력을 넣지 않는다)
+     */
+    private List<Item> items(String tail, Map<String, Object> p) {
         List<Item> items = new ArrayList<>();
         Map<Long, List<Service>> servicesById = new HashMap<>();
         jdbc.query(
@@ -65,8 +108,8 @@ public class ReservationCalendarQuery {
                         + " st.id AS staff_id, st.name AS staff_name, c.id AS customer_id, c.name AS customer_name"
                         + " FROM reservation r JOIN staff st ON st.id = r.staff_id"
                         + " LEFT JOIN customer c ON c.id = r.customer_id"
-                        + " WHERE r.shop_id = :shopId AND r.start_at >= :from AND r.start_at < :toExclusive"
-                        + " ORDER BY r.start_at, r.id",
+                        + " WHERE r.shop_id = :shopId"
+                        + tail,
                 p,
                 rs -> {
                     LocalDateTime start = rs.getObject("start_at", LocalDateTime.class);
