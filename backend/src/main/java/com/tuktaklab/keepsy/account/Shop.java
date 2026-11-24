@@ -4,15 +4,20 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.Arrays;
+import java.util.List;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 /**
- * 매장 (명세서 5장 shop). 설정값 · 영업시간 · PIN 잠금 상태 컬럼은 그 기능을 구현할 때 매핑한다. 매핑하지 않은 컬럼은 가입 때 V1의 DB 기본값으로 채워진다
- * (명세서 2장 공용/PIN 기본값, FR-SET-02 · 03 · 04 · 06).
+ * 매장 (명세서 5장 shop). 로그인 · PIN 잠금, 매장 정보 · 영업시간, 설정값이 모두 이 테이블이라 account 패키지가 맡는다 (2026-11-24 팀 결정,
+ * ARCHITECTURE 4장). 설정값 컬럼은 그 기능을 구현할 때 매핑한다. 매핑하지 않은 컬럼은 가입 때 V1의 DB 기본값으로 채워진다 (명세서 2장 공용/PIN
+ * 기본값, FR-SET-02 · 03 · 04 · 06).
  */
 @Entity
 @Getter
@@ -43,6 +48,31 @@ public class Shop {
 
     private String name;
 
+    /** 매장 연락처 (광고 표기, FR-CMP-04) */
+    private String phone;
+
+    /** 발신번호 (FR-SET-01) */
+    private String senderNumber;
+
+    /** 수신 거부 번호 (FR-SET-01) */
+    private String unsubscribeNumber;
+
+    // 요일별 영업시간 (FR-SET-01). 시작 · 종료가 모두 null이면 그 요일은 정기 휴무
+    private LocalTime monOpenTime;
+    private LocalTime monCloseTime;
+    private LocalTime tueOpenTime;
+    private LocalTime tueCloseTime;
+    private LocalTime wedOpenTime;
+    private LocalTime wedCloseTime;
+    private LocalTime thuOpenTime;
+    private LocalTime thuCloseTime;
+    private LocalTime friOpenTime;
+    private LocalTime friCloseTime;
+    private LocalTime satOpenTime;
+    private LocalTime satCloseTime;
+    private LocalTime sunOpenTime;
+    private LocalTime sunCloseTime;
+
     /** 잠금 전 연속 실패 횟수 (F14) */
     private int loginFailCount;
 
@@ -54,6 +84,30 @@ public class Shop {
 
     /** 이 시각 전까지 PIN 입력을 막는다 (F14) */
     private LocalDateTime pinLockedUntil;
+
+    /** 한 요일의 영업시간. 정기 휴무면 open · close가 null */
+    public record OpeningHours(DayOfWeek dayOfWeek, LocalTime open, LocalTime close) {}
+
+    /** 월요일부터 일요일까지 7개 (CONTRACTS 6장 GET /api/shop, F20). 시작 · 종료 중 하나만 있으면 휴무로 본다 */
+    public List<OpeningHours> openingHours() {
+        LocalTime[][] times = {
+            {monOpenTime, monCloseTime},
+            {tueOpenTime, tueCloseTime},
+            {wedOpenTime, wedCloseTime},
+            {thuOpenTime, thuCloseTime},
+            {friOpenTime, friCloseTime},
+            {satOpenTime, satCloseTime},
+            {sunOpenTime, sunCloseTime}
+        };
+        return Arrays.stream(DayOfWeek.values())
+                .map(day -> {
+                    LocalTime[] t = times[day.ordinal()];
+                    return t[0] == null || t[1] == null
+                            ? new OpeningHours(day, null, null)
+                            : new OpeningHours(day, t[0], t[1]);
+                })
+                .toList();
+    }
 
     static Shop create(String email, String passwordHash, String name) {
         Shop shop = new Shop();
