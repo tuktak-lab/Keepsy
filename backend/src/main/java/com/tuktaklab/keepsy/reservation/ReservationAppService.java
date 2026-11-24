@@ -106,7 +106,7 @@ public class ReservationAppService {
     }
 
     /**
-     * {@code PATCH /api/reservations/{id}} (FR-RSV-01, F22). 확정 예약만, 등록과 같은 입력 규칙 · 겹침 규칙이고 자기 자신과의
+     * {@code PATCH /api/reservations/{id}} (FR-RSV-01, F30). 확정 예약만, 등록과 같은 입력 규칙 · 겹침 규칙이고 자기 자신과의
      * 겹침은 보지 않는다. 고객은 바꾸지 않는다 ({@code in.customerId()}는 쓰지 않음).
      */
     @Transactional

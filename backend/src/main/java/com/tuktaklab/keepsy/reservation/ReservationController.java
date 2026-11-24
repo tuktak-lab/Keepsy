@@ -119,7 +119,7 @@ class ReservationController {
                 service.linkCustomer(shopId(), reservationId, req.customerId()).orElse(null));
     }
 
-    /** 등록과 같은 본문 (고객 제외). 확정 예약만 (F22) */
+    /** 등록과 같은 본문 (고객 제외). 확정 예약만 (F30) */
     record UpdateRequest(
             @NotNull Long staffId,
             @NotNull OffsetDateTime startAt,

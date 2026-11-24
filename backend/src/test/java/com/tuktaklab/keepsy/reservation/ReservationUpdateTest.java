@@ -27,7 +27,7 @@ import org.springframework.security.web.context.HttpSessionSecurityContextReposi
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
-/** 예약 수정 (Keepsy #56 완료 조건, F22, CONTRACTS 6장). 실제 MySQL에서 돈다. */
+/** 예약 수정 (Keepsy #56 완료 조건, F30, CONTRACTS 6장). 실제 MySQL에서 돈다. */
 @SpringBootTest
 @AutoConfigureMockMvc
 class ReservationUpdateTest {
