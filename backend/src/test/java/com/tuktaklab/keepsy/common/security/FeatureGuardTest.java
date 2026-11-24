@@ -85,6 +85,25 @@ class FeatureGuardTest {
     }
 
     @Test
+    void 비활성화된_근무자가_세션에_남아_있으면_다음_요청부터_worker_required() {
+        when(settings.isDeactivated(SHOP, WORKER)).thenReturn(true);
+
+        assertThat(errorOf(null)).isEqualTo(ErrorCode.WORKER_REQUIRED);
+        assertThat(errorOf(FeatureKey.RESERVATION)).isEqualTo(ErrorCode.WORKER_REQUIRED);
+    }
+
+    @Test
+    void 비활성화된_스탭의_PIN_인증은_만료된_것으로_본다() {
+        pin(PIN_STAFF, NOW.plusMinutes(1));
+        when(settings.isDeactivated(SHOP, PIN_STAFF)).thenReturn(true);
+
+        assertThat(errorOf(FeatureKey.CONTACT_FULL)).isEqualTo(ErrorCode.PIN_REQUIRED);
+        assertThat(guard.ownerPinVerified(session)).isFalse();
+        // 공용 기능은 근무자(활성)로 그대로 통과
+        assertThat(errorOf(FeatureKey.RESERVATION)).isNull();
+    }
+
+    @Test
     void 공용_기능은_근무자만_있으면_통과() {
         assertThat(errorOf(null)).isNull();
         assertThat(errorOf(FeatureKey.RESERVATION)).isNull();
