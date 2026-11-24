@@ -3,6 +3,8 @@ package com.tuktaklab.keepsy.reservation;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.tuktaklab.keepsy.common.error.ApiException;
+import com.tuktaklab.keepsy.common.error.ErrorCode;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -67,11 +69,15 @@ class ReservationTest {
         assertThatThrownBy(() ->
                         Reservation.create(
                                 1L, 10L, 2L, START, 60, null, false, null, List.of(), NOW))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(ApiException.class)
+                .extracting(e -> ((ApiException) e).errorCode())
+                .isEqualTo(ErrorCode.INVALID);
         assertThatThrownBy(() ->
                         Reservation.create(
                                 1L, 10L, 2L, START, 45, null, false, null, List.of(100L), NOW))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(ApiException.class)
+                .extracting(e -> ((ApiException) e).errorCode())
+                .isEqualTo(ErrorCode.INVALID);
     }
 
     @Test
@@ -88,7 +94,9 @@ class ReservationTest {
                                 "메모",
                                 List.of(100L),
                                 NOW))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(ApiException.class)
+                .extracting(e -> ((ApiException) e).errorCode())
+                .isEqualTo(ErrorCode.INVALID);
     }
 
     @Test
@@ -97,19 +105,27 @@ class ReservationTest {
         r.cancel();
 
         assertThat(r.getStatus()).isEqualTo(ReservationStatus.CANCELED);
-        assertThatThrownBy(r::cancel).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(r::cancel)
+                .isInstanceOf(ApiException.class)
+                .extracting(e -> ((ApiException) e).errorCode())
+                .isEqualTo(ErrorCode.CONFLICT);
     }
 
     @Test
     void 노쇼는_시작_시각이_지난_뒤에만_처리하고_고객_없는_예약도_된다() {
         Reservation r = withoutCustomer();
 
-        assertThatThrownBy(() -> r.markNoShow(START)).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> r.markNoShow(START))
+                .isInstanceOf(ApiException.class)
+                .extracting(e -> ((ApiException) e).errorCode())
+                .isEqualTo(ErrorCode.CONFLICT);
         r.markNoShow(START.plusMinutes(1));
 
         assertThat(r.getStatus()).isEqualTo(ReservationStatus.NO_SHOW);
         assertThatThrownBy(() -> r.markNoShow(START.plusHours(1)))
-                .isInstanceOf(IllegalStateException.class);
+                .isInstanceOf(ApiException.class)
+                .extracting(e -> ((ApiException) e).errorCode())
+                .isEqualTo(ErrorCode.CONFLICT);
     }
 
     @Test
@@ -118,7 +134,9 @@ class ReservationTest {
         r.cancel();
 
         assertThatThrownBy(() -> r.markNoShow(START.plusHours(1)))
-                .isInstanceOf(IllegalStateException.class);
+                .isInstanceOf(ApiException.class)
+                .extracting(e -> ((ApiException) e).errorCode())
+                .isEqualTo(ErrorCode.CONFLICT);
     }
 
     @Test
@@ -127,11 +145,16 @@ class ReservationTest {
         r.linkCustomer(10L);
 
         assertThat(r.getCustomerId()).isEqualTo(10L);
-        assertThatThrownBy(() -> r.linkCustomer(11L)).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> r.linkCustomer(11L))
+                .isInstanceOf(ApiException.class)
+                .extracting(e -> ((ApiException) e).errorCode())
+                .isEqualTo(ErrorCode.CONFLICT);
 
         Reservation canceled = withoutCustomer();
         canceled.cancel();
         assertThatThrownBy(() -> canceled.linkCustomer(10L))
-                .isInstanceOf(IllegalStateException.class);
+                .isInstanceOf(ApiException.class)
+                .extracting(e -> ((ApiException) e).errorCode())
+                .isEqualTo(ErrorCode.CONFLICT);
     }
 }

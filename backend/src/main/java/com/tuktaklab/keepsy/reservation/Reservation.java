@@ -1,5 +1,7 @@
 package com.tuktaklab.keepsy.reservation;
 
+import com.tuktaklab.keepsy.common.error.ApiException;
+import com.tuktaklab.keepsy.common.error.ErrorCode;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -17,11 +19,10 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 /**
- * 예약 (명세서 5장 reservation, FR-RSV-01·03). 상태를 바꾸는 규칙은 이 엔티티 메서드에 두고, 어기면 예외를 던진다 (DEVELOPMENT 4장).
- * 고객 · 스탭 · 방문은 다른 도메인이라 ID로만 참조한다.
+ * 예약 (명세서 5장 reservation, FR-RSV-01·03). 상태를 바꾸는 규칙은 이 엔티티 메서드에 두고, 어기면 {@link ApiException}을 던진다
+ * (입력 규칙 {@code invalid}, 상태 규칙 {@code conflict}, DEVELOPMENT 4장). 고객 · 스탭 · 방문은 다른 도메인이라 ID로만
+ * 참조한다.
  */
-// ponytail: 규칙 위반은 IllegalArgumentException(→ invalid) · IllegalStateException(→ conflict). 공통
-// 예외(#1)가 생기면 그 오류 code로 바꾼다
 @Entity
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -86,13 +87,13 @@ public class Reservation {
             List<Long> serviceMenuIds,
             LocalDateTime now) {
         if (serviceMenuIds == null || serviceMenuIds.isEmpty()) {
-            throw new IllegalArgumentException("예정 시술은 1개 이상이어야 한다");
+            throw new ApiException(ErrorCode.INVALID, "예정 시술을 1개 이상 골라 주세요");
         }
         if (minutes <= 0 || minutes % AvailableTimes.SLOT_MINUTES != 0) {
-            throw new IllegalArgumentException("소요 시간은 30분 단위여야 한다: " + minutes);
+            throw new ApiException(ErrorCode.INVALID, "소요 시간은 30분 단위로 입력해 주세요");
         }
         if (customerId == null && memo != null && !memo.isBlank()) {
-            throw new IllegalArgumentException("고객 없는 예약은 메모를 받지 않는다");
+            throw new ApiException(ErrorCode.INVALID, "고객 없는 예약에는 메모를 남길 수 없습니다");
         }
         Reservation r = new Reservation();
         r.shopId = shopId;
@@ -119,7 +120,7 @@ public class Reservation {
     public void markNoShow(LocalDateTime now) {
         requireConfirmed("노쇼 처리");
         if (!now.isAfter(startAt)) {
-            throw new IllegalStateException("노쇼는 예약 시작 시각이 지난 뒤에만 처리할 수 있다");
+            throw new ApiException(ErrorCode.CONFLICT, "노쇼는 예약 시작 시각이 지난 뒤에 처리할 수 있습니다");
         }
         status = ReservationStatus.NO_SHOW;
     }
@@ -130,7 +131,7 @@ public class Reservation {
      */
     public void linkCustomer(Long customerId) {
         if (this.customerId != null) {
-            throw new IllegalStateException("이미 고객이 연결된 예약이다");
+            throw new ApiException(ErrorCode.CONFLICT, "이미 고객이 연결된 예약입니다");
         }
         requireConfirmed("고객 연결");
         this.customerId = customerId;
@@ -142,7 +143,7 @@ public class Reservation {
 
     private void requireConfirmed(String action) {
         if (status != ReservationStatus.CONFIRMED) {
-            throw new IllegalStateException(action + "는 확정 예약만 할 수 있다: " + status);
+            throw new ApiException(ErrorCode.CONFLICT, action + "는 확정 예약에서만 할 수 있습니다");
         }
     }
 }
