@@ -4,11 +4,13 @@ import { ApiError, api, type Page } from '@/lib/api';
 import { CHANNEL_LABEL, hmOf, seoulParts, type Channel, type DateStr } from '@/lib/calendar';
 import { defaultMinutes, detailsText, MINUTE_STEPS, toRequest, validate, type FormValues } from '@/lib/reservationForm';
 import { nameFromSearch } from '@/lib/newCustomer';
+import { ACTION_TEXT, actionPath, canMarkNoShow, confirmText, NO_SHOW_TOO_EARLY, type StatusAction } from '@/lib/reservationActions';
 import { NewCustomerForm } from './NewCustomerForm';
 
 // 예약 등록 · 일정 변경 폼 (FR-RSV-01 · 04). 요청 규칙은 docs CONTRACTS 6장 「예약 (RSV)」.
 // 시작 시각은 서버가 알려 주는 가능 시각(영업시간 밖 · 휴무 · 겹침 제외)에서만 고른다. 저장할 때 서버가 다시 검사한다.
 // 검색에 없는 고객은 여기서 바로 등록한다 (NewCustomerForm). 고객 없는 예약에 고객 연결은 예약 상세(#128)에서 한다.
+// 일정 변경 창에서는 예약 취소 · 노쇼 처리도 한다 (FR-RSV-03, lib/reservationActions). 되돌릴 수 없어 한 번 더 확인한다.
 
 type StaffRef = { id: number; name: string };
 type Menu = { id: number; name: string; durationMinutes: number };
@@ -33,8 +35,9 @@ export function ReservationForm(props: {
   staff: StaffRef[];
   onClose: () => void;
   onSaved: (date: DateStr) => void;
+  onStale: () => void; // 그 사이 예약이 다른 곳에서 바뀌었음을 알게 되면 캘린더를 다시 읽는다
 }) {
-  const { editId, initialDate, staff, onClose, onSaved } = props;
+  const { editId, initialDate, staff, onClose, onSaved, onStale } = props;
   const editing = editId !== null;
 
   const [v, setV] = useState<FormValues>({
@@ -52,7 +55,9 @@ export function ReservationForm(props: {
   const [minutesTouched, setMinutesTouched] = useState(false); // 소요 시간을 직접 고르기 전에는 시술 합계를 따른다
   const [ready, setReady] = useState(!editing);
   const [menus, setMenus] = useState<Menu[] | null>(null);
-  const [own, setOwn] = useState<{ date: DateStr; staffId: number; hm: string } | null>(null); // 수정 중인 예약의 원래 자리
+  const [own, setOwn] = useState<{ date: DateStr; staffId: number; hm: string; startMs: number } | null>(null); // 수정 중인 예약의 원래 자리
+  const [confirming, setConfirming] = useState<StatusAction | null>(null); // 취소 · 노쇼 확인 중
+  const [openedAt] = useState(() => Date.now()); // 노쇼 가능 여부를 가르는 "지금" (창을 연 시각)
   const [hadCustomer, setHadCustomer] = useState(false);
   const [customerName, setCustomerName] = useState('');
   const [noShow, setNoShow] = useState<number | null>(null);
@@ -83,7 +88,7 @@ export function ReservationForm(props: {
       .then((d) => {
         if (cancelled) return;
         const at = seoulParts(d.startAt);
-        setOwn({ date: at.date, staffId: d.staff.id, hm: hmOf(d.startAt) });
+        setOwn({ date: at.date, staffId: d.staff.id, hm: hmOf(d.startAt), startMs: Date.parse(d.startAt) });
         setHadCustomer(d.customer !== null);
         setCustomerName(d.customer?.name ?? '');
         setMinutesTouched(true);
@@ -208,6 +213,25 @@ export function ReservationForm(props: {
     }
   }
 
+  // 예약 취소 · 노쇼 처리: 성공하면 그 예약이 있던 주를 다시 읽는다
+  async function changeStatus(action: StatusAction) {
+    if (editId === null || own === null) return;
+    setBusy(true);
+    setError('');
+    try {
+      await api(actionPath(editId, action), { method: 'POST', silent: true });
+      toast(ACTION_TEXT[action].done);
+      onSaved(own.date);
+    } catch (err) {
+      setConfirming(null);
+      setError(err instanceof ApiError ? err.message : '잠시 후 다시 시도해 주세요'); // 예: 이미 처리된 예약(conflict), 시작 전 노쇼
+      if (err instanceof ApiError && err.code === 'conflict') onStale();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const canNoShow = own !== null && canMarkNoShow(own.startMs, openedAt);
   const title = editing ? '일정 변경' : '예약 등록';
 
   return (
@@ -388,14 +412,46 @@ export function ReservationForm(props: {
           </>
         )}
 
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-          <button type="button" className="btn" disabled={busy} onClick={onClose}>
-            취소
-          </button>
-          <button type="submit" className="btn btn-p" disabled={busy || !ready}>
-            {busy ? '저장 중…' : editing ? '변경 저장' : '등록'}
-          </button>
-        </div>
+        {confirming ? (
+          <div className="confirm" role="alertdialog" aria-label={`${ACTION_TEXT[confirming].button} 확인`}>
+            <p>{confirmText(confirming, hadCustomer)}</p>
+            <div className="confirm-actions">
+              <button type="button" className="btn btn-sm" disabled={busy} onClick={() => setConfirming(null)}>
+                돌아가기
+              </button>
+              <button type="button" className="btn btn-sm btn-danger" disabled={busy} onClick={() => void changeStatus(confirming)}>
+                {busy ? '처리 중…' : ACTION_TEXT[confirming].button}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="form-actions">
+            {editing && ready ? (
+              <div className="status-actions">
+                <button type="button" className="btn btn-danger-o" disabled={busy} onClick={() => setConfirming('cancel')}>
+                  {ACTION_TEXT.cancel.button}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-danger-o"
+                  disabled={busy || !canNoShow}
+                  title={canNoShow ? undefined : NO_SHOW_TOO_EARLY}
+                  onClick={() => setConfirming('no-show')}
+                >
+                  {ACTION_TEXT['no-show'].button}
+                </button>
+              </div>
+            ) : null}
+            <div className="form-actions-main">
+              <button type="button" className="btn" disabled={busy} onClick={onClose}>
+                {editing ? '닫기' : '취소'}
+              </button>
+              <button type="submit" className="btn btn-p" disabled={busy || !ready}>
+                {busy ? '저장 중…' : editing ? '변경 저장' : '등록'}
+              </button>
+            </div>
+          </div>
+        )}
       </form>
     </div>
   );
