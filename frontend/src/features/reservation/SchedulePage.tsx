@@ -10,14 +10,17 @@ import {
   axisRange,
   CHANNEL_LABEL,
   closedRanges,
+  dayIndex,
   dayOfMonth,
   dayOffOn,
   DOW_LABEL,
   endMs,
   formatMinutes,
+  hoursOfDay,
   layout,
   monthCells,
   seoulParts,
+  staffColumns,
   toneOf,
   todayInSeoul,
   weekDates,
@@ -30,9 +33,9 @@ import {
   type Tone,
 } from '@/lib/calendar';
 
-// 예약 캘린더 (FR-RSV-02 주간 · FR-RSV-03 상태 표시 · FR-RSV-01 등록 · 수정).
-// 취소 · 노쇼, 일간 보기, 신규 고객 등록은 다음 PR, 예약 상세는 #128, 시술 마감은 #129.
-// API: GET /api/reservations · /api/staff · /api/shop · /api/day-offs (docs CONTRACTS 4장 · 6장). 등록 · 수정은 ReservationForm
+// 예약 캘린더 (FR-RSV-02 주간 · FR-RSV-05 일간 · FR-RSV-03 상태 표시 · FR-RSV-01 등록 · 수정).
+// 주간은 요일이 열, 일간(`?view=day`)은 스탭이 열이다. 예약 상세는 #128, 시술 마감은 #129.
+// API: GET /api/reservations · /api/staff · /api/shop · /api/day-offs (docs CONTRACTS 4장 · 6장). 등록 · 수정 · 취소 · 노쇼는 ReservationForm
 
 type StaffRef = { id: number; name: string };
 type Reservation = {
@@ -47,7 +50,9 @@ type Reservation = {
   services: { serviceMenuId: number; name: string }[];
 };
 type WeekData = { from: DateStr; reservations: Reservation[]; dayOffs: DayOff[] };
-type Block = { id: number; r: Reservation; tone: Tone; day: number; start: number; end: number };
+type View = 'week' | 'day';
+// col: 주간은 요일 열(0~6), 일간은 스탭 열
+type Block = { id: number; r: Reservation; tone: Tone; col: number; date: DateStr; start: number; end: number };
 
 const HH = 56; // 1시간 높이(px)
 const STATES: [Tone, string][] = [
@@ -81,6 +86,10 @@ export default function SchedulePage() {
   const [failed, setFailed] = useState<DateStr | null>(null);
   const [reload, setReload] = useState(0);
   const [form, setForm] = useState<{ editId: number | null } | null>(null); // 등록(null) · 일정 변경(예약 ID) 창
+  // 보기 단위: `?view=day`면 일간. 서버 렌더(정적 빌드)는 달력 본문을 그리지 않아 첫 값이 달라도 하이드레이션이 어긋나지 않는다
+  const [view, setView] = useState<View>(() =>
+    typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('view') === 'day' ? 'day' : 'week',
+  );
 
   // 스탭 · 영업시간은 한 번만 읽는다. 실패하면 api()가 오류 안내를 띄우고, 이 화면은 기본값(스탭 필터 없음, 9~20시)으로 그린다.
   useEffect(() => {
@@ -124,6 +133,15 @@ export default function SchedulePage() {
     setFailed(null);
     setReload((n) => n + 1);
   };
+  // 보기 단위를 바꾼다. 새로고침 · 링크 공유에도 유지되도록 주소의 `view`를 맞춘다 (페이지 이동은 하지 않음)
+  const changeView = (next: View, date?: DateStr) => {
+    setView(next);
+    if (date) goTo(date);
+    const url = new URL(window.location.href);
+    if (next === 'day') url.searchParams.set('view', 'day');
+    else url.searchParams.delete('view');
+    window.history.replaceState(window.history.state, '', url);
+  };
   const closeForm = useCallback(() => setForm(null), []);
   // 저장하면 그 예약이 있는 주로 옮겨 다시 읽는다
   const saved = useCallback((date: DateStr) => {
@@ -138,25 +156,34 @@ export default function SchedulePage() {
   const data = week && week.from === from ? week : null;
   const loadFailed = failed === from && !data;
 
+  // 열: 주간은 요일 7개, 일간은 스탭 (비활성이 된 스탭의 예약이 남아 있으면 그 열도 둔다)
+  const isDay = view === 'day';
+  const staffCols = isDay ? staffColumns(staff, data?.reservations ?? [], staffId) : [];
+  const groups = isDay ? Math.max(staffCols.length, 1) : 7;
+
   const blocks: Block[] = [];
   for (const r of data?.reservations ?? []) {
     if (staffId !== null && r.staff.id !== staffId) continue;
     const tone = toneOf(r.status, endMs(r.startAt, r.minutes), nowMs); // 취소 · 노쇼는 시간을 차지하지 않아 그리지 않는다
     if (!tone) continue;
     const at = seoulParts(r.startAt);
-    const day = dates.indexOf(at.date);
-    if (day < 0) continue;
-    blocks.push({ id: r.id, r, tone, day, start: at.minutes, end: at.minutes + r.minutes });
+    const col = isDay ? (at.date === anchor ? staffCols.findIndex((s) => s.id === r.staff.id) : -1) : dates.indexOf(at.date);
+    if (col < 0) continue;
+    blocks.push({ id: r.id, r, tone, col, date: at.date, start: at.minutes, end: at.minutes + r.minutes });
   }
 
-  const axis = axisRange(hours, blocks);
+  const axis = axisRange(isDay ? hoursOfDay(hours, dayIndex(anchor || today || '2026-01-05')) : hours, blocks);
   const axisHours = Array.from({ length: axis.end - axis.start }, (_, i) => axis.start + i);
   const gridHeight = (axis.end - axis.start) * HH;
-  const gW = 100 / 7;
-  const { pos, more } = layout(blocks, (b) => b.day, 7, 2);
+  const gW = 100 / groups;
+  const { pos, more } = layout(blocks, (b) => b.col, groups, isDay ? 99 : 2);
   const topOf = (minutes: number) => ((minutes - axis.start * 60) / 60) * HH;
+  // 열마다의 날짜 · 요일 · (일간이면) 스탭. 음영과 열 배경이 같이 쓴다
+  const colDefs = isDay
+    ? staffCols.map((s) => ({ key: String(s.id), date: anchor, dow: dayIndex(anchor), staffId: s.id as number | null }))
+    : dates.map((d, i) => ({ key: d, date: d, dow: i, staffId }));
 
-  const dayBlocks = blocks.filter((b) => dates[b.day] === anchor);
+  const dayBlocks = blocks.filter((b) => b.date === anchor);
   const countOf = (tone: Tone) => dayBlocks.filter((b) => b.tone === tone).length;
 
   const miniMonth = miniPick ?? (anchor ? { y: Number(anchor.slice(0, 4)), m: Number(anchor.slice(5, 7)) - 1 } : { y: 2026, m: 0 });
@@ -167,6 +194,7 @@ export default function SchedulePage() {
 
   const title = (() => {
     if (!from) return '';
+    if (isDay) return `${anchor.slice(0, 4)}년 ${monthDay(anchor)} (${DOW_LABEL[dayIndex(anchor)]})`;
     const end = addDays(from, 6);
     const sameMonth = from.slice(5, 7) === end.slice(5, 7);
     return `${from.slice(0, 4)}년 ${monthDay(from)} – ${sameMonth ? '' : Number(end.slice(5, 7)) + '월 '}${dayOfMonth(end)}일`;
@@ -228,7 +256,7 @@ export default function SchedulePage() {
           <header className="head">
             <div>
               <h1 className="h1 serif">예약 · 일정 관리</h1>
-              <p className="sub">날짜를 고르면 그 주의 예약을 스탭별로 볼 수 있어요. 예약을 누르면 일정을 바꿀 수 있어요.</p>
+              <p className="sub">날짜를 고르면 그 날짜의 예약을 볼 수 있어요. 일간은 스탭별, 주간은 요일별이에요. 예약을 누르면 일정을 바꿀 수 있어요.</p>
             </div>
             <button type="button" className="btn btn-p" onClick={() => setForm({ editId: null })} disabled={staff.length === 0}>
               + 예약 등록
@@ -318,20 +346,29 @@ export default function SchedulePage() {
                 </section>
               </aside>
 
-              {/* ── 중앙: 주간 캘린더 ── */}
+              {/* ── 중앙: 주간 · 일간 캘린더 ── */}
               <section className="card center">
                 <div className="c-head">
                   <div className="c-nav">
                     <button type="button" className="btn btn-sm" onClick={() => goTo(today)}>
                       오늘
                     </button>
-                    <button type="button" className="ib" aria-label="이전 주" onClick={() => goTo(addDays(anchor, -7))}>
+                    <button type="button" className="ib" aria-label={isDay ? '이전 날' : '이전 주'} onClick={() => goTo(addDays(anchor, isDay ? -1 : -7))}>
                       ‹
                     </button>
-                    <button type="button" className="ib" aria-label="다음 주" onClick={() => goTo(addDays(anchor, 7))}>
+                    <button type="button" className="ib" aria-label={isDay ? '다음 날' : '다음 주'} onClick={() => goTo(addDays(anchor, isDay ? 1 : 7))}>
                       ›
                     </button>
                     <b className="c-title serif num">{title}</b>
+                  </div>
+                  <div className="seg" role="group" aria-label="보기 단위">
+                    <span className="seg-ind" style={{ transform: `translateX(${isDay ? 0 : 100}%)` }} aria-hidden="true"></span>
+                    <button type="button" aria-pressed={isDay} onClick={() => changeView('day')}>
+                      일
+                    </button>
+                    <button type="button" aria-pressed={!isDay} onClick={() => changeView('week')}>
+                      주
+                    </button>
                   </div>
                 </div>
                 <div className="legend">
@@ -350,21 +387,30 @@ export default function SchedulePage() {
                 </div>
 
                 <div className="grid-scroll">
-                  <div className="grid" style={{ minWidth: 640 }}>
+                  <div className="grid" style={{ minWidth: isDay ? 0 : 640 }}>
                     <div className="g-head">
                       <div className="axis-sp"></div>
-                      {dates.map((d, i) => (
-                        <button
-                          key={d}
-                          type="button"
-                          className={'col-h' + (d === today ? ' today' : '') + (d === anchor ? ' on' : '')}
-                          onClick={() => goTo(d)}
-                          aria-label={`${monthDay(d)} (${DOW_LABEL[i]})`}
-                        >
-                          <span className="ch-w">{DOW_LABEL[i]}</span>
-                          <span className="ch-d num">{dayOfMonth(d)}</span>
-                        </button>
-                      ))}
+                      {isDay
+                        ? staffCols.map((s, i) => (
+                            <div key={s.id} className="col-h static">
+                              <b>{s.name}</b>
+                              <span className="num">{blocks.filter((b) => b.col === i).length}건</span>
+                            </div>
+                          ))
+                        : dates.map((d, i) => (
+                            <button
+                              key={d}
+                              type="button"
+                              className={'col-h' + (d === today ? ' today' : '') + (d === anchor ? ' on' : '')}
+                              onClick={() => goTo(d)}
+                              onDoubleClick={() => changeView('day', d)}
+                              title="누르면 선택, 두 번 누르면 일간 보기"
+                              aria-label={`${monthDay(d)} (${DOW_LABEL[i]})`}
+                            >
+                              <span className="ch-w">{DOW_LABEL[i]}</span>
+                              <span className="ch-d num">{dayOfMonth(d)}</span>
+                            </button>
+                          ))}
                     </div>
                     <div className="g-body">
                       <div className="axis" style={{ height: gridHeight }}>
@@ -378,16 +424,16 @@ export default function SchedulePage() {
                         {axisHours.map((h) => (
                           <div key={h} className="hl" style={{ top: (h - axis.start) * HH }}></div>
                         ))}
-                        {dates.map((d, i) => (
-                          <div key={d} className={'col' + (d === today ? ' today' : '')} style={{ left: `${i * gW}%`, width: `${gW}%` }}></div>
+                        {colDefs.map((c, i) => (
+                          <div key={c.key} className={'col' + (c.date === today ? ' today' : '')} style={{ left: `${i * gW}%`, width: `${gW}%` }}></div>
                         ))}
-                        {/* 선택할 수 없는 시간: 영업시간 밖, 정기 휴무 요일, 매장 · 스탭 휴무일 (FR-RSV-02) */}
-                        {dates.flatMap((d, i) => {
-                          const off = data ? dayOffOn(data.dayOffs, d, staffId) : null;
-                          const ranges: [number, number][] = off !== null ? [[axis.start * 60, axis.end * 60]] : closedRanges(hours, i, axis);
+                        {/* 선택할 수 없는 시간: 영업시간 밖, 정기 휴무 요일, 매장 · 스탭 휴무일 (FR-RSV-02). 일간은 스탭 열마다 그 스탭의 휴무일도 반영 */}
+                        {colDefs.flatMap((c, i) => {
+                          const off = data ? dayOffOn(data.dayOffs, c.date, c.staffId) : null;
+                          const ranges: [number, number][] = off !== null ? [[axis.start * 60, axis.end * 60]] : closedRanges(hours, c.dow, axis);
                           return ranges.map(([a, b], k) => (
                             <div
-                              key={`${d}-${k}`}
+                              key={`${c.key}-${k}`}
                               className="off"
                               title={off !== null ? `휴무${off ? ' · ' + off : ''}` : '영업시간 밖'}
                               style={{ top: topOf(a), height: topOf(b) - topOf(a), left: `${i * gW}%`, width: `${gW}%` }}
@@ -400,9 +446,9 @@ export default function SchedulePage() {
                           const p = pos.get(b.id);
                           if (!p || p.hidden) return null;
                           // 두 예약이 겹치면: 먼저 온 예약은 칸 전체, 나중 예약은 오른쪽으로 비켜 겹쳐 표시
-                          if (p.n === 2) return p.lane === 0 ? block(b, b.day * gW, gW) : block(b, b.day * gW + gW * 0.4, gW * 0.6, true);
+                          if (!isDay && p.n === 2) return p.lane === 0 ? block(b, b.col * gW, gW) : block(b, b.col * gW + gW * 0.4, gW * 0.6, true);
                           const w = gW / p.n;
-                          return block(b, b.day * gW + p.lane * w, w);
+                          return block(b, b.col * gW + p.lane * w, w);
                         })}
                         {more.map((m, i) => {
                           const w = gW / m.n;
@@ -433,7 +479,10 @@ export default function SchedulePage() {
                         </button>
                       </p>
                     ) : null}
-                    {data && blocks.length === 0 ? <p className="empty-note">이 기간에는 예약이 없어요.</p> : null}
+                    {data && isDay && staffCols.length === 0 ? <p className="empty-note">등록된 스탭이 없어요.</p> : null}
+                    {data && (!isDay || staffCols.length > 0) && blocks.length === 0 ? (
+                      <p className="empty-note">{isDay ? '이 날에는 예약이 없어요.' : '이 기간에는 예약이 없어요.'}</p>
+                    ) : null}
                   </div>
                 </div>
                 <p className="meta foot">같은 스탭의 예약 시간은 겹치지 않도록 제한됩니다. 취소 · 노쇼 예약은 시간을 차지하지 않아 표시하지 않아요.</p>
