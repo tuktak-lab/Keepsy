@@ -2,10 +2,12 @@ package com.tuktaklab.keepsy.prediction.port;
 
 import com.tuktaklab.keepsy.prediction.CycleRange;
 import com.tuktaklab.keepsy.prediction.PredictionAttribute;
+import java.time.LocalDate;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -88,5 +90,40 @@ class JdbcPredictionVisits implements PredictionVisits {
                         + " AND vs.service_menu_id IS NULL AND v.customer_id IS NOT NULL",
                 new MapSqlParameterSource("shopId", shopId).addValue("category", category),
                 Long.class);
+    }
+
+    @Override
+    public boolean isActiveCustomer(long shopId, long customerId) {
+        return Boolean.TRUE.equals(
+                jdbc.queryForObject(
+                        "SELECT EXISTS (SELECT 1 FROM customer WHERE id = :id AND shop_id = :shopId"
+                                + " AND status = 'ACTIVE')",
+                        new MapSqlParameterSource("shopId", shopId).addValue("id", customerId),
+                        Boolean.class));
+    }
+
+    // ponytail: 매장 설정을 직접 읽는다. account에 설정 조회 Service가 생기면 그것을 부르게 바꾼다 (F21)
+    @Override
+    public int churnCapDays(long shopId) {
+        return jdbc.queryForObject(
+                "SELECT churn_signal_cap_days FROM shop WHERE id = :shopId",
+                Map.of("shopId", shopId),
+                Integer.class);
+    }
+
+    /** 고객 목록 상태 필터({@code customer.query.CustomerListQuery})와 같은 기준 */
+    @Override
+    public Set<String> upcomingCategories(long shopId, long customerId, LocalDate today) {
+        return Set.copyOf(
+                jdbc.queryForList(
+                        "SELECT DISTINCT m.category FROM reservation r"
+                                + " JOIN reservation_service rs ON rs.reservation_id = r.id"
+                                + " JOIN service_menu m ON m.id = rs.service_menu_id"
+                                + " WHERE r.shop_id = :shopId AND r.customer_id = :customerId"
+                                + " AND r.status = 'CONFIRMED' AND r.start_at >= :today",
+                        new MapSqlParameterSource("shopId", shopId)
+                                .addValue("customerId", customerId)
+                                .addValue("today", today),
+                        String.class));
     }
 }
