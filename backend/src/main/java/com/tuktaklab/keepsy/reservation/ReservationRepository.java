@@ -21,4 +21,6 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<Reservation> findForUpdateByIdAndShopId(long id, long shopId);
+
+    List<Reservation> findByShopIdAndVisitId(long shopId, long visitId);
 }
