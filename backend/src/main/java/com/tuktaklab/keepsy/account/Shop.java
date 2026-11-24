@@ -85,6 +85,12 @@ public class Shop {
     /** 이 시각 전까지 PIN 입력을 막는다 (F14) */
     private LocalDateTime pinLockedUntil;
 
+    /** 가상 발송 무작위 실패 비율 % (FR-CMP-10, FR-SET-04, 기본 0 F17) */
+    private int virtualFailurePercent;
+
+    /** 가상 단가(원). 화면에서 바꾸지 않는다 (FR-CMP-05, 기본 0) */
+    private int virtualUnitPrice;
+
     /** 한 요일의 영업시간. 정기 휴무면 open · close가 null */
     public record OpeningHours(DayOfWeek dayOfWeek, LocalTime open, LocalTime close) {}
 
