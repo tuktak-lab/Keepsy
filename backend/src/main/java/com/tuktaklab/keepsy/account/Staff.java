@@ -90,6 +90,18 @@ public class Staff {
     }
 
     /**
+     * 원장 PIN 재설정 (FR-ACC-09). 매장 계정 비밀번호 확인은 서비스가 먼저 한다.
+     *
+     * @throws IllegalStateException 원장 스탭이 아니면 (서비스가 원장만 찾아 부르므로 생기지 않는다)
+     */
+    void resetOwnerPin(String pinHash) {
+        if (!owner) {
+            throw new IllegalStateException("원장 스탭이 아닙니다: " + id);
+        }
+        this.pinHash = pinHash;
+    }
+
+    /**
      * @throws ApiException 원장 스탭의 허용을 끄면 {@code invalid} (FR-ACC-01)
      */
     void allowLockedFeatures(boolean allowed) {

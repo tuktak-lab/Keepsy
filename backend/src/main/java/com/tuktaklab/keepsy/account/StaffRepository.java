@@ -13,6 +13,9 @@ interface StaffRepository extends JpaRepository<Staff, Long> {
     /** 매장 격리: 다른 매장 스탭은 없는 것과 같다 (NFR-03) */
     Optional<Staff> findByIdAndShopId(Long id, Long shopId);
 
+    /** 매장의 원장 스탭. 가입 때 하나만 생긴다 (FR-ACC-01) */
+    Optional<Staff> findByShopIdAndOwnerTrue(Long shopId);
+
     /** 비활성화 중에 그 스탭 예약이 새로 들어오지 못하게 행을 잠근다. 예약 등록도 같은 행을 잠그고 활성 여부를 본다 (F34) */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT s FROM Staff s WHERE s.id = :id AND s.shopId = :shopId")
