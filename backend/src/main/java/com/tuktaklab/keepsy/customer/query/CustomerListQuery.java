@@ -1,6 +1,7 @@
 package com.tuktaklab.keepsy.customer.query;
 
 import com.tuktaklab.keepsy.prediction.PredictionStatus;
+import com.tuktaklab.keepsy.prediction.PredictionStatusSql;
 import java.sql.Date;
 import java.time.LocalDate;
 import java.util.List;
@@ -43,24 +44,8 @@ public class CustomerListQuery {
             "COALESCE((SELECT cs.agreed FROM consent cs WHERE cs.customer_id = c.id"
                     + " AND cs.item = 'MARKETING' ORDER BY cs.id DESC LIMIT 1), FALSE)";
 
-    /**
-     * {@code PredictionStatusClassifier#classify}와 같은 규칙 (FR-PRD-04). 다음 예약에 그 카테고리가 있으면 관리 대상이 아니라
-     * 어느 상태와도 맞지 않게 'NONE'으로 둔다. 다음 예약은 오늘(아직 완료되지 않은 오늘 예약 포함) 이후의 확정 예약 (A11, A13)
-     */
-    private static final String PREDICTION_STATUS =
-            "CASE"
-                    + " WHEN cp.end_date IS NULL THEN 'NO_PREDICTION'"
-                    + " WHEN EXISTS (SELECT 1 FROM reservation r"
-                    + "   JOIN reservation_service rs ON rs.reservation_id = r.id"
-                    + "   JOIN service_menu m ON m.id = rs.service_menu_id"
-                    + "   WHERE r.customer_id = c.id AND r.status = 'CONFIRMED'"
-                    + "   AND r.start_at >= :today AND m.category = cp.category) THEN 'NONE'"
-                    + " WHEN :today > DATE_ADD(cp.end_date, INTERVAL"
-                    + "   GREATEST(1, LEAST(cp.avg_interval_days, s.churn_signal_cap_days)) DAY)"
-                    + "   THEN 'LONG_ABSENT'"
-                    + " WHEN cp.end_signal OR :today > cp.end_date THEN 'CHURN_SIGNAL'"
-                    + " WHEN :today < cp.start_date THEN 'SCHEDULED'"
-                    + " ELSE 'DUE' END";
+    /** FR-PRD-04 규칙은 prediction 패키지가 둔다 */
+    private static final String PREDICTION_STATUS = PredictionStatusSql.EXPRESSION;
 
     private final NamedParameterJdbcTemplate jdbc;
 
