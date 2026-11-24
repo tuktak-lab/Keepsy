@@ -17,6 +17,7 @@ import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -116,6 +117,33 @@ class ReservationController {
             @PathVariable long reservationId, @Valid @RequestBody LinkCustomerRequest req) {
         return new LinkCustomerResponse(
                 service.linkCustomer(shopId(), reservationId, req.customerId()).orElse(null));
+    }
+
+    /** 등록과 같은 본문 (고객 제외). 확정 예약만 (F22) */
+    record UpdateRequest(
+            @NotNull Long staffId,
+            @NotNull OffsetDateTime startAt,
+            Integer minutes,
+            ReservationChannel channel,
+            Boolean consultFirst,
+            @Size(max = 1000) String memo,
+            @NotEmpty List<@NotNull Long> serviceMenuIds) {}
+
+    @PatchMapping("/{reservationId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    void update(@PathVariable long reservationId, @Valid @RequestBody UpdateRequest req) {
+        service.update(
+                shopId(),
+                reservationId,
+                new NewReservation(
+                        null,
+                        req.staffId(),
+                        req.startAt().atZoneSameInstant(TimeConfig.ZONE).toLocalDateTime(),
+                        req.minutes(),
+                        req.channel(),
+                        Boolean.TRUE.equals(req.consultFirst()),
+                        req.memo(),
+                        req.serviceMenuIds()));
     }
 
     private long shopId() {

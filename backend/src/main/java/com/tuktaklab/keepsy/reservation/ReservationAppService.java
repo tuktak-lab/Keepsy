@@ -42,7 +42,7 @@ public class ReservationAppService {
         return AvailableTimes.startTimes(
                 refs.openingHours(shopId, date),
                 refs.isDayOff(shopId, staffId, date),
-                bookings(shopId, staffId, date),
+                bookings(shopId, staffId, date, null),
                 minutes);
     }
 
@@ -96,13 +96,56 @@ public class ReservationAppService {
                 AvailableTimes.isAvailable(
                         refs.openingHours(shopId, date),
                         refs.isDayOff(shopId, in.staffId(), date),
-                        bookings(shopId, in.staffId(), date),
+                        bookings(shopId, in.staffId(), date, null),
                         in.startAt().toLocalTime(),
                         minutes);
         if (!available) {
             throw new ApiException(ErrorCode.RESERVATION_CONFLICT);
         }
         return reservations.save(reservation).getId();
+    }
+
+    /**
+     * {@code PATCH /api/reservations/{id}} (FR-RSV-01, F22). 확정 예약만, 등록과 같은 입력 규칙 · 겹침 규칙이고 자기 자신과의
+     * 겹침은 보지 않는다. 고객은 바꾸지 않는다 ({@code in.customerId()}는 쓰지 않음).
+     */
+    @Transactional
+    public void update(long shopId, long reservationId, NewReservation in) {
+        // 등록과 같은 이유로 담당 스탭 잠금이 첫 조회다. 스탭을 바꾸지 않아도 같은 스탭의 동시 등록 · 수정과 줄을 세운다
+        requireStaff(refs.lockStaff(shopId, in.staffId()));
+        Reservation reservation =
+                reservations
+                        .findForUpdateByIdAndShopId(reservationId, shopId)
+                        .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND));
+        List<Long> menuIds = in.serviceMenuIds() == null ? List.of() : in.serviceMenuIds();
+        Map<Long, Integer> durations = refs.menuDurations(shopId, new HashSet<>(menuIds));
+        if (!durations.keySet().containsAll(menuIds)) {
+            throw new ApiException(ErrorCode.NOT_FOUND);
+        }
+        int minutes =
+                in.minutes() != null
+                        ? in.minutes()
+                        : menuIds.stream().mapToInt(durations::get).sum();
+        reservation.update(
+                in.staffId(),
+                in.startAt(),
+                minutes,
+                in.channel(),
+                in.consultFirst(),
+                in.memo(),
+                menuIds);
+
+        LocalDate date = in.startAt().toLocalDate();
+        boolean available =
+                AvailableTimes.isAvailable(
+                        refs.openingHours(shopId, date),
+                        refs.isDayOff(shopId, in.staffId(), date),
+                        bookings(shopId, in.staffId(), date, reservationId),
+                        in.startAt().toLocalTime(),
+                        minutes);
+        if (!available) {
+            throw new ApiException(ErrorCode.RESERVATION_CONFLICT);
+        }
     }
 
     /** {@code POST /api/reservations/{id}/cancel}. 확정 예약만 (FR-RSV-03) */
@@ -254,11 +297,15 @@ public class ReservationAppService {
         }
     }
 
-    private List<Booking> bookings(long shopId, long staffId, LocalDate date) {
+    /**
+     * @param excludeId 수정 중인 예약. 자기 자신과의 겹침은 보지 않는다 (null이면 모두)
+     */
+    private List<Booking> bookings(long shopId, long staffId, LocalDate date, Long excludeId) {
         return reservations
                 .findStaffReservations(
                         shopId, staffId, date.atStartOfDay(), date.plusDays(1).atStartOfDay())
                 .stream()
+                .filter(r -> !r.getId().equals(excludeId))
                 .map(r ->
                         new Booking(
                                 r.getStartAt().toLocalTime(),
