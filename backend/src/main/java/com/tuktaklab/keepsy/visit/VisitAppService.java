@@ -2,16 +2,20 @@ package com.tuktaklab.keepsy.visit;
 
 import com.tuktaklab.keepsy.common.error.ApiException;
 import com.tuktaklab.keepsy.common.error.ErrorCode;
+import com.tuktaklab.keepsy.common.time.TimeConfig;
+import com.tuktaklab.keepsy.common.web.PageResponse;
 import com.tuktaklab.keepsy.visit.Visit.ActualService;
 import com.tuktaklab.keepsy.visit.port.VisitReferences;
 import com.tuktaklab.keepsy.visit.port.VisitReferences.ReservationToClose;
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -120,6 +124,40 @@ public class VisitAppService {
     @Transactional
     public void cancelPayment(long shopId, long paymentId) {
         findPayment(shopId, paymentId).cancel();
+    }
+
+    /** CONTRACTS 6장 「고객 (CUS)」 결제 금액 이력 항목 */
+    public record PaymentItem(
+            long paymentId,
+            OffsetDateTime paidAt,
+            int amount,
+            PaymentMethod method,
+            boolean canceled,
+            long reservationId,
+            Long visitId) {}
+
+    /**
+     * {@code GET /api/customers/{id}/payments}: 고객 결제 금액 이력 (FR-ANL-04). 취소된 결제도 이력이라 빼지 않고 표시한다
+     * (명세서 5장 payment, F8). 다른 매장 · 삭제된 고객은 not_found
+     */
+    @Transactional(readOnly = true)
+    public PageResponse<PaymentItem> customerPayments(
+            long shopId, long customerId, int page, int size) {
+        if (!refs.isActiveCustomer(shopId, customerId)) {
+            throw new ApiException(ErrorCode.NOT_FOUND);
+        }
+        return PageResponse.of(
+                payments.findByShopIdAndCustomerIdOrderByPaidAtDescIdDesc(
+                        shopId, customerId, PageRequest.of(page, size)),
+                p ->
+                        new PaymentItem(
+                                p.getId(),
+                                TimeConfig.offset(p.getPaidAt()),
+                                p.getAmount(),
+                                p.getMethod(),
+                                p.isCanceled(),
+                                p.getReservationId(),
+                                p.getVisitId()));
     }
 
     /** 방문 삭제 전에 결제 권한(PAYMENT_EDIT)도 검사해야 하는지: 아직 취소되지 않은 결제가 있으면 true (CONTRACTS 4장) */
