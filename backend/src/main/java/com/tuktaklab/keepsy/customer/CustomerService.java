@@ -103,6 +103,37 @@ public class CustomerService {
                 FeatureKey.CUSTOMER_EDIT, AccessLogger.CUSTOMER, customerId, Action.UPDATE);
     }
 
+    /**
+     * 시술 · 건강 주의사항 (FR-CUS-05). 두 칸을 통째로 바꾸고, 비어 있으면(공백만 포함) 지운다. 권한(CUSTOMER_WRITE)은 컨트롤러에서 검사한다.
+     *
+     * @throws ApiException 다른 매장 · 삭제된 고객이면 {@code not_found}, 건강 정보 동의(HEALTH)가 지금 없는데 건강 주의사항을
+     *     넣으면 {@code consent_required} (D7)
+     */
+    @Transactional
+    public void changeCautions(long shopId, long customerId, String service, String health) {
+        Customer customer =
+                customerRepository
+                        .findByIdAndShopIdAndStatus(customerId, shopId, Customer.Status.ACTIVE)
+                        .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND));
+        String healthCaution = blankToNull(health);
+        // 지우기는 동의 없이도 된다. 받은 적 없거나 철회했으면 최신 행이 없거나 agreed=false
+        if (healthCaution != null
+                && !consentRepository
+                        .findFirstByCustomerIdAndItemOrderByIdDesc(customerId, Consent.Item.HEALTH)
+                        .map(Consent::isAgreed)
+                        .orElse(false)) {
+            throw new ApiException(ErrorCode.CONSENT_REQUIRED, "건강 정보 수집 동의가 필요합니다");
+        }
+        // ponytail: 저장과 동시에 HEALTH 철회(#48)가 커밋되면 건강 주의사항이 남을 수 있다. #48에서 고객 행 잠금으로 막는다
+        customer.changeCautions(blankToNull(service), healthCaution);
+        accessLogger.record(
+                FeatureKey.CUSTOMER_WRITE, AccessLogger.CUSTOMER, customerId, Action.UPDATE);
+    }
+
+    private static String blankToNull(String s) {
+        return s == null || s.isBlank() ? null : s.strip();
+    }
+
     /** 목록 항목 (CONTRACTS 6장 「고객 (CUS)」). 번호는 마스킹한다 (NFR-04) */
     public record ListItem(
             long customerId,

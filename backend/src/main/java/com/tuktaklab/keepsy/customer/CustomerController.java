@@ -24,6 +24,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -79,6 +80,19 @@ class CustomerController {
                         r.birthYear(),
                         r.preferredLanguage(),
                         r.acquisitionChannel()));
+    }
+
+    /** 두 칸을 통째로 보낸다. 비우면 지운다 (CONTRACTS 6장) */
+    record CautionsRequest(
+            @Size(max = 1000, message = "시술 주의사항은 1,000자 이하입니다") String serviceCaution,
+            @Size(max = 1000, message = "건강 주의사항은 1,000자 이하입니다") String healthCaution) {}
+
+    @RequireFeature(FeatureKey.CUSTOMER_WRITE)
+    @PutMapping("/api/customers/{customerId}/cautions")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    void changeCautions(@PathVariable long customerId, @Valid @RequestBody CautionsRequest r) {
+        customerService.changeCautions(
+                shopSession.shopId(), customerId, r.serviceCaution(), r.healthCaution());
     }
 
     @RequireFeature(FeatureKey.CUSTOMER_WRITE)
