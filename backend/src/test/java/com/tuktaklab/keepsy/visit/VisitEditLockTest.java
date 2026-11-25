@@ -178,8 +178,8 @@ class VisitEditLockTest {
 
     /**
      * 다른 연결이 도우미가 쥔 행을 기다리기 시작할 때까지 (고정 sleep 대신 조건 polling). 수정 후에는 고객 {@code FOR UPDATE}, 수정 전에는
-     * 예약 {@code UPDATE}(삭제의 예약 되돌리기)에서 기다린다. 수정 전 방문 수정은 고객 잠금이 없어 기다리지 않는다. CI 계정은 {@code
-     * performance_schema} 권한이 없어 같은 계정의 연결이 보이는 {@code information_schema.PROCESSLIST}를 쓴다.
+     * 예약 {@code UPDATE}(삭제의 예약 되돌리기)에서 기다린다. 수정 전 방문 수정은 고객 잠금 없이 예측을 쓰다가 고객 FK 검사에서 기다린다. CI 계정은
+     * {@code performance_schema} 권한이 없어 같은 계정의 연결이 보이는 {@code information_schema.PROCESSLIST}를 쓴다.
      */
     private void awaitLockWait(Future<?> command) {
         long deadline = System.nanoTime() + 10_000_000_000L;
@@ -188,7 +188,8 @@ class VisitEditLockTest {
                                 + " WHERE ID <> CONNECTION_ID() AND ("
                                 + " (LOWER(INFO) LIKE '%from customer %'"
                                 + " AND LOWER(INFO) LIKE '%for update%')"
-                                + " OR LOWER(INFO) LIKE 'update reservation set%')")
+                                + " OR LOWER(INFO) LIKE 'update reservation set%'"
+                                + " OR LOWER(INFO) LIKE '%customer_prediction%')")
                 == 0) {
             if (command.isDone() || System.nanoTime() > deadline) {
                 throw new AssertionError("방문 수정 · 삭제가 잠금을 기다리지 않았습니다");
