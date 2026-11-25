@@ -1,6 +1,7 @@
 package com.tuktaklab.keepsy.analytics.query;
 
 import com.tuktaklab.keepsy.common.time.TimeConfig;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -49,6 +50,31 @@ public class CampaignResultQuery {
             long reachedCount,
             long rebookedCount) {}
 
+    /** 기간 안 광고 캠페인 하나의 퍼널 · 연결 매출. 퍼널 · 연결 매출 API와 같은 값 (F65) */
+    public record CampaignResult(
+            long id,
+            String name,
+            String category,
+            OffsetDateTime sentAt,
+            long sentCount,
+            long reachedCount,
+            long rebookedCount,
+            long revisitedCount,
+            long revenue) {}
+
+    /** 기간 안 캠페인 전체 합계. 단계마다 고객 · 방문을 중복 없이 센다 (F65, FR-ANL-02) */
+    public record CampaignTotal(
+            long campaignCount,
+            long sentCount,
+            long reachedCount,
+            long rebookedCount,
+            long revisitedCount,
+            long revenue) {}
+
+    /** 캠페인 성과 목록 한 페이지와 기간 전체 합계 */
+    public record CampaignResults(
+            List<CampaignResult> items, long totalElements, CampaignTotal total) {}
+
     /** 최근 캠페인 개수 (FR-DSH-04) */
     private static final int RECENT_LIMIT = 3;
 
@@ -84,6 +110,18 @@ public class CampaignResultQuery {
                     + OF_CAMPAIGNS;
 
     private static final String REBOOKED_CUSTOMERS = "SELECT cm.customer_id" + REBOOKED;
+
+    /** 발송: 대조군 아닌 발송 대상 (대기 · 실패 포함) (FR-ANL-01) */
+    private static final String SENT_MESSAGES =
+            " FROM campaign_message WHERE shop_id = :shopId AND campaign_id IN (:campaignIds)"
+                    + " AND control_group = FALSE";
+
+    /** 재방문: 귀속 방문이 있고 같은 캠페인의 재예약 단계에 든 고객 (F35). 캠페인이 여럿이면 캠페인마다 따지므로 (캠페인, 고객) 쌍으로 거른다 (F65) */
+    private static final String REVISITED =
+            ATTRIBUTED_VISIT_SERVICE
+                    + " AND (c.id, cm.customer_id) IN (SELECT c.id, cm.customer_id"
+                    + REBOOKED
+                    + ")";
 
     /**
      * 집단 고객 {@code cm}과 그 고객의 발송 시각 예측 {@code ps} (F57): 캠페인 카테고리 스냅샷 중 발송 시각 이전에 만들어졌고 실제 다음 방문일이
@@ -266,6 +304,114 @@ public class CampaignResultQuery {
                                 TimeConfig.offset(rs.getObject("sent_at", LocalDateTime.class)),
                                 rs.getLong("reached"),
                                 rs.getLong("rebooked")));
+    }
+
+    /**
+     * 발송 시각의 날짜가 기간 안인 광고 캠페인(동의 재확인 안내 · 미발송 · 취소 제외)의 퍼널 · 연결 매출 한 페이지와 기간 전체 합계 (FR-ANL-01 · 02,
+     * 결정 F65). 발송 시각 늦은 순, 같으면 ID 큰 순. 귀속은 퍼널 · 매출과 같고 기간으로 거르지 않는다 (F33). 쿼리는 캠페인 ID · 페이지 · 합계 세
+     * 번이다.
+     *
+     * @param from 발송일 시작 (포함)
+     * @param to 발송일 끝 (포함)
+     */
+    @Transactional(readOnly = true)
+    public CampaignResults campaignResults(
+            long shopId, LocalDate from, LocalDate to, int page, int size) {
+        List<Long> ids =
+                jdbc.queryForList(
+                        "SELECT id FROM campaign WHERE shop_id = :shopId AND message_kind = 'AD'"
+                                + " AND status <> 'CANCELED' AND sent_at >= :from AND sent_at < :toNext"
+                                + " ORDER BY sent_at DESC, id DESC",
+                        Map.of(
+                                "shopId",
+                                shopId,
+                                "from",
+                                from.atStartOfDay(),
+                                "toNext",
+                                to.plusDays(1).atStartOfDay()),
+                        Long.class);
+        if (ids.isEmpty()) {
+            return new CampaignResults(List.of(), 0, new CampaignTotal(0, 0, 0, 0, 0, 0));
+        }
+        int start = (int) Math.min((long) page * size, ids.size());
+        List<Long> pageIds = ids.subList(start, Math.min(start + size, ids.size()));
+        List<CampaignResult> items =
+                pageIds.isEmpty()
+                        ? List.of()
+                        : jdbc.query(
+                                "SELECT c.id, c.name, c.category, c.sent_at,"
+                                        + " COALESCE(se.n, 0) AS sent, COALESCE(rc.n, 0) AS reached,"
+                                        + " COALESCE(rb.n, 0) AS rebooked, COALESCE(rv.n, 0) AS revisited,"
+                                        + " COALESCE(rev.n, 0) AS revenue"
+                                        + " FROM campaign c"
+                                        + " LEFT JOIN (SELECT campaign_id, COUNT(DISTINCT customer_id) AS n"
+                                        + SENT_MESSAGES
+                                        + " GROUP BY campaign_id) se ON se.campaign_id = c.id"
+                                        + " LEFT JOIN (SELECT campaign_id, COUNT(DISTINCT customer_id) AS n"
+                                        + REACHED_MESSAGES
+                                        + " GROUP BY campaign_id) rc ON rc.campaign_id = c.id"
+                                        + " LEFT JOIN (SELECT c.id AS campaign_id,"
+                                        + " COUNT(DISTINCT cm.customer_id) AS n"
+                                        + REBOOKED
+                                        + " GROUP BY c.id) rb ON rb.campaign_id = c.id"
+                                        + " LEFT JOIN (SELECT c.id AS campaign_id,"
+                                        + " COUNT(DISTINCT cm.customer_id) AS n"
+                                        + REVISITED
+                                        + " GROUP BY c.id) rv ON rv.campaign_id = c.id"
+                                        // 같은 방문은 캠페인마다 한 번 (FR-ANL-02)
+                                        + " LEFT JOIN (SELECT av.campaign_id, SUM(p.amount) AS n FROM"
+                                        + " (SELECT DISTINCT c.id AS campaign_id, vs.visit_id"
+                                        + ATTRIBUTED_VISIT_SERVICE
+                                        + ") av JOIN payment p ON p.visit_id = av.visit_id"
+                                        + " AND p.shop_id = :shopId AND p.canceled = FALSE"
+                                        + " GROUP BY av.campaign_id) rev ON rev.campaign_id = c.id"
+                                        + OF_CAMPAIGNS
+                                        + " ORDER BY c.sent_at DESC, c.id DESC",
+                                Map.of("shopId", shopId, "campaignIds", pageIds),
+                                (rs, i) ->
+                                        new CampaignResult(
+                                                rs.getLong("id"),
+                                                rs.getString("name"),
+                                                rs.getString("category"),
+                                                TimeConfig.offset(
+                                                        rs.getObject(
+                                                                "sent_at", LocalDateTime.class)),
+                                                rs.getLong("sent"),
+                                                rs.getLong("reached"),
+                                                rs.getLong("rebooked"),
+                                                rs.getLong("revisited"),
+                                                rs.getLong("revenue")));
+        // 합계: 같은 조각을 기간 안 캠페인 전체로 넓히고 고객 · 방문을 한 번만 센다 (F65)
+        CampaignTotal total =
+                jdbc.queryForObject(
+                        "SELECT"
+                                + " (SELECT COUNT(DISTINCT customer_id)"
+                                + SENT_MESSAGES
+                                + ") AS sent,"
+                                + " (SELECT COUNT(DISTINCT customer_id)"
+                                + REACHED_MESSAGES
+                                + ") AS reached,"
+                                + " (SELECT COUNT(DISTINCT r.customer_id) FROM ("
+                                + REBOOKED_CUSTOMERS
+                                + ") r) AS rebooked,"
+                                + " (SELECT COUNT(DISTINCT cm.customer_id)"
+                                + REVISITED
+                                + ") AS revisited,"
+                                + " (SELECT COALESCE(SUM(amount), 0) FROM payment"
+                                + "   WHERE shop_id = :shopId AND canceled = FALSE"
+                                + "   AND visit_id IN (SELECT vs.visit_id"
+                                + ATTRIBUTED_VISIT_SERVICE
+                                + ")) AS revenue",
+                        Map.of("shopId", shopId, "campaignIds", ids),
+                        (rs, i) ->
+                                new CampaignTotal(
+                                        ids.size(),
+                                        rs.getLong("sent"),
+                                        rs.getLong("reached"),
+                                        rs.getLong("rebooked"),
+                                        rs.getLong("revisited"),
+                                        rs.getLong("revenue")));
+        return new CampaignResults(items, ids.size(), total);
     }
 
     private static long count(Map<String, Object> row, String key) {
