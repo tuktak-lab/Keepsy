@@ -88,6 +88,10 @@ export default function DashboardPage() {
   const [period, setPeriod] = useState<Period>('THIS_MONTH');
   const [channels, setChannels] = useState<{ period: Period; value: Channels } | null>(null);
   const [drawn, setDrawn] = useState(false);
+  // 카드별 불러오기 실패 (#346). 실패를 삼키지 않고 그 카드에 「불러오지 못함」을 보인다
+  const [failed, setFailed] = useState<Record<string, boolean>>({});
+  const markFailed = (key: string) => setFailed((f) => ({ ...f, [key]: true }));
+  const loadingText = (key: string) => (failed[key] ? '불러오지 못했어요. 잠시 후 새로고침해 주세요.' : '불러오는 중…');
 
   // 첫 진입 시 도넛이 0에서 채워지도록 다음 프레임에 켭니다
   useEffect(() => {
@@ -97,7 +101,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     let cancelled = false;
-    api<Today>('/api/dashboard/today', { silent: true }).then((t) => !cancelled && setToday(t), () => {});
+    api<Today>('/api/dashboard/today', { silent: true }).then((t) => !cancelled && setToday(t), () => !cancelled && markFailed('today'));
     return () => {
       cancelled = true;
     };
@@ -106,7 +110,7 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!customerOpen) return;
     let cancelled = false;
-    api<Page<unknown>>('/api/customers?page=0&size=1', { silent: true }).then((p) => !cancelled && setCustomers(p.totalElements), () => {});
+    api<Page<unknown>>('/api/customers?page=0&size=1', { silent: true }).then((p) => !cancelled && setCustomers(p.totalElements), () => !cancelled && markFailed('customers'));
     return () => {
       cancelled = true;
     };
@@ -115,10 +119,10 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!insightOpen) return;
     let cancelled = false;
-    api<Care[]>('/api/dashboard/care-targets', { silent: true }).then((c) => !cancelled && setCare(c), () => {});
+    api<Care[]>('/api/dashboard/care-targets', { silent: true }).then((c) => !cancelled && setCare(c), () => !cancelled && markFailed('care'));
     Promise.all(SEGS.map((s) => api<Page<unknown>>(`/api/insights?status=${s.status}&page=0&size=1`, { silent: true }).then((p) => [s.status, p.totalElements] as const)))
       .then((pairs) => !cancelled && setSegCounts(Object.fromEntries(pairs)))
-      .catch(() => {});
+      .catch(() => !cancelled && markFailed('segments'));
     return () => {
       cancelled = true;
     };
@@ -127,7 +131,7 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!campaignOpen) return;
     let cancelled = false;
-    api<Recent[]>('/api/dashboard/recent-campaigns', { silent: true }).then((r) => !cancelled && setRecent(r), () => {});
+    api<Recent[]>('/api/dashboard/recent-campaigns', { silent: true }).then((r) => !cancelled && setRecent(r), () => !cancelled && markFailed('recent'));
     return () => {
       cancelled = true;
     };
@@ -135,7 +139,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     let cancelled = false;
-    api<Channels>(`/api/dashboard/booking-channels?period=${period}`, { silent: true }).then((value) => !cancelled && setChannels({ period, value }), () => {});
+    api<Channels>(`/api/dashboard/booking-channels?period=${period}`, { silent: true }).then((value) => !cancelled && setChannels({ period, value }), () => !cancelled && markFailed(`channels-${period}`));
     return () => {
       cancelled = true;
     };
@@ -189,22 +193,22 @@ export default function DashboardPage() {
           </div>
 
           <section className="kp-kpis kp-card" aria-label="고객 현황 요약">
-            {kpi('/customers', '전체 고객', num(customers), customerOpen ? '삭제된 고객 제외' : 'PIN 인증 후 표시')}
-            {kpi('/reservations', '오늘 예약', num(todayList?.length), todayList ? `확정 ${todayList.filter((r) => r.status === 'CONFIRMED').length} · 상담 후 진행 ${todayList.filter((r) => r.consultFirst).length}` : '')}
-            {kpi('/reservations', '마감 안 된 예약', num(today?.unclosed.length), '지난 예약 · 시술 마감 필요')}
-            {kpi('/insights', '주기 도래 고객', num(insightOpen ? segCounts?.DUE : null), insightOpen ? '예약 없음 · 우선순위 순' : 'PIN 인증 후 표시')}
+            {kpi('/customers', '전체 고객', num(customers), !customerOpen ? 'PIN 인증 후 표시' : failed.customers ? '불러오지 못함' : '삭제된 고객 제외')}
+            {kpi('/reservations', '오늘 예약', num(todayList?.length), todayList ? `확정 ${todayList.filter((r) => r.status === 'CONFIRMED').length} · 상담 후 진행 ${todayList.filter((r) => r.consultFirst).length}` : failed.today ? '불러오지 못함' : '')}
+            {kpi('/reservations', '마감 안 된 예약', num(today?.unclosed.length), failed.today ? '불러오지 못함' : '지난 예약 · 시술 마감 필요')}
+            {kpi('/insights', '주기 도래 고객', num(insightOpen ? segCounts?.DUE : null), !insightOpen ? 'PIN 인증 후 표시' : failed.segments ? '불러오지 못함' : '예약 없음 · 우선순위 순')}
             {kpi(
               latest ? `/campaigns/detail?id=${latest.id}` : '/analytics',
               '재예약 전환율',
               latest ? (rateText(latest.rebookedCount, latest.reachedCount) ?? '-') : '-',
-              !campaignOpen ? 'PIN 인증 후 표시' : latest ? `최근 캠페인 · ${latest.name}` : '발송한 캠페인 없음',
+              !campaignOpen ? 'PIN 인증 후 표시' : failed.recent ? '불러오지 못함' : latest ? `최근 캠페인 · ${latest.name}` : '발송한 캠페인 없음',
             )}
           </section>
 
           <div className="kp-low">
             <Card title="오늘 예약" sub="시간순 · 취소 · 노쇼 제외">
               {!todayList ? (
-                <p className="kp-card-sub">불러오는 중…</p>
+                <p className="kp-card-sub">{loadingText('today')}</p>
               ) : todayList.length === 0 ? (
                 <p className="kp-card-sub">오늘 예약이 없어요.</p>
               ) : (
@@ -234,7 +238,7 @@ export default function DashboardPage() {
 
             <Card title="마감 안 된 예약" sub="시작 시각이 지났는데 마감 · 취소 · 노쇼 처리가 안 됐어요" className="kp-act">
               {!today ? (
-                <p className="kp-card-sub">불러오는 중…</p>
+                <p className="kp-card-sub">{loadingText('today')}</p>
               ) : today.unclosed.length === 0 ? (
                 <p className="kp-card-sub">마감할 예약이 없어요.</p>
               ) : (
@@ -262,7 +266,7 @@ export default function DashboardPage() {
               {!insightOpen ? (
                 <Locked what="인사이트" />
               ) : !care ? (
-                <p className="kp-card-sub">불러오는 중…</p>
+                <p className="kp-card-sub">{loadingText('care')}</p>
               ) : care.length === 0 ? (
                 <p className="kp-card-sub">오늘 관리할 고객이 없어요.</p>
               ) : (
@@ -294,7 +298,7 @@ export default function DashboardPage() {
               {!campaignOpen ? (
                 <Locked what="캠페인 목록 · 결과 조회" />
               ) : !recent ? (
-                <p className="kp-card-sub">불러오는 중…</p>
+                <p className="kp-card-sub">{loadingText('recent')}</p>
               ) : recent.length === 0 ? (
                 <p className="kp-card-sub">아직 발송한 캠페인이 없어요.</p>
               ) : (
@@ -316,7 +320,7 @@ export default function DashboardPage() {
           <div className="kp-low">
             <Card title="이번 주 예약" sub="요일별 예약 건수 (취소 · 노쇼 제외)">
               {!today ? (
-                <p className="kp-card-sub">불러오는 중…</p>
+                <p className="kp-card-sub">{loadingText('today')}</p>
               ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 10, alignItems: 'end', height: 150, marginTop: 14 }}>
                   {today.week.map((d, i) => {
@@ -350,7 +354,7 @@ export default function DashboardPage() {
               }
             >
               {!ch ? (
-                <p className="kp-card-sub">불러오는 중…</p>
+                <p className="kp-card-sub">{loadingText(`channels-${period}`)}</p>
               ) : (
                 ch.channels.map((c) => (
                   <div key={c.channel} style={{ display: 'grid', gridTemplateColumns: '84px 1fr 56px', gap: 10, alignItems: 'center', padding: '8px 0' }}>
@@ -375,7 +379,7 @@ export default function DashboardPage() {
             {!insightOpen ? (
               <Locked what="인사이트" />
             ) : !segCounts ? (
-              <p className="kp-card-sub">불러오는 중…</p>
+              <p className="kp-card-sub">{loadingText('segments')}</p>
             ) : (
               <div className="kp-rel-body">
                 <div className="kp-donut">
