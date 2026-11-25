@@ -136,6 +136,7 @@ function Body() {
         </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
           <AppLink href="/campaigns/templates" className="cp-btn">템플릿</AppLink>
+          <AppLink href="/campaigns/reconfirm" className="cp-btn">동의 재확인</AppLink>
           <AppLink href="/virtual-phone" className="cp-btn">가상 휴대폰</AppLink>
           <AppLink href="/campaigns/new" className="cp-btn p">+ 캠페인 만들기</AppLink>
         </div>
