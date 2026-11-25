@@ -72,6 +72,24 @@ class PredictionSnapshotTest {
     }
 
     @Test
+    void 이탈_신호_기간은_그때의_평균_간격과_매장_상한_중_작은_값으로_남긴다() {
+        visit(D, gel);
+        service.recalculate(shop, customer); // 방문 1회: 평균 간격 = 기본 주기 최대 28일, 상한 120일
+        assertThat(churnSignalDays()).isEqualTo(28);
+
+        jdbc.update("UPDATE shop SET churn_signal_cap_days = 10 WHERE id = ?", shop);
+        service.recalculate(shop, customer); // 같은 기준으로 고쳐 쓸 때 다시 채운다 (F23, F57)
+        assertThat(churnSignalDays()).isEqualTo(10);
+    }
+
+    private Integer churnSignalDays() {
+        return jdbc.queryForObject(
+                "SELECT churn_signal_days FROM prediction_snapshot WHERE customer_id = ?",
+                Integer.class,
+                customer);
+    }
+
+    @Test
     void 기간_안_다음_방문은_적중으로_기록하고_새_스냅샷을_만든다() {
         visit(D, gel);
         service.recalculate(shop, customer);
