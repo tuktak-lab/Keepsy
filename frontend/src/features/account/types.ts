@@ -19,6 +19,12 @@ export type LoginRequest = { email: string; password: string };
 /** POST /api/session 응답 */
 export type LoginResponse = { shopId: number; shopName: string };
 
+/** POST /api/password-reset 요청 (재설정 메일) */
+export type PasswordResetRequest = { email: string };
+
+/** PUT /api/password-reset 요청 (새 비밀번호) */
+export type PasswordResetConfirmRequest = { token: string; newPassword: string };
+
 /** PUT /api/session/worker 요청 */
 export type WorkerRequest = { pin: string };
 
