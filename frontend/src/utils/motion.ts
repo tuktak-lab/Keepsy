@@ -29,9 +29,14 @@ function placeIndicators() {
   });
 }
 
+// 감시를 단 이미지. DOM 속성으로 표시하면 아직 hydrate 전인 Suspense 경계(`?id=` 화면) 안의 서버 HTML이 바뀌어
+// hydration mismatch가 나므로 메모리에만 둔다.
+const watched = new WeakSet<HTMLImageElement>();
+
 function watchImages(root: ParentNode) {
-  root.querySelectorAll<HTMLImageElement>('img:not([data-kp-img])').forEach((img) => {
-    img.dataset.kpImg = '1';
+  root.querySelectorAll<HTMLImageElement>('img').forEach((img) => {
+    if (watched.has(img)) return;
+    watched.add(img);
     const done = () => img.classList.remove('kp-img-wait');
     if (!img.complete) img.classList.add('kp-img-wait');
     img.addEventListener('load', done);
