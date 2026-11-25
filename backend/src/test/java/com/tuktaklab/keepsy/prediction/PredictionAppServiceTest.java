@@ -117,7 +117,9 @@ class PredictionAppServiceTest {
                 D,
                 id);
 
-        visit(customer, D.plusDays(25), "NAIL", gel);
+        // 기준일 전 과거 방문: 근거는 늘지만 마지막 시술일은 그대로라 F2상 해제되지 않는다
+        // (기준일 뒤 방문은 해제된다. HandlingMarkTest)
+        visit(customer, D.minusDays(25), "NAIL", gel);
         service.recalculate(shop, customer);
 
         CustomerPrediction p = only(customer);

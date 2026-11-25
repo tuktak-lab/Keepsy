@@ -1,10 +1,14 @@
 package com.tuktaklab.keepsy.prediction;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Optional;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -13,8 +17,8 @@ import lombok.NoArgsConstructor;
 /**
  * 고객 × 시술 카테고리 하나의 현재 예측 (명세서 5장 customer_prediction, A7). 예측 상태는 저장하지 않고 조회할 때 계산한다 (A12).
  *
- * <p>처리 표시 칸(handling_mark · handling_marked_at · handling_base_visit_date)은 처리 표시(#78)에서 매핑한다. 그
- * 전까지 매핑하지 않으므로 재계산의 UPDATE가 그 칸을 건드리지 않는다 (F2 "재계산은 갱신만, 처리 표시는 그대로").
+ * <p>처리 표시 칸(handling_mark · handling_marked_at)은 읽기 전용으로 매핑해 재계산의 UPDATE가 그 칸을 건드리지 않는다 (F2 "재계산은
+ * 갱신만, 처리 표시는 그대로"). 표시 저장과 자동 해제는 리포지토리의 조건부 UPDATE로만 한다 (F55).
  */
 @Entity
 @Getter
@@ -45,6 +49,16 @@ public class CustomerPrediction {
     private LocalDate endDate;
 
     private boolean endSignal;
+
+    /**
+     * 처리 표시 (FR-PRD-07). 읽기 전용: 쓰기는 {@link CustomerPredictionRepository}의 조건부 UPDATE만 한다 (F2, F55)
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(insertable = false, updatable = false)
+    private HandlingMark handlingMark;
+
+    @Column(insertable = false, updatable = false)
+    private LocalDateTime handlingMarkedAt;
 
     static CustomerPrediction of(long shopId, long customerId, String category) {
         CustomerPrediction p = new CustomerPrediction();

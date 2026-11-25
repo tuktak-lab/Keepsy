@@ -2,10 +2,12 @@ package com.tuktaklab.keepsy.prediction;
 
 import com.tuktaklab.keepsy.common.error.ApiException;
 import com.tuktaklab.keepsy.common.error.ErrorCode;
+import com.tuktaklab.keepsy.common.time.TimeConfig;
 import com.tuktaklab.keepsy.common.web.PageResponse;
 import com.tuktaklab.keepsy.prediction.query.InsightQuery;
 import java.time.Clock;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -36,7 +38,9 @@ public class InsightService {
             LocalDate startDate,
             LocalDate endDate,
             boolean marketingConsent,
-            NextAction nextAction) {}
+            NextAction nextAction,
+            HandlingMark handlingMark,
+            OffsetDateTime handlingMarkedAt) {}
 
     private final InsightQuery query;
     private final Clock clock;
@@ -71,7 +75,9 @@ public class InsightService {
                                                         r.status(),
                                                         r.marketingConsent(),
                                                         r.marketingWithdrawn())
-                                                .orElse(null)))
+                                                .orElse(null),
+                                        r.handlingMark(),
+                                        TimeConfig.offset(r.handlingMarkedAt())))
                         .toList();
         return new PageResponse<>(
                 items, page, size, query.count(shopId, statuses, category, today));
