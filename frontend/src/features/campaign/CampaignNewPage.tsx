@@ -435,7 +435,12 @@ function SendStep({ id }: { id: number }) {
                       {item.messageType ?? '발송 불가'} · {item.bytes ?? '—'}바이트
                     </span>
                     {item.missingVariables.length > 0 && <span className="cp-note">값이 없는 변수: {item.missingVariables.join(', ')}</span>}
-                    <span className="cp-note">90바이트 이하는 SMS, 2,000바이트 이하는 LMS예요. (광고) 표기 · 매장 정보 · 무료 수신거부 안내는 자동으로 붙고 지울 수 없어요.</span>
+                    <span className="cp-note">
+                      90바이트 이하는 SMS, 2,000바이트 이하는 LMS예요.{' '}
+                      {campaign.messageKind === 'INFO'
+                        ? '동의 재확인 안내라 (광고) 표기는 붙지 않아요.'
+                        : '(광고) 표기 · 매장 정보 · 무료 수신거부 안내는 자동으로 붙고 지울 수 없어요.'}
+                    </span>
                   </div>
                 )}
                 {preview.items.totalElements > preview.items.items.length && <span className="cp-note">앞 {preview.items.items.length}명만 미리 볼 수 있어요.</span>}
@@ -459,7 +464,9 @@ function SendStep({ id }: { id: number }) {
         )}
         {(nightNow || (mode === 'schedule' && nightHour(at))) && (
           <div className="cp-warn">
-            야간(21시~다음 날 08시)에는 보낼 고객 전원이 야간 광고 수신에 동의했을 때만 보낼 수 있어요. 아니면 낮 시각으로 예약해 주세요.
+            {campaign.messageKind === 'INFO'
+              ? '동의 재확인 안내는 야간(21시~다음 날 08시)에 보낼 수 없어요. 낮 시각으로 예약해 주세요.'
+              : '야간(21시~다음 날 08시)에는 보낼 고객 전원이 야간 광고 수신에 동의했을 때만 보낼 수 있어요. 아니면 낮 시각으로 예약해 주세요.'}
           </div>
         )}
         <span className="cp-note">발송할 때 수신 동의와 하루 발송 한도를 다시 확인해요. 그사이 동의를 철회한 고객은 빠져요.</span>
