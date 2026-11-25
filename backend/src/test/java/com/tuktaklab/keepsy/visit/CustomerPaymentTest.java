@@ -1,5 +1,6 @@
 package com.tuktaklab.keepsy.visit;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.endsWith;
 import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -103,6 +104,28 @@ class CustomerPaymentTest {
                 .andExpect(jsonPath("$.items.length()").value(1))
                 .andExpect(jsonPath("$.items[0].amount").value(50000))
                 .andExpect(jsonPath("$.totalElements").value(3));
+    }
+
+    @Test
+    void 조회는_접근_로그에_남고_not_found는_남지_않는다() throws Exception {
+        mvc.perform(get("/api/customers/{id}/payments", customer).session(session(shop, true)))
+                .andExpect(status().isOk());
+        long other = data.customer(data.shop(), false, null);
+        mvc.perform(get("/api/customers/{id}/payments", other).session(session(shop, true)))
+                .andExpect(status().isNotFound());
+
+        assertThat(viewLogs(customer)).isEqualTo(1);
+        assertThat(viewLogs(other)).isZero();
+    }
+
+    private int viewLogs(long customerId) {
+        return jdbc.queryForObject(
+                "SELECT COUNT(*) FROM access_log WHERE shop_id = ? AND staff_id = ?"
+                        + " AND target_type = 'CUSTOMER' AND target_id = ? AND action = 'VIEW'",
+                Integer.class,
+                shop,
+                staff,
+                customerId);
     }
 
     @Test
