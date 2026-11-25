@@ -49,7 +49,7 @@ export default function ShiftPage() {
 
   return (
     <main className={card.page}>
-      <section className={card.card} aria-labelledby="shift-title">
+      <section className={`${card.card} ${styles.card}`} aria-labelledby="shift-title">
         <img className={card.logo} src={logoImg.src} alt="Keepsy" />
         {session && <p className={styles.shop}>{session.shopName}</p>}
         <h1 id="shift-title" className={card.title}>
