@@ -103,7 +103,7 @@ export type CategoryPrediction = {
 
 export type ReservationStatus = 'CONFIRMED' | 'COMPLETED' | 'CANCELED' | 'NO_SHOW';
 
-/** GET /api/customers/{id}/reservations 항목 (예약 필드) */
+/** GET /api/customers/{id}/reservations 항목 (예약 필드 + 예약 메모, F66) */
 export type CustomerReservation = {
   id: number;
   status: ReservationStatus;
@@ -111,6 +111,7 @@ export type CustomerReservation = {
   minutes: number;
   staff: StaffRef;
   services: { serviceMenuId: number; name: string }[];
+  memo: string | null;
 };
 
 /** GET /api/customers/{id}/history 항목 */

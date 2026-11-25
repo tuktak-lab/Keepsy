@@ -31,24 +31,13 @@ export function SummaryTab(props: {
   const [reservations, setReservations] = useState<CustomerReservation[] | null>(null);
   const [resError, setResError] = useState('');
   const [visits, setVisits] = useState<HistoryVisit[]>([]);
-  const [memos, setMemos] = useState<Map<number, string | null>>(new Map());
 
   useEffect(() => {
     api<{ predictions: CategoryPrediction[] }>(`/api/customers/${customerId}/predictions`, { silent: true })
       .then((r) => setPredictions(r.predictions))
       .catch((err) => setPredError(errorText(err)));
     api<Page<CustomerReservation>>(`/api/customers/${customerId}/reservations?size=10`, { silent: true })
-      .then((r) => {
-        setReservations(r.items);
-        // 시술 컬러처럼 예약할 때 정한 내용은 예약 메모에 적는다. 목록 응답에 메모가 없어 예약 상세로 하나씩 받는다 (CONTRACTS 6장)
-        return Promise.all(
-          r.items.map((x) =>
-            api<{ memo: string | null }>(`/api/reservations/${x.id}`, { silent: true })
-              .then((d) => [x.id, d.memo] as const)
-              .catch(() => [x.id, null] as const),
-          ),
-        ).then((pairs) => setMemos(new Map(pairs.filter(([, m]) => m))));
-      })
+      .then((r) => setReservations(r.items))
       .catch((err) => setResError(errorText(err)));
     api<Page<HistoryVisit>>(`/api/customers/${customerId}/history?size=20`, { silent: true })
       .then((r) => setVisits(r.items))
@@ -202,10 +191,11 @@ export function SummaryTab(props: {
               <span className="meta">
                 {r.staff.name} · {r.minutes}분
               </span>
-              {memos.get(r.id) && (
+              {/* 시술 컬러처럼 예약할 때 정한 내용은 예약 메모에 적는다 (CONTRACTS 6장, F66) */}
+              {r.memo && (
                 <span className="sub" style={{ marginTop: 4 }}>
                   <span className="meta">예약 메모 </span>
-                  {memos.get(r.id)}
+                  {r.memo}
                 </span>
               )}
               {r.status === 'COMPLETED' &&
