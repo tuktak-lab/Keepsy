@@ -1,6 +1,7 @@
 package com.tuktaklab.keepsy.account;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -26,16 +27,12 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.mock.web.MockHttpSession;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.context.SecurityContextImpl;
-import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
 /**
- * 비밀번호 재설정 · 가상 메일함 (Keepsy #25, CONTRACTS 6장 ACC, FR-ACC-06, C3, F14 · F49). 실제 MySQL에서 돈다. 모의
- * 데이터만 쓴다.
+ * 비밀번호 재설정 · 가상 메일함 (Keepsy #25 · #322, CONTRACTS 6장 ACC, FR-ACC-06, C3, F14 · F49 · F59). 실제
+ * MySQL에서 돈다. 모의 데이터만 쓴다.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -101,16 +98,6 @@ class PasswordResetTest {
         Matcher m = TOKEN.matcher(body);
         assertThat(m.find()).isTrue();
         return m.group(1);
-    }
-
-    private MockHttpSession shopSession(long shopId) {
-        MockHttpSession session = new MockHttpSession();
-        session.setAttribute(
-                HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY,
-                new SecurityContextImpl(
-                        UsernamePasswordAuthenticationToken.authenticated(
-                                shopId, null, List.of())));
-        return session;
     }
 
     @Test
@@ -217,17 +204,56 @@ class PasswordResetTest {
         }
     }
 
-    @Test
-    void 가상_메일함은_로그인한_그_매장_메일만_보이고_로그인하지_않으면_401() throws Exception {
-        requestMail(email).andExpect(status().isNoContent());
+    private ResultActions mailbox(String address) throws Exception {
+        return mvc.perform(get("/api/virtual-mailbox").param("email", address));
+    }
 
-        mvc.perform(get("/api/virtual-mailbox").session(shopSession(shop)))
+    @Test
+    void 가상_메일함은_로그인_없이_그_이메일로_온_메일을_최신순으로_보여_준다() throws Exception {
+        requestMail(email).andExpect(status().isNoContent());
+        requestMail(email).andExpect(status().isNoContent());
+        long newest =
+                jdbc.queryForObject(
+                        "SELECT MAX(id) FROM virtual_mail WHERE shop_id = ?", Long.class, shop);
+
+        mailbox(email)
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.totalElements").value(1))
-                .andExpect(jsonPath("$.items[0].subject").value(PasswordResetService.SUBJECT));
-        mvc.perform(get("/api/virtual-mailbox").session(shopSession(data.shop())))
+                .andExpect(jsonPath("$.totalElements").value(2))
+                .andExpect(jsonPath("$.items[0].id").value(newest))
+                .andExpect(jsonPath("$.items[0].subject").value(PasswordResetService.SUBJECT))
+                .andExpect(
+                        jsonPath("$.items[0].body").value(containsString("/password-reset?token=")))
+                .andExpect(jsonPath("$.items[0].sentAt").exists());
+    }
+
+    @Test
+    void 가상_메일함에_다른_이메일로_온_메일은_보이지_않고_받은_메일이_없으면_빈_페이지() throws Exception {
+        long other = data.shop();
+        String otherEmail =
+                jdbc.queryForObject("SELECT email FROM shop WHERE id = ?", String.class, other);
+        requestMail(otherEmail).andExpect(status().isNoContent());
+
+        mailbox(email)
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.totalElements").value(0));
-        mvc.perform(get("/api/virtual-mailbox")).andExpect(status().isUnauthorized());
+                .andExpect(jsonPath("$.totalElements").value(0))
+                .andExpect(jsonPath("$.items").isEmpty());
+        mailbox(otherEmail)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(1));
+    }
+
+    @Test
+    void 가상_메일함의_이메일이_없거나_형식이_틀리면_invalid_400() throws Exception {
+        for (String bad : List.of("", "not-an-email", "a".repeat(250) + "@example.com")) {
+            mailbox(bad)
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.error.code").value("invalid"));
+        }
+        mvc.perform(get("/api/virtual-mailbox"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("invalid"));
+        mvc.perform(get("/api/virtual-mailbox").param("email", email).param("size", "101"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("invalid"));
     }
 }

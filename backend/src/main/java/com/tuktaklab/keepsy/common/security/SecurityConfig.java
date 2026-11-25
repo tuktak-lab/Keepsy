@@ -43,6 +43,8 @@ public class SecurityConfig {
                                 .permitAll()
                                 .requestMatchers(HttpMethod.PUT, "/api/password-reset")
                                 .permitAll()
+                                .requestMatchers(HttpMethod.GET, "/api/virtual-mailbox")
+                                .permitAll()
                                 .requestMatchers("/api/**")
                                 .authenticated()
                                 // 화면(정적 파일)은 /api/ 밖 (CONTRACTS 4장 경로 규칙)
