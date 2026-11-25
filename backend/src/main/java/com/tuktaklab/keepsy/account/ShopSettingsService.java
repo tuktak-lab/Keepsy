@@ -60,7 +60,7 @@ public class ShopSettingsService {
     /** 통째로 바꾼다. 쓰는 계산은 다음 요청부터 이 값을 읽는다 (FR-SET-03 · 04 · 06, F40) */
     @Transactional
     public void updateSettings(long shopId, Shop.Settings settings) {
-        ShopScope.orNotFound(shopRepository.findById(shopId)).changeSettings(settings);
+        ShopScope.orNotFound(shopRepository.findForUpdateById(shopId)).changeSettings(settings);
     }
 
     /** 귀속 기간(일) (FR-SET-04, FR-ANL-03). 예약 · 방문의 캠페인 귀속이 읽는다 */
@@ -76,7 +76,7 @@ public class ShopSettingsService {
      */
     @Transactional
     public void updateFeatureLocks(long shopId, Map<String, String> changes) {
-        ShopScope.orNotFound(shopRepository.findById(shopId)).changeFeatureLocks(changes);
+        ShopScope.orNotFound(shopRepository.findForUpdateById(shopId)).changeFeatureLocks(changes);
     }
 
     /** 카테고리 기본 주기 5개, CONTRACTS 3장 순서 (FR-SET-02) */
@@ -100,7 +100,7 @@ public class ShopSettingsService {
                         .equals(Set.copyOf(Shop.CATEGORIES))) {
             throw new ApiException(ErrorCode.INVALID, "카테고리 5개를 한 번씩 보내 주세요");
         }
-        Shop shop = ShopScope.orNotFound(shopRepository.findById(shopId));
+        Shop shop = ShopScope.orNotFound(shopRepository.findForUpdateById(shopId));
         List<String> changed = new ArrayList<>();
         for (CategoryCycle c : cycles) {
             if (shop.changeCategoryCycle(c.category(), c.minDays(), c.maxDays())) {

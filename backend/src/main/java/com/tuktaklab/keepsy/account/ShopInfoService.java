@@ -66,7 +66,7 @@ public class ShopInfoService {
      */
     @Transactional
     public List<Timed> update(long shopId, ShopInfoChange in) {
-        Shop shop = ShopScope.orNotFound(shopRepository.findById(shopId));
+        Shop shop = ShopScope.orNotFound(shopRepository.findForUpdateById(shopId));
         shop.changeInfo(
                 in.name(),
                 in.phone(),
