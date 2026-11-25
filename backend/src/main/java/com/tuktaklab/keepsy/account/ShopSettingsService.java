@@ -40,6 +40,17 @@ public class ShopSettingsService {
         return new SendSettings(shop.getVirtualFailurePercent(), shop.getVirtualUnitPrice());
     }
 
+    /**
+     * 일 발송 한도를 읽으면서 매장 행을 잠근다 (FR-CMP-12, F54). 부르는 쪽 트랜잭션이 끝날 때까지 같은 매장의 다른 발송이 기다려, 한도 검사와 발송 기록
+     * 생성 사이에 다른 발송이 끼어 한도를 넘지 못한다.
+     *
+     * @throws com.tuktaklab.keepsy.common.error.ApiException 매장이 없으면 {@code not_found}
+     */
+    @Transactional
+    public int lockDailySendLimit(long shopId) {
+        return ShopScope.orNotFound(shopRepository.findForUpdateById(shopId)).getDailySendLimit();
+    }
+
     /** 매장 설정값 6개 (FR-SET-03 · 04 · 06) */
     @Transactional(readOnly = true)
     public Shop.Settings settings(long shopId) {

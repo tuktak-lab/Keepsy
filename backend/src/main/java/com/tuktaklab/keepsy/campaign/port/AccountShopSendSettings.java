@@ -26,4 +26,9 @@ class AccountShopSendSettings implements ShopSendSettings {
         ShopInfo s = shopInfo.get(shopId);
         return new ShopContact(s.name(), s.phone(), s.unsubscribeNumber());
     }
+
+    @Override
+    public int lockDailySendLimit(long shopId) {
+        return shopSettings.lockDailySendLimit(shopId);
+    }
 }

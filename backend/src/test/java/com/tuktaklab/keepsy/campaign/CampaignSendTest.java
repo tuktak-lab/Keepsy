@@ -277,6 +277,71 @@ class CampaignSendTest {
     }
 
     @Test
+    void 오늘_보낸_건수와_이번_인원의_합이_한도를_넘으면_전체_거부하고_그대로() throws Exception {
+        dailyLimit(3);
+        long first = campaign(BODY, List.of(agreedCustomer(), agreedCustomer()), List.of(), true);
+        send(first).andExpect(status().isOk());
+
+        long second = campaign(BODY, List.of(agreedCustomer(), agreedCustomer()), List.of(), true);
+        send(second)
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("daily_limit_exceeded"));
+        assertThat(campaignRow(second)).containsEntry("status", "DRAFT");
+        assertThat(rowCount(second)).isZero();
+
+        long third = campaign(BODY, List.of(agreedCustomer()), List.of(), true);
+        send(third).andExpect(status().isOk());
+    }
+
+    @Test
+    void 대조군과_발송_시점에_빠진_고객은_한도_건수에_넣지_않는다() throws Exception {
+        dailyLimit(2);
+        long withdrawn = agreedCustomer();
+        consent(withdrawn, false);
+        long first =
+                campaign(
+                        BODY,
+                        List.of(agreedCustomer(), agreedCustomer(), withdrawn),
+                        List.of(agreedCustomer()),
+                        true);
+        send(first).andExpect(status().isOk()).andExpect(jsonPath("$.sendCount").value(2));
+
+        // 오늘 건수 2 + 1 > 2
+        long second = campaign(BODY, List.of(agreedCustomer()), List.of(), true);
+        send(second).andExpect(jsonPath("$.error.code").value("daily_limit_exceeded"));
+    }
+
+    @Test
+    void 한도_근처에서_두_캠페인을_동시에_보내도_합계가_한도를_넘지_않는다() throws Exception {
+        dailyLimit(3);
+        long a = campaign(BODY, List.of(agreedCustomer(), agreedCustomer()), List.of(), true);
+        long b = campaign(BODY, List.of(agreedCustomer(), agreedCustomer()), List.of(), true);
+        List<Callable<String>> attempts = new ArrayList<>();
+        for (long id : List.of(a, b)) {
+            attempts.add(() -> {
+                try {
+                    sendService.send(shop, id);
+                    return "ok";
+                } catch (ApiException e) {
+                    return e.errorCode().name();
+                }
+            });
+        }
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+        List<String> results = new ArrayList<>();
+        try {
+            for (Future<String> f : pool.invokeAll(attempts)) {
+                results.add(f.get());
+            }
+        } finally {
+            pool.shutdown();
+        }
+
+        assertThat(results).containsExactlyInAnyOrder("ok", ErrorCode.DAILY_LIMIT_EXCEEDED.name());
+        assertThat(rowCount(a) + rowCount(b)).isEqualTo(2);
+    }
+
+    @Test
     void 다른_매장_캠페인은_not_found_PIN이_없으면_pin_required() throws Exception {
         long otherShop = data.shop();
         long other = campaignIn(otherShop, BODY, List.of(), true);
@@ -312,6 +377,10 @@ class CampaignSendTest {
         long id = data.customer(shop, false, null);
         consent(id, true);
         return id;
+    }
+
+    private void dailyLimit(int limit) {
+        jdbc.update("UPDATE shop SET daily_send_limit = ? WHERE id = ?", limit, shop);
     }
 
     private long nightConsentCustomer() {
