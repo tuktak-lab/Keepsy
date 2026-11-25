@@ -2,7 +2,6 @@ package com.tuktaklab.keepsy.reservation;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.tuktaklab.keepsy.customer.CustomerService;
 import com.tuktaklab.keepsy.support.TestShopData;
 import com.tuktaklab.keepsy.visit.Closing;
 import com.tuktaklab.keepsy.visit.PaymentMethod;
@@ -32,7 +31,6 @@ class ReservationLockTest {
 
     @Autowired ReservationAppService reservations;
     @Autowired VisitAppService visits;
-    @Autowired CustomerService customers;
     @Autowired TransactionTemplate tx;
     @Autowired JdbcTemplate jdbc;
 
@@ -87,10 +85,13 @@ class ReservationLockTest {
 
     @Test
     void 고객_삭제와_동시에_취소해도_비운_메모가_되살아나지_않는다() throws Exception {
+        // 고객 삭제(CustomerService.delete)가 예약에 하는 일은 이것뿐이다. delete 자체는 접근 기록에 요청 세션이 필요하다
         long id = reserve("개인 메모");
 
         whileLocked(
-                id, () -> reservations.cancel(shop, id), () -> customers.delete(shop, customer));
+                id,
+                () -> reservations.cancel(shop, id),
+                () -> reservations.releaseForDeletedCustomer(shop, customer));
 
         assertThat(
                         jdbc.queryForObject(
