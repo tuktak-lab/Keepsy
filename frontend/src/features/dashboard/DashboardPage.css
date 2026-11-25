@@ -7,10 +7,13 @@ a{color:inherit;text-decoration:none}a:hover{text-decoration:none}
 
 .kp-wrap{padding:0 32px 56px 50px;max-width:1280px;box-sizing:border-box;width:100%;display:flex;flex-direction:column;gap:20px}
 .kp-hero{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:8px}
-.kp-hello{font-family:'Noto Serif KR','Playfair Display',serif;font-weight:400;font-size:34px;line-height:1.7;color:#221D1B;letter-spacing:-0.02em}
+.kp-hello{font-family:'Noto Serif KR','Playfair Display',serif;font-weight:500;font-size:34px;line-height:1.45;color:#221D1B;letter-spacing:-0.03em;word-break:keep-all}
+/* 슬로건 둘째 줄은 와인색 기울임으로 강조, 위에는 작은 영문 라벨 */
+.kp-hello em{font-style:normal;color:#7A4450}
+.kp-eyebrow{margin:0 0 10px;font-size:12px;font-weight:600;letter-spacing:.18em;color:#9A6672}
 .kp-hello .serif{font-weight:500}
 .kp-spark-star{color:#D9AFA6;margin-left:10px;vertical-align:middle}
-.kp-lead{margin-top:12px;font-size:15px;color:#3B302C}
+.kp-lead{margin-top:14px;font-size:15px;color:#6B605B}
 .kp-cta{display:inline-flex;align-items:center;gap:12px;height:52px;padding:0 24px;border-radius:14px;background:#7A4450;color:#fff!important;font-size:14px;font-weight:500;box-shadow:0 6px 16px rgba(91,76,70,.25);margin-top:6px}
 .kp-cta:hover{background:#683945}
 

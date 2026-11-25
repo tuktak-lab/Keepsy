@@ -3,7 +3,6 @@ import { AppLink } from '@/components/common/AppLink';
 import { openPinDialog } from '@/components/common/PinDialog';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Topbar } from '@/components/layout/Topbar';
-import logoImg from '@/assets/images/keepsy-logo-thin.png';
 import styleText from './DashboardPage.css?inline';
 import { useStyleSheet } from '@/hooks/useStyleSheet';
 import { CountUp } from '@/components/common/CountUp';
@@ -20,8 +19,6 @@ import { useSession } from '@/lib/session';
 // - 오늘 관리할 고객 · 재방문 상태 · 주기 도래 숫자: INSIGHT / 최근 캠페인 성과 · 재예약 전환율: CAMPAIGN_VIEW
 //   PIN으로 잠겨 있으면 화면을 열자마자 PIN 창을 띄우지 않고 영역을 가려 두었다가, [PIN 입력] 뒤에 불러온다 (FR-DSH-02 · 04)
 // API (docs CONTRACTS 4장): GET /api/dashboard/today · care-targets · recent-campaigns · booking-channels, GET /api/insights(상태별 인원), GET /api/customers(전체 인원)
-
-const logo = logoImg.src;
 
 type Resv = {
   id: number;
@@ -178,11 +175,11 @@ export default function DashboardPage() {
         <div className="kp-wrap">
           <div className="kp-hero">
             <div>
+              <p className="kp-eyebrow">KEEPSY · SMART BEAUTY CRM</p>
               <h1 className="kp-hello">
-                안녕하세요,
+                고객의 기록을 재방문의 기회로,
                 <br />
-                <img src={logo} alt="Keepsy" className="kp-hello-logo" />
-                입니다
+                <em>재방문의 기회를 매장의 성과로.</em>
               </h1>
               <p className="kp-lead">오늘도 고객과 더 가까워지는 하루가 되길 바라요.</p>
             </div>
