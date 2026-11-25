@@ -338,9 +338,12 @@ public class CustomerService {
      */
     @Transactional
     public void changePreferences(long shopId, long customerId, List<TagInput> tags, String memo) {
+        // 고객 행을 잠가 같은 고객의 동시 편집이 차례로 지우고 넣게 한다. 잠그지 않으면 두 요청의 INSERT가 태그 고유 제약 · 교착으로 실패한다 (Keepsy
+        // #338)
         Customer customer =
                 customerRepository
-                        .findByIdAndShopIdAndStatus(customerId, shopId, Customer.Status.ACTIVE)
+                        .findForUpdateByIdAndShopIdAndStatus(
+                                customerId, shopId, Customer.Status.ACTIVE)
                         .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND));
         customer.changePreferenceMemo(blankToNull(memo));
         Map<String, PreferenceTag> unique = new LinkedHashMap<>();
