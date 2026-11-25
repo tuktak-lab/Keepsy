@@ -6,6 +6,7 @@ import { Topbar } from '@/components/layout/Topbar';
 import { toast } from '@/components/common/Toast';
 import { api, ApiError } from '@/lib/api';
 import { CONSENT_METHODS } from '@/lib/newCustomer';
+import { OPTIONAL_CONSENTS, PRIVACY_TEXT } from '@/lib/consents';
 import type {
   AcquisitionChannel,
   ConsentItem,
@@ -38,12 +39,6 @@ const CHANNELS: [AcquisitionChannel, string][] = [
   ['REFERRAL', '지인 소개'],
   ['PASSING_BY', '지나가다'],
   ['ETC', '기타'],
-];
-const OPTIONAL_CONSENTS: [ConsentItem, string, string][] = [
-  ['PHOTO', '시술 사진', '시술 전후 사진을 기록하고 히스토리북에 보관합니다'],
-  ['MARKETING', '마케팅 수신', '재방문 안내 · 이벤트 문자를 받습니다'],
-  ['NIGHT_AD', '야간 광고 수신', '오후 9시 ~ 오전 8시 사이 광고 문자도 받습니다'],
-  ['HEALTH', '건강 정보', '알레르기 등 시술에 필요한 건강 주의사항을 기록합니다'],
 ];
 type Field = 'name' | 'phone' | 'birthYear' | 'consents' | 'consentMethod';
 
@@ -190,12 +185,9 @@ export default function CustomerNewPage() {
               <input type="checkbox" checked={privacy} onChange={(e) => setPrivacy(e.target.checked)} />
               <span>
                 <b>
-                  개인정보 수집 · 이용 동의 <em>필수</em>
+                  {PRIVACY_TEXT.label} <em>필수</em>
                 </b>
-                <span className={styles.consentDesc}>
-                  이름 · 휴대폰 번호와 방문 · 시술 기록을 고객 관리와 예약 안내에 씁니다. 마지막 방문 후 매장이 정한 보관 기간(기본 3년)이
-                  지나면 파기합니다.
-                </span>
+                <span className={styles.consentDesc}>{PRIVACY_TEXT.desc}</span>
               </span>
             </label>
             {fieldError('consents')}
