@@ -300,6 +300,19 @@ class CustomerController {
                         r.agreed()));
     }
 
+    record BookingRestrictionRequest(
+            @NotNull(message = "예약 제한 여부를 보내 주세요") Boolean restricted, String reason) {}
+
+    /** 예약 제한 켜기 · 끄기와 사유 (CONTRACTS 6장, FR-CUS-14, F53). 사유 규칙은 서비스가 검사한다 */
+    @RequireFeature(FeatureKey.OWNER_PIN)
+    @PutMapping("/api/customers/{customerId}/booking-restriction")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    void changeBookingRestriction(
+            @PathVariable long customerId, @Valid @RequestBody BookingRestrictionRequest r) {
+        customerService.changeBookingRestriction(
+                shopSession.shopId(), customerId, r.restricted(), r.reason());
+    }
+
     record DeletionPreviewResponse(int cancelReservationCount) {}
 
     /** 삭제 전 확인 (CONTRACTS 6장, FR-CUS-10) */
