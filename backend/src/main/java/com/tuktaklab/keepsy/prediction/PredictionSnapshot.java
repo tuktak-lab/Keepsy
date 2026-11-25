@@ -73,6 +73,12 @@ public class PredictionSnapshot {
         churnSignalDays = Math.max(1, Math.min(p.averageIntervalDays(), churnCapDays));
     }
 
+    /** 평가에 쓴 방문이 지워졌다: 다시 평가 전으로 (F62) */
+    void revertEvaluation() {
+        actualVisitDate = null;
+        hit = null;
+    }
+
     /** 다음 유효 방문이 생겼다: 기간 안이면 적중 (FR-PRD-08) */
     void evaluate(LocalDate actual) {
         actualVisitDate = actual;

@@ -2,6 +2,7 @@ package com.tuktaklab.keepsy.prediction;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.tuktaklab.keepsy.analytics.query.PredictionAccuracyQuery;
 import com.tuktaklab.keepsy.support.TestShopData;
 import java.sql.Date;
 import java.time.LocalDate;
@@ -25,6 +26,7 @@ class PredictionSnapshotTest {
 
     @Autowired PredictionAppService service;
     @Autowired JdbcTemplate jdbc;
+    @Autowired PredictionAccuracyQuery accuracy;
 
     private TestShopData data;
     private long shop;
@@ -144,6 +146,129 @@ class PredictionSnapshotTest {
         assertThat(snapshots()).hasSize(1);
     }
 
+    // 결정 F62 (Keepsy #339): 방문 삭제 · 수정으로 기준 방문일이 앞당겨지면 평가 전 최신 스냅샷은 지우고, 지운 방문으로 평가한 스냅샷은
+    // 평가를 되돌린다. 그 밖의 평가된 스냅샷은 그대로 둔다
+
+    @Test
+    void 최신_방문을_지우면_평가_전_스냅샷은_지우고_그_방문으로_평가한_스냅샷은_되돌린다() {
+        visit(D, gel);
+        service.recalculate(shop, customer);
+        long b = visit(D.plusDays(25), gel);
+        service.recalculate(shop, customer);
+
+        deleteVisit(b);
+        service.recalculate(shop, customer);
+
+        List<Map<String, Object>> rows = snapshots();
+        assertThat(rows).hasSize(1);
+        assertThat(rows.get(0))
+                .containsEntry("start_date", Date.valueOf(D.plusDays(21)))
+                .containsEntry("basis_visit_count", 1)
+                .containsEntry("actual_visit_date", null)
+                .containsEntry("hit", null);
+        // 정확도 분모도 기준 방문 A 하나 (F29: 다음 방문 없이 끝난 스냅샷은 빗나감)
+        PredictionAccuracyQuery.Accuracy a = accuracy.find(shop, D, D.plusYears(1), D.plusYears(1));
+        assertThat(a.evaluatedCount()).isEqualTo(1);
+        assertThat(a.hitCount()).isZero();
+
+        // 다시 방문하면 되돌린 스냅샷을 평가하고 새로 만든다 (F23 그대로)
+        visit(D.plusDays(26), gel);
+        service.recalculate(shop, customer);
+        assertThat(snapshots()).hasSize(2);
+        assertThat(snapshots().get(0))
+                .containsEntry("actual_visit_date", Date.valueOf(D.plusDays(26)))
+                .containsEntry("hit", true);
+    }
+
+    @Test
+    void 과거_방문을_지워도_기준일이_같으면_평가된_스냅샷은_그대로_둔다() {
+        visit(D, gel);
+        service.recalculate(shop, customer);
+        long b = visit(D.plusDays(25), gel);
+        service.recalculate(shop, customer);
+        visit(D.plusDays(50), gel);
+        service.recalculate(shop, customer);
+
+        deleteVisit(b);
+        service.recalculate(shop, customer);
+
+        List<Map<String, Object>> rows = snapshots();
+        assertThat(rows).hasSize(3);
+        assertThat(rows.get(0))
+                .containsEntry("actual_visit_date", Date.valueOf(D.plusDays(25)))
+                .containsEntry("hit", true);
+        assertThat(rows.get(1)).containsEntry("actual_visit_date", Date.valueOf(D.plusDays(50)));
+        assertThat(rows.get(2)).containsEntry("basis_visit_count", 2).containsEntry("hit", null);
+    }
+
+    @Test
+    void 같은_날_시술을_고쳐_기준일이_앞당겨져도_같게_처리한다() {
+        visit(D, gel);
+        service.recalculate(shop, customer);
+        long b = visit(D.plusDays(25), gel);
+        insert( // 같은 날 리터치(주기 계산 제외)도 받음 (C6)
+                "visit_service",
+                "shop_id",
+                shop,
+                "visit_id",
+                b,
+                "category",
+                "NAIL",
+                "service_menu_id",
+                retouch,
+                "staff_id",
+                staff);
+        service.recalculate(shop, customer);
+
+        // 방문 수정 (FR-VIS-03): 젤을 빼고 리터치만 남기면 B는 유효 방문이 아니다
+        jdbc.update("DELETE FROM visit_service WHERE visit_id = ? AND service_menu_id = ?", b, gel);
+        service.recalculate(shop, customer);
+
+        List<Map<String, Object>> rows = snapshots();
+        assertThat(rows).hasSize(1);
+        assertThat(rows.get(0))
+                .containsEntry("basis_visit_count", 1)
+                .containsEntry("actual_visit_date", null)
+                .containsEntry("hit", null);
+    }
+
+    @Test
+    void 시술_카테고리를_바꿔_기준일이_앞당겨지면_그_카테고리만_되돌린다() {
+        visit(D, gel);
+        service.recalculate(shop, customer);
+        long b = visit(D.plusDays(25), gel);
+        service.recalculate(shop, customer);
+
+        jdbc.update("UPDATE visit_service SET category = 'LASH' WHERE visit_id = ?", b);
+        service.recalculate(shop, customer);
+
+        List<Map<String, Object>> nail =
+                jdbc.queryForList(
+                        "SELECT actual_visit_date, hit FROM prediction_snapshot"
+                                + " WHERE customer_id = ? AND category = 'NAIL'",
+                        customer);
+        assertThat(nail).hasSize(1);
+        assertThat(nail.get(0)).containsEntry("actual_visit_date", null).containsEntry("hit", null);
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT COUNT(*) FROM prediction_snapshot"
+                                        + " WHERE customer_id = ? AND category = 'LASH'",
+                                Integer.class,
+                                customer))
+                .isEqualTo(1);
+    }
+
+    @Test
+    void 하나뿐인_방문을_지우면_평가_전_스냅샷도_지운다() {
+        long a = visit(D, gel);
+        service.recalculate(shop, customer);
+
+        deleteVisit(a);
+        service.recalculate(shop, customer);
+
+        assertThat(snapshots()).isEmpty();
+    }
+
     private long menu(String attribute) {
         return insert(
                 "service_menu",
@@ -165,7 +290,13 @@ class PredictionSnapshotTest {
                 attribute);
     }
 
-    private void visit(LocalDate date, long menuId) {
+    /** 방문 삭제 (F8): 시술 행과 방문 행을 지운 뒤 재계산은 각 테스트가 부른다 */
+    private void deleteVisit(long visitId) {
+        jdbc.update("DELETE FROM visit_service WHERE visit_id = ?", visitId);
+        jdbc.update("DELETE FROM visit WHERE id = ?", visitId);
+    }
+
+    private long visit(LocalDate date, long menuId) {
         long visitId =
                 insert(
                         "visit",
@@ -189,6 +320,7 @@ class PredictionSnapshotTest {
                 menuId,
                 "staff_id",
                 staff);
+        return visitId;
     }
 
     private long insert(String table, Object... columnsAndValues) {

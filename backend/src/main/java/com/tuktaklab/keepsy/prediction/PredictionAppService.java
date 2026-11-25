@@ -104,6 +104,7 @@ public class PredictionAppService {
         LocalDateTime now = LocalDateTime.now(clock);
         int churnCapDays = visits.churnCapDays(shopId);
         List<PredictionSnapshot> snapshotSave = new ArrayList<>();
+        List<Rollback> rollbacks = new ArrayList<>();
 
         List<CustomerPrediction> save = new ArrayList<>();
         Set<String> kept = new HashSet<>();
@@ -119,22 +120,39 @@ public class PredictionAppService {
                                 key, CustomerPrediction.of(shopId, customerId, cat.getKey()));
                 Optional<NextVisitPrediction> result =
                         NextVisitCalculator.calculate(catVisits, defaults.get(cat.getKey()));
-                snapshot(
-                                open.get(key),
-                                row.getLastServiceDate(),
-                                result,
-                                catVisits,
-                                () ->
-                                        PredictionSnapshot.of(
-                                                shopId,
-                                                customerId,
-                                                cat.getKey(),
-                                                result.get(),
-                                                churnCapDays,
-                                                now),
-                                churnCapDays,
-                                now)
-                        .forEach(snapshotSave::add);
+                Supplier<PredictionSnapshot> create =
+                        () ->
+                                PredictionSnapshot.of(
+                                        shopId,
+                                        customerId,
+                                        cat.getKey(),
+                                        result.get(),
+                                        churnCapDays,
+                                        now);
+                LocalDate newBasis = result.map(NextVisitPrediction::lastVisitDate).orElse(null);
+                if (movedBack(row.getLastServiceDate(), newBasis)) {
+                    boolean predicts = result.isPresent() && !result.get().endSignal();
+                    rollbacks.add(
+                            new Rollback(
+                                    customerId,
+                                    key,
+                                    open.get(key),
+                                    catVisits.stream()
+                                            .filter(NextVisitCalculator::counts)
+                                            .map(CategoryVisit::date)
+                                            .collect(Collectors.toSet()),
+                                    predicts ? create : null));
+                } else {
+                    snapshot(
+                                    open.get(key),
+                                    row.getLastServiceDate(),
+                                    result,
+                                    catVisits,
+                                    create,
+                                    churnCapDays,
+                                    now)
+                            .forEach(snapshotSave::add);
+                }
                 row.apply(result);
                 save.add(row);
                 kept.add(key);
@@ -145,8 +163,18 @@ public class PredictionAppService {
                         .filter(e -> !kept.contains(e.getKey()))
                         .map(Map.Entry::getValue)
                         .toList();
+        // 카테고리 방문이 하나도 남지 않음 = 기준 방문일이 없어짐 (F62)
+        remove.stream()
+                .filter(p -> p.getLastServiceDate() != null)
+                .forEach(p -> {
+                    String key = p.getCustomerId() + ":" + p.getCategory();
+                    rollbacks.add(
+                            new Rollback(p.getCustomerId(), key, open.get(key), Set.of(), null));
+                });
+        List<PredictionSnapshot> snapshotDelete = rollBack(shopId, rollbacks, snapshotSave);
         predictions.saveAll(save);
         predictions.deleteAll(remove);
+        snapshots.deleteAll(snapshotDelete);
         snapshots.saveAll(snapshotSave);
         predictions.releaseHandling(shopId, customerIds);
         log.debug(
@@ -158,8 +186,67 @@ public class PredictionAppService {
     }
 
     /**
+     * 기준 방문일이 앞당겨진 고객 × 카테고리 (F62).
+     *
+     * @param counted 남은 유효 방문일 (주기 계산 제외 방문은 뺌)
+     * @param create 새 기준으로 예측하면 스냅샷 만들기, 예측 없음 · 종료 신호면 null
+     */
+    private record Rollback(
+            long customerId,
+            String key,
+            PredictionSnapshot open,
+            Set<LocalDate> counted,
+            Supplier<PredictionSnapshot> create) {}
+
+    /** 방문 삭제 · 수정으로 기준 방문일이 앞당겨지거나 없어졌는지 (F62) */
+    private static boolean movedBack(LocalDate oldBasis, LocalDate newBasis) {
+        return oldBasis != null && (newBasis == null || newBasis.isBefore(oldBasis));
+    }
+
+    /**
+     * 기준 방문일이 앞당겨지면 (F62, F23 · F8 예외) 평가 전 최신 스냅샷은 고쳐 쓰지 않고 지우고, 남은 유효 방문이 아닌 날로 평가된 스냅샷(지운 방문으로
+     * 평가)은 평가를 되돌려 다시 평가 전으로 만든다. 그 밖의 평가된 스냅샷은 그대로 둔다. 되돌린 스냅샷이 새 기준의 예측이므로, 되돌린 것이 없을 때만 새로 만든다.
+     *
+     * @param save 되돌리거나 만든 스냅샷을 더한다
+     * @return 지울 스냅샷
+     */
+    private List<PredictionSnapshot> rollBack(
+            long shopId, List<Rollback> rollbacks, List<PredictionSnapshot> save) {
+        if (rollbacks.isEmpty()) {
+            return List.of();
+        }
+        Map<String, List<PredictionSnapshot>> evaluated =
+                snapshots
+                        .findByShopIdAndCustomerIdInAndHitIsNotNull(
+                                shopId,
+                                rollbacks.stream().map(Rollback::customerId).distinct().toList())
+                        .stream()
+                        .collect(
+                                Collectors.groupingBy(
+                                        s -> s.getCustomerId() + ":" + s.getCategory()));
+        List<PredictionSnapshot> delete = new ArrayList<>();
+        for (Rollback r : rollbacks) {
+            if (r.open() != null) {
+                delete.add(r.open());
+            }
+            boolean reverted = false;
+            for (PredictionSnapshot s : evaluated.getOrDefault(r.key(), List.of())) {
+                if (!r.counted().contains(s.getActualVisitDate())) {
+                    s.revertEvaluation();
+                    save.add(s);
+                    reverted = true;
+                }
+            }
+            if (!reverted && r.create() != null) {
+                save.add(r.create().get());
+            }
+        }
+        return delete;
+    }
+
+    /**
      * 예측 스냅샷 (FR-PRD-08, F23). 기준 마지막 방문일이 뒤로 바뀌면 이전 기준일 뒤의 첫 유효 방문으로 평가 전 스냅샷을 평가하고 새로 만든다. 기준이
-     * 같거나 앞당겨지면 평가 전 스냅샷을 고쳐 쓴다(없으면 만든다). 종료 신호 · 예측 없음은 새로 만들지 않는다.
+     * 같으면 평가 전 스냅샷을 고쳐 쓴다(없으면 만든다). 앞당겨지면 {@link #rollBack}. 종료 신호 · 예측 없음은 새로 만들지 않는다.
      *
      * @param oldBasis 재계산 전 기준 마지막 방문일 (처음이거나 예측 없음이었으면 null)
      * @return 저장할 스냅샷 (0~2개)
