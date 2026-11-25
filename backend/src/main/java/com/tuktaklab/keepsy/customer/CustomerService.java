@@ -29,6 +29,7 @@ import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -553,6 +554,35 @@ public class CustomerService {
                         })
                         .toList();
         return new Consents(current, history);
+    }
+
+    /**
+     * 예약 제한 켜기 · 끄기와 사유 (FR-CUS-14, C8, 결정 F53). 통째로 바꾸고, 끄면 사유를 비운다. 이미 잡힌 확정 예약은 건드리지 않는다. 권한
+     * (OWNER_PIN)은 컨트롤러에서 검사한다. 칸을 엔티티에 매핑하지 않아(다른 고객 수정의 flush가 덮어쓰지 않게) 조건부 UPDATE로 쓴다.
+     *
+     * @throws ApiException 켜는데 사유가 없거나 200자를 넘으면 {@code invalid}, 다른 매장 · 삭제된 고객이면 {@code
+     *     not_found}
+     */
+    @Transactional
+    public void changeBookingRestriction(
+            long shopId, long customerId, boolean restricted, String reason) {
+        String r = restricted ? blankToNull(reason) : null;
+        if (restricted && (r == null || r.length() > 200)) {
+            throw invalid("reason", "예약 제한 사유를 200자 이하로 입력해 주세요");
+        }
+        int updated =
+                jdbc.update(
+                        "UPDATE customer SET reservation_restricted = :restricted,"
+                                + " reservation_restrict_reason = :reason"
+                                + " WHERE id = :customerId AND shop_id = :shopId AND status = 'ACTIVE'",
+                        new MapSqlParameterSource("restricted", restricted)
+                                .addValue("reason", r)
+                                .addValue("customerId", customerId)
+                                .addValue("shopId", shopId));
+        if (updated == 0) {
+            throw new ApiException(ErrorCode.NOT_FOUND);
+        }
+        accessLogger.record(FeatureKey.OWNER_PIN, AccessLogger.CUSTOMER, customerId, Action.UPDATE);
     }
 
     /**
