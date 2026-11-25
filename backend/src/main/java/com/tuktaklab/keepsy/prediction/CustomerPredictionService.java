@@ -2,9 +2,12 @@ package com.tuktaklab.keepsy.prediction;
 
 import com.tuktaklab.keepsy.common.error.ApiException;
 import com.tuktaklab.keepsy.common.error.ErrorCode;
+import com.tuktaklab.keepsy.common.time.TimeConfig;
 import com.tuktaklab.keepsy.prediction.port.PredictionVisits;
 import java.time.Clock;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
@@ -40,7 +43,9 @@ public class CustomerPredictionService {
             Integer averageIntervalDays,
             int basisVisitCount,
             boolean defaultCycleBased,
-            boolean endSignal) {}
+            boolean endSignal,
+            HandlingMark handlingMark,
+            OffsetDateTime handlingMarkedAt) {}
 
     /**
      * @throws ApiException 다른 매장 · 삭제된 고객이면 {@code not_found}
@@ -70,7 +75,28 @@ public class CustomerPredictionService {
                                 p.getAvgIntervalDays(),
                                 p.getBasisVisitCount(),
                                 p.getBasisVisitCount() == 1 || p.getBasisVisitCount() == 2,
-                                p.isEndSignal()))
+                                p.isEndSignal(),
+                                p.getHandlingMark(),
+                                TimeConfig.offset(p.getHandlingMarkedAt())))
                 .toList();
+    }
+
+    /**
+     * 처리 표시 (FR-PRD-07, F2, F55). 통째로 쓰고 null이면 지운다. 관리 종료도 이 응답(고객 상세)에는 그대로 나온다.
+     *
+     * @throws ApiException 다른 매장 · 삭제된 고객 · 예측 없는 카테고리면 {@code not_found}
+     */
+    @Transactional
+    public void mark(long shopId, long customerId, String category, HandlingMark mark) {
+        if (!visits.isActiveCustomer(shopId, customerId)
+                || predictions.mark(
+                                shopId,
+                                customerId,
+                                category,
+                                mark == null ? null : mark.name(),
+                                LocalDateTime.now(clock))
+                        == 0) {
+            throw new ApiException(ErrorCode.NOT_FOUND);
+        }
     }
 }

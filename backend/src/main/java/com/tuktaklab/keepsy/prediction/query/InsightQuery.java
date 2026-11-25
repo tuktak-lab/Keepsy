@@ -1,9 +1,11 @@
 package com.tuktaklab.keepsy.prediction.query;
 
+import com.tuktaklab.keepsy.prediction.HandlingMark;
 import com.tuktaklab.keepsy.prediction.ManagementPrioritySql;
 import com.tuktaklab.keepsy.prediction.PredictionStatus;
 import com.tuktaklab.keepsy.prediction.PredictionStatusSql;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -33,7 +35,9 @@ public class InsightQuery {
             LocalDate startDate,
             LocalDate endDate,
             boolean marketingConsent,
-            boolean marketingWithdrawn) {}
+            boolean marketingWithdrawn,
+            HandlingMark handlingMark,
+            LocalDateTime handlingMarkedAt) {}
 
     private static final String STATUS = "(" + PredictionStatusSql.EXPRESSION + ")";
 
@@ -58,7 +62,7 @@ public class InsightQuery {
         p.addValue("limit", size).addValue("offset", (long) page * size);
         return jdbc.query(
                 "SELECT c.id, c.name, cp.category, cp.last_service_date, cp.start_date,"
-                        + " cp.end_date, "
+                        + " cp.end_date, cp.handling_mark, cp.handling_marked_at, "
                         + STATUS
                         + " AS status,"
                         + " COALESCE((SELECT cs.agreed"
@@ -82,7 +86,11 @@ public class InsightQuery {
                                 rs.getObject("start_date", LocalDate.class),
                                 rs.getObject("end_date", LocalDate.class),
                                 rs.getBoolean("consent"),
-                                rs.getBoolean("withdrawn")));
+                                rs.getBoolean("withdrawn"),
+                                rs.getString("handling_mark") == null
+                                        ? null
+                                        : HandlingMark.valueOf(rs.getString("handling_mark")),
+                                rs.getObject("handling_marked_at", LocalDateTime.class)));
     }
 
     public long count(
@@ -100,6 +108,8 @@ public class InsightQuery {
         return " FROM customer_prediction cp JOIN customer c ON c.id = cp.customer_id"
                 + " JOIN shop s ON s.id = c.shop_id"
                 + " WHERE cp.shop_id = :shopId AND c.status = 'ACTIVE'"
+                // 관리 종료 행은 숨긴다. 페이지 · 전체 건수도 뺀 뒤 기준 (FR-PRD-07, F55)
+                + " AND (cp.handling_mark IS NULL OR cp.handling_mark <> 'CLOSED')"
                 + (category == null ? "" : " AND cp.category = :category")
                 + " AND "
                 + STATUS

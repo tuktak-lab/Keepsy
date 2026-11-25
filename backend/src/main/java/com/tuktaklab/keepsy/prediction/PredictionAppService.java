@@ -145,6 +145,7 @@ public class PredictionAppService {
         predictions.saveAll(save);
         predictions.deleteAll(remove);
         snapshots.saveAll(snapshotSave);
+        predictions.releaseHandling(shopId, customerIds);
         log.debug(
                 "예측 재계산 shopId={} customers={} saved={} removed={}",
                 shopId,
