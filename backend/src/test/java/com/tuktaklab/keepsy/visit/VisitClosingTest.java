@@ -138,6 +138,76 @@ class VisitClosingTest {
         assertError(() -> service.close(shop, r, changeServices, staff), ErrorCode.INVALID);
     }
 
+    // ---- 중복 제출 재현 (#352). 지금 동작을 기록한다. 서버 멱등성은 이 결과로 따로 정한다 ----
+
+    private Closing firstClosing() {
+        return new Closing(
+                List.of(new Item(gel, staff, false)), 50000, PaymentMethod.CARD, "첫 메모", false);
+    }
+
+    private int payments(long visitId) {
+        return count("SELECT COUNT(*) FROM payment WHERE visit_id = ?", visitId);
+    }
+
+    private int notes(long visitId) {
+        return count("SELECT COUNT(*) FROM visit_note WHERE visit_id = ?", visitId);
+    }
+
+    @Test
+    void 현재동작_정상_추가_결제는_같은_방문에_결제와_메모를_하나씩_더한다() {
+        long r = reserve(customer, 11, false);
+        long visitId = service.close(shop, r, firstClosing(), staff);
+
+        service.close(shop, r, pay(10000, "추가 파츠"), staff);
+
+        assertThat(payments(visitId)).isEqualTo(2);
+        assertThat(notes(visitId)).isEqualTo(2);
+    }
+
+    @Test
+    void 현재동작_첫_마감을_같은_본문으로_두_번_보내면_두_번째는_400이고_중복은_없다() {
+        long r = reserve(customer, 11, false);
+        long visitId = service.close(shop, r, firstClosing(), staff);
+
+        // 두 번째는 완료된 예약의 추가 결제로 처리되는데 시술 목록이 있어 invalid. 문구가 중복 제출 상황과 맞지 않는다
+        assertThatThrownBy(() -> service.close(shop, r, firstClosing(), staff))
+                .isInstanceOf(ApiException.class)
+                .hasMessage("완료된 예약의 실제 시술은 방문 수정에서 바꿔 주세요");
+        assertThat(payments(visitId)).isEqualTo(1);
+        assertThat(notes(visitId)).isEqualTo(1);
+    }
+
+    @Test
+    void 현재동작_추가_결제를_두_번_보내면_결제와_메모가_중복된다() {
+        long r = reserve(customer, 11, false);
+        long visitId = service.close(shop, r, firstClosing(), staff);
+
+        service.close(shop, r, pay(10000, "추가 파츠"), staff);
+        service.close(shop, r, pay(10000, "추가 파츠"), staff);
+
+        // payment에 멱등 제약이 없어 그대로 두 건 더 쌓인다
+        assertThat(payments(visitId)).isEqualTo(3);
+        assertThat(notes(visitId)).isEqualTo(3);
+    }
+
+    @Test
+    void 현재동작_추가_결제_응답이_유실돼_다시_보내면_중복과_구별하지_못하고_한_번_더_저장된다() {
+        long r = reserve(customer, 11, false);
+        long visitId = service.close(shop, r, firstClosing(), staff);
+
+        // 첫 요청은 서버에서 커밋됐지만 화면은 응답을 못 받았다고 본다
+        service.close(shop, r, pay(10000, null), staff);
+        // 화면의 재시도: 요청에 식별자가 없어 서버는 새 추가 결제로 받는다
+        long retried = service.close(shop, r, pay(10000, null), staff);
+
+        assertThat(retried).isEqualTo(visitId);
+        assertThat(
+                        count(
+                                "SELECT COUNT(*) FROM payment WHERE visit_id = ? AND amount = 10000",
+                                visitId))
+                .isEqualTo(2);
+    }
+
     @Test
     void 고객_없는_예약은_고객을_연결하거나_고객_없음으로만_마감한다() {
         long r = reserve(null, 11, false);

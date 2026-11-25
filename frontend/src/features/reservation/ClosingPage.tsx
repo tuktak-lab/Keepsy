@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AppLink } from '@/components/common/AppLink';
 import { toast } from '@/components/common/Toast';
@@ -68,6 +68,7 @@ export default function ClosingPage() {
   const [memo, setMemo] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const sending = useRef(false); // 같은 틱의 연속 제출 차단 (setBusy는 다음 렌더에야 버튼을 막는다). 서버 멱등성은 아님 (#352)
   const [reload, setReload] = useState(0);
   const [noCustomer, setNoCustomer] = useState(false); // 고객 없는 예약을 「고객 없음」으로 마감 (E3)
   const [ask, setAsk] = useState<{ menuId: number; error: string; busy: boolean } | null>(null); // 「앞으로 이 메뉴를 모두 제외할까요?」 (FR-VIS-05)
@@ -193,6 +194,8 @@ export default function ClosingPage() {
     const mode = { completed: !!completed, hasCustomer, noCustomer: needsCustomer && noCustomer };
     const problem = validateClosing(values, mode);
     if (problem) return setError(problem);
+    if (sending.current) return;
+    sending.current = true;
     setBusy(true);
     setError('');
     try {
@@ -211,7 +214,8 @@ export default function ClosingPage() {
       router.push(`/reservations/detail?id=${id}`);
     } catch (err) {
       setError(err instanceof ApiError ? (err.code === 'invalid' ? (detailsText(err.details) ?? err.message) : err.message) : '잠시 후 다시 시도해 주세요');
-    } finally {
+      // 실패했을 때만 다시 제출할 수 있다. 성공하면 화면을 떠날 때까지 버튼을 막아 둔다
+      sending.current = false;
       setBusy(false);
     }
   }
