@@ -9,6 +9,7 @@ import com.tuktaklab.keepsy.common.security.ShopSession;
 import com.tuktaklab.keepsy.common.web.PageResponse;
 import com.tuktaklab.keepsy.customer.query.CustomerDetailQuery;
 import com.tuktaklab.keepsy.customer.query.CustomerListQuery;
+import com.tuktaklab.keepsy.customer.query.RetentionExpiredQuery;
 import com.tuktaklab.keepsy.prediction.PredictionStatus;
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
@@ -22,6 +23,7 @@ import java.util.List;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -274,5 +276,32 @@ class CustomerController {
                         featureGuard.actorStaffId(session, FeatureKey.CUSTOMER_EDIT),
                         consentId,
                         r.agreed()));
+    }
+
+    record DeletionPreviewResponse(int cancelReservationCount) {}
+
+    /** 삭제 전 확인 (CONTRACTS 6장, FR-CUS-10) */
+    @RequireFeature(FeatureKey.OWNER_PIN)
+    @GetMapping("/api/customers/{customerId}/deletion-preview")
+    DeletionPreviewResponse deletionPreview(@PathVariable long customerId) {
+        return new DeletionPreviewResponse(
+                customerService.deletionPreview(shopSession.shopId(), customerId));
+    }
+
+    /** 고객 삭제(파기) (CONTRACTS 6장, FR-CUS-10 · 12, C12). 접근 로그는 서비스 트랜잭션 안에서 남긴다 */
+    @RequireFeature(FeatureKey.OWNER_PIN)
+    @DeleteMapping("/api/customers/{customerId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    void delete(@PathVariable long customerId) {
+        customerService.delete(shopSession.shopId(), customerId);
+    }
+
+    /** 파기 대상 목록 (CONTRACTS 6장, FR-CUS-12) */
+    @RequireFeature(FeatureKey.OWNER_PIN)
+    @GetMapping("/api/customers/retention-expired")
+    PageResponse<RetentionExpiredQuery.Row> retentionExpired(
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
+        return customerService.retentionExpired(shopSession.shopId(), page, size);
     }
 }

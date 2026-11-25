@@ -45,6 +45,14 @@ public class PredictionAppService {
         recalculate(shopId, List.of(customerId));
     }
 
+    /**
+     * 고객 삭제 (FR-CUS-10, C12): 현재 예측을 지운다. 예측 스냅샷은 정확도 통계용으로 남긴다. 삭제된 고객은 재계산이 방문을 읽지 않아 다시 생기지 않는다.
+     */
+    @Transactional
+    public void deleteForCustomer(long shopId, long customerId) {
+        predictions.deleteCustomer(shopId, customerId);
+    }
+
     /** 이 메뉴를 받은 고객 전체 */
     @Transactional
     public void recalculateForMenu(long shopId, long menuId) {

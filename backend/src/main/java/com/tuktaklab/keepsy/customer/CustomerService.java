@@ -7,10 +7,12 @@ import com.tuktaklab.keepsy.common.error.ErrorCode;
 import com.tuktaklab.keepsy.common.error.GlobalExceptionHandler.FieldViolation;
 import com.tuktaklab.keepsy.common.security.FeatureKey;
 import com.tuktaklab.keepsy.common.web.PageResponse;
+import com.tuktaklab.keepsy.customer.port.CustomerDeletionReferences;
 import com.tuktaklab.keepsy.customer.query.ConsentHistoryQuery;
 import com.tuktaklab.keepsy.customer.query.CustomerDetailQuery;
 import com.tuktaklab.keepsy.customer.query.CustomerListQuery;
 import com.tuktaklab.keepsy.customer.query.HistoryQuery;
+import com.tuktaklab.keepsy.customer.query.RetentionExpiredQuery;
 import java.io.IOException;
 import java.time.Clock;
 import java.time.Instant;
@@ -52,6 +54,8 @@ public class CustomerService {
     // import 대신 전체 이름: 같은 자리에 import를 더하는 고객 파기(#293)와 줄이 겹치지 않게
     private final com.tuktaklab.keepsy.customer.port.UnsubscribeNotice unsubscribeNotice;
     private final Clock clock;
+    private final CustomerDeletionReferences deletionRefs;
+    private final RetentionExpiredQuery retentionExpiredQuery;
 
     /**
      * 고객과 동의 이력을 함께 만든다. 동의한 항목만 행을 만들어, 나머지는 "동의를 받은 적 없음"이 된다 (F19).
@@ -549,6 +553,72 @@ public class CustomerService {
                         })
                         .toList();
         return new Consents(current, history);
+    }
+
+    /**
+     * 삭제 전 확인 (FR-CUS-10): 삭제하면 취소될 확정 예약 수. 권한(OWNER_PIN)은 컨트롤러에서 검사한다.
+     *
+     * @throws ApiException 다른 매장 · 삭제된 고객이면 {@code not_found}
+     */
+    @Transactional(readOnly = true)
+    public int deletionPreview(long shopId, long customerId) {
+        if (!customerRepository.existsByIdAndShopIdAndStatus(
+                customerId, shopId, Customer.Status.ACTIVE)) {
+            throw new ApiException(ErrorCode.NOT_FOUND);
+        }
+        return deletionRefs.confirmedReservationCount(shopId, customerId);
+    }
+
+    /**
+     * 고객 삭제(파기) (FR-CUS-10 · 12, C12). 한 트랜잭션에서 다른 도메인 데이터(예약 · 예측 · 발송 기록)를 정리하고, 상담 메모 · 취향 태그 ·
+     * 동의 이력 · 사진(파일은 커밋 뒤)을 지운 뒤 식별 정보를 비운다. 결제 · 방문 · 시술 · 예측 스냅샷은 남긴다. 권한(OWNER_PIN)은 컨트롤러에서
+     * 검사한다.
+     *
+     * @throws ApiException 다른 매장 · 이미 삭제된 고객이면 {@code not_found}
+     */
+    @Transactional
+    public void delete(long shopId, long customerId) {
+        // 동의 · 주의사항 저장과 같은 고객 행 잠금. 예약 생성 · 고객 연결도 이 잠금이 풀릴 때까지 기다린다
+        Customer customer =
+                customerRepository
+                        .findForUpdateByIdAndShopIdAndStatus(
+                                customerId, shopId, Customer.Status.ACTIVE)
+                        .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND));
+        deletionRefs.eraseElsewhere(shopId, customerId);
+        Map<String, Object> p = Map.of("shopId", shopId, "customerId", customerId);
+        jdbc.update(
+                "DELETE FROM consult_note WHERE shop_id = :shopId AND customer_id = :customerId",
+                p);
+        preferenceTagRepository.deleteCustomerTags(shopId, customerId);
+        // 정정 행이 고친 행을 가리키므로(fk_consent_corrects) 나중 행부터 지운다
+        jdbc.update(
+                "DELETE FROM consent WHERE shop_id = :shopId AND customer_id = :customerId"
+                        + " ORDER BY id DESC",
+                p);
+        deletePhotos(shopId, customerId);
+        jdbc.update(
+                "UPDATE customer SET reservation_restrict_reason = NULL"
+                        + " WHERE id = :customerId AND shop_id = :shopId",
+                p);
+        customer.erase();
+        // 백업 복구 뒤 다시 삭제할 기준 (NFR-06 · 10)
+        accessLogger.record(FeatureKey.OWNER_PIN, AccessLogger.CUSTOMER, customerId, Action.DELETE);
+    }
+
+    /**
+     * 파기 대상 (FR-CUS-12, D3, B6): 기준일 + 매장 보관 기간이 오늘(Asia/Seoul)보다 이전인 정상 고객, 기준일이 오래된 순.
+     * 권한(OWNER_PIN)은 컨트롤러에서 검사한다.
+     */
+    @Transactional(readOnly = true)
+    public PageResponse<RetentionExpiredQuery.Row> retentionExpired(
+            long shopId, int page, int size) {
+        int years = deletionRefs.retentionYears(shopId);
+        LocalDate today = LocalDate.now(clock);
+        return new PageResponse<>(
+                retentionExpiredQuery.find(shopId, years, today, page, size),
+                page,
+                size,
+                retentionExpiredQuery.count(shopId, years, today));
     }
 
     private void checkBirthYear(Integer birthYear) {

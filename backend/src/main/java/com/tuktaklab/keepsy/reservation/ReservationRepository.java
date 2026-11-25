@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 
 public interface ReservationRepository extends JpaRepository<Reservation, Long> {
@@ -31,4 +32,23 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
                     + " and r.status in (com.tuktaklab.keepsy.reservation.ReservationStatus.CONFIRMED,"
                     + " com.tuktaklab.keepsy.reservation.ReservationStatus.COMPLETED)")
     List<Reservation> findActiveWithServices(long shopId, long customerId, LocalDateTime from);
+
+    @Query(
+            "select count(r) from Reservation r where r.shopId = :shopId and r.customerId = :customerId"
+                    + " and r.status = com.tuktaklab.keepsy.reservation.ReservationStatus.CONFIRMED")
+    int countConfirmed(long shopId, long customerId);
+
+    /** 확정 예약을 모두 취소한다. 상태 전이라 확정일 때만 바꾸는 조건부 UPDATE (F7) */
+    @Modifying
+    @Query(
+            "update Reservation r set r.status = com.tuktaklab.keepsy.reservation.ReservationStatus.CANCELED"
+                    + " where r.shopId = :shopId and r.customerId = :customerId"
+                    + " and r.status = com.tuktaklab.keepsy.reservation.ReservationStatus.CONFIRMED")
+    int cancelConfirmed(long shopId, long customerId);
+
+    @Modifying
+    @Query(
+            "update Reservation r set r.memo = null"
+                    + " where r.shopId = :shopId and r.customerId = :customerId")
+    int clearMemos(long shopId, long customerId);
 }
