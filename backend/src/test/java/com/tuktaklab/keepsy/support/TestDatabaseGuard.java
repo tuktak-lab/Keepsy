@@ -20,21 +20,31 @@ import org.springframework.core.env.MapPropertySource;
  * <ul>
  *   <li>로컬: 저장소 루트에서 {@code docker compose --profile test up -d --wait mysql-test} (127.0.0.1:3307)
  *   <li>CI: 워크플로의 {@code MYSQL_TEST_*} 환경 변수가 서비스 컨테이너를 가리킨다
+ *   <li>시드 생성 {@code ./gradlew seedDemo}(#335): 데모 DB {@code docker compose --profile demo up -d
+ *       --wait mysql-demo} (127.0.0.1:3308, 이름이 {@code _demo}로 끝나야 함, {@code MYSQL_DEMO_*})
  * </ul>
  */
 public class TestDatabaseGuard implements EnvironmentPostProcessor, Ordered {
 
     @Override
     public void postProcessEnvironment(ConfigurableEnvironment env, SpringApplication application) {
-        String host = env.getProperty("MYSQL_TEST_HOST", "127.0.0.1");
-        int port = Integer.parseInt(env.getProperty("MYSQL_TEST_PORT", "3307"));
-        String database = env.getProperty("MYSQL_TEST_DATABASE", "keepsy_test");
-        if (!database.endsWith("_test")) {
-            throw new IllegalStateException("테스트 DB 이름은 _test로 끝나야 합니다 (개발 DB 보호): " + database);
+        // seedDemo 태스크(#335)는 테스트 DB 대신 데모 DB(compose mysql-demo)에 붙는다. 이름 규칙은 같은 방식으로 _demo
+        boolean demo = "demo".equals(env.getProperty("keepsy.seed.target"));
+        String kind = demo ? "DEMO" : "TEST";
+        String suffix = demo ? "_demo" : "_test";
+        String host = env.getProperty("MYSQL_" + kind + "_HOST", "127.0.0.1");
+        int port =
+                Integer.parseInt(
+                        env.getProperty("MYSQL_" + kind + "_PORT", demo ? "3308" : "3307"));
+        String database = env.getProperty("MYSQL_" + kind + "_DATABASE", "keepsy" + suffix);
+        if (!database.endsWith(suffix)) {
+            throw new IllegalStateException(
+                    "%s DB 이름은 %s로 끝나야 합니다 (개발 DB 보호): %s"
+                            .formatted(demo ? "데모" : "테스트", suffix, database));
         }
-        requireReachable(host, port);
+        requireReachable(host, port, demo ? "demo" : "test");
 
-        // compose mysql-test · CI 컨테이너 안에서만 쓰는 임시 값이다 (실제 비밀 값이 아님)
+        // compose mysql-test · mysql-demo · CI 컨테이너 안에서만 쓰는 임시 값이다 (실제 비밀 값이 아님)
         env.getPropertySources()
                 .addFirst(
                         new MapPropertySource(
@@ -44,22 +54,25 @@ public class TestDatabaseGuard implements EnvironmentPostProcessor, Ordered {
                                         "jdbc:mysql://%s:%d/%s?serverTimezone=Asia/Seoul&characterEncoding=UTF-8"
                                                 .formatted(host, port, database),
                                         "spring.datasource.username",
-                                        env.getProperty("MYSQL_TEST_USER", "keepsy_test"),
+                                        env.getProperty(
+                                                "MYSQL_" + kind + "_USER", "keepsy" + suffix),
                                         "spring.datasource.password",
-                                        env.getProperty("MYSQL_TEST_PASSWORD", "keepsy-test"),
+                                        env.getProperty(
+                                                "MYSQL_" + kind + "_PASSWORD",
+                                                demo ? "keepsy-demo" : "keepsy-test"),
                                         "APP_STORAGE_DIR",
                                         "build/test-photos",
                                         "APP_STORAGE_SIGNING_KEY",
                                         "keepsy-local-test-signing-key-not-a-secret")));
     }
 
-    private static void requireReachable(String host, int port) {
+    private static void requireReachable(String host, int port, String profile) {
         try (Socket socket = new Socket()) {
             socket.connect(new InetSocketAddress(host, port), 2_000);
         } catch (IOException e) {
             throw new IllegalStateException(
-                    "테스트 DB(%s:%d)에 연결할 수 없습니다. 저장소 루트에서 `docker compose --profile test up -d --wait mysql-test`로 띄워 주세요"
-                            .formatted(host, port),
+                    "%s DB(%s:%d)에 연결할 수 없습니다. 저장소 루트에서 `docker compose --profile %s up -d --wait mysql-%s`로 띄워 주세요"
+                            .formatted(profile, host, port, profile, profile),
                     e);
         }
     }

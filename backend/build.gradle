@@ -42,7 +42,27 @@ dependencies {
 }
 
 tasks.named('test') {
-    useJUnitPlatform()
+    useJUnitPlatform {
+        excludeTags 'seed'
+    }
+}
+
+// C17 시드 생성 (Keepsy #335). 데모 전용 DB(compose mysql-demo, 이름이 _demo로 끝남)에만 적재한다. 기본 test · bootRun에서는 돌지 않는다.
+// 예: ./gradlew seedDemo -Pseed.scale=perf -Pseed.random=42 -Pseed.until=2026-12-11 [-Pseed.recreate=true]
+tasks.register('seedDemo', Test) {
+    description = 'C17 시드 데이터를 데모 DB에 적재한다 (seed.scale=small|demo|perf)'
+    group = 'application'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform {
+        includeTags 'seed'
+    }
+    systemProperty 'keepsy.seed.target', 'demo'
+    systemProperties providers.gradlePropertiesPrefixedBy('seed.').get()
+    testLogging {
+        showStandardStreams = true
+    }
+    outputs.upToDateWhen { false }
 }
 
 // 결정체크리스트 F18: google-java-format AOSP 스타일(4칸). spotlessCheck는 check에 포함되어 ./gradlew build에서 돈다.

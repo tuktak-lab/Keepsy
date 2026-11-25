@@ -16,6 +16,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.random.RandomGenerator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.core.namedparam.SqlParameterSourceUtils;
@@ -33,6 +34,7 @@ public class CampaignService {
     private final NamedParameterJdbcTemplate jdbc;
     private final ConsentReconfirmQuery reconfirmQuery;
     private final CampaignQuery campaignQuery;
+    private final RandomGenerator campaignControlRandom;
     private final Clock clock;
 
     /**
@@ -70,7 +72,7 @@ public class CampaignService {
                         Campaign.draft(
                                 shopId, name, selection.category(), template, controlPercent));
         List<Target> shuffled = new ArrayList<>(chosen);
-        Collections.shuffle(shuffled);
+        Collections.shuffle(shuffled, campaignControlRandom);
         int controlCount = chosen.size() * controlPercent / 100; // 내림 (F41)
         List<Map<String, Object>> rows = new ArrayList<>();
         for (int i = 0; i < shuffled.size(); i++) {

@@ -44,5 +44,31 @@ services:
       timeout: 3s
       retries: 40
 
+  # 시연 · 성능 점검용 시드 DB (Keepsy #335). `./gradlew seedDemo`는 이 DB에만 적재한다(이름이 _demo로 끝나야 함). 개발 DB와 나누고 볼륨에 남긴다.
+  # `docker compose --profile demo up -d --wait mysql-demo`로 띄운다. 값은 로컬 시연 컨테이너 안에서만 쓰는 임시 값이고 실제 비밀 값이 아니다.
+  mysql-demo:
+    image: mysql:8.4
+    container_name: keepsy-mysql-demo
+    profiles: [demo]
+    environment:
+      MYSQL_DATABASE: keepsy_demo
+      MYSQL_USER: keepsy_demo
+      MYSQL_PASSWORD: keepsy-demo
+      MYSQL_ROOT_PASSWORD: keepsy-demo-root
+      TZ: Asia/Seoul
+    command:
+      - --character-set-server=utf8mb4
+      - --default-time-zone=+09:00
+    ports:
+      - "127.0.0.1:${MYSQL_DEMO_PORT:-3308}:3306"
+    volumes:
+      - keepsy-mysql-demo-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-ukeepsy_demo", "-pkeepsy-demo"]
+      interval: 3s
+      timeout: 3s
+      retries: 40
+
 volumes:
   keepsy-mysql-data:
+  keepsy-mysql-demo-data:

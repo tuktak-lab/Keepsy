@@ -15,4 +15,10 @@ class CampaignSchedulingConfig {
     RandomGenerator virtualSendRandom() {
         return RandomGenerator.getDefault();
     }
+
+    /** 대조군 무작위 배정 (FR-CMP-18, F41). 시드 생성(#335)은 고정 난수로 바꿔 배정을 재현한다 */
+    @Bean
+    RandomGenerator campaignControlRandom() {
+        return RandomGenerator.getDefault();
+    }
 }
