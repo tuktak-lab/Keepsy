@@ -9,8 +9,14 @@ h1,h2,h3,p,dl{margin:0}
 .st-card h2{font-size:17px;font-weight:600;color:#221D1B}
 .st-note{padding:12px 16px;border-radius:14px;background:#FBEFED;color:#683945;font-size:12.5px;line-height:1.6}
 .st-nav{display:flex;flex-wrap:wrap;gap:8px}
-.st-nav a{display:inline-flex;align-items:center;height:36px;padding:0 16px;border-radius:999px;background:#F8EDEA;color:#4A3F3B;font-size:13px}
-.st-nav a:hover{background:#7A4450;color:#fff;text-decoration:none}
+/* 바로가기 버튼: 밑줄 없이, 흰 바탕에 와인색 테두리로 버튼임이 분명하게 (:root 로 다른 링크 규칙보다 우선) */
+:root .st-nav a,
+:root .st-nav a:visited,
+:root .st-nav a:focus{display:inline-flex;align-items:center;height:38px;padding:0 18px;border-radius:999px;background:rgba(255,255,255,.4);border:1.5px solid rgba(122,68,80,.36);box-shadow:0 1px 3px rgba(122,68,80,.08);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);color:#6B3F4A;font:500 13.5px 'Noto Sans KR',sans-serif;text-decoration:none;transition:background .18s ease,color .18s ease,border-color .18s ease}
+:root .st-nav a:hover{background:var(--wine-grad);border-color:#7A4450;color:#fff;text-decoration:none}
+/* 바로가기를 누르면 미끄러지듯 내려가고, 구역 제목이 상단바(92px) 밑에 가리지 않게 멈춘다. 움직임 줄이기 설정이면 base.css 가 끈다 */
+html:has(.st-wrap){scroll-behavior:smooth}
+.st-wrap .st-card{scroll-margin-top:124px}
 .st-grid{display:flex;flex-wrap:wrap;gap:16px}
 .st-field{display:flex;flex-direction:column;gap:6px;flex:1 1 220px;min-width:0}
 .st-lbl{font-size:12.5px;font-weight:600;color:#3E3532}
