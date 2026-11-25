@@ -20,6 +20,7 @@ docs 저장소를 이 저장소와 같은 상위 폴더에 `docs`라는 이름�
 1. `.env.example`을 복사해 `.env`를 만들고 값을 채웁니다.
 2. 실행 명령과 순서는 docs 저장소 [`docs/DEVELOPMENT.md` 6장 「실행 명령」](https://github.com/tuktak-lab/docs/blob/main/docs/DEVELOPMENT.md)을 따릅니다. "확인됨"으로 표시된 명령만 검증된 것입니다.
 3. 백엔드 테스트(`./gradlew test` · `build`)는 개발 DB가 아니라 테스트 전용 DB(`127.0.0.1:3307`, 데이터는 메모리)에 붙습니다. 먼저 저장소 루트에서 `docker compose --profile test up -d --wait mysql-test`로 띄웁니다. 테스트 DB가 없거나 DB 이름이 `_test`로 끝나지 않으면 테스트가 바로 실패합니다. 백엔드 · MySQL · 프론트 개발 서버는 이 PC(`127.0.0.1`)에서만 열립니다 (결정 F64).
+4. 시연 · 성능 점검용 시드(C17)는 개발 DB가 아니라 데모 전용 DB(`127.0.0.1:3308`, `keepsy_demo`)에 넣습니다. `docker compose --profile demo up -d --wait mysql-demo` 후 `backend/`에서 `./gradlew seedDemo -Pseed.scale=perf -Pseed.until=<시연일>`(규모 `small` · `demo` · `perf`, 고정 난수 `-Pseed.random=…`, 다시 만들기 `-Pseed.recreate=true`). 백엔드를 데모 DB로 띄우려면 `MYSQL_PORT=3308 MYSQL_DATABASE=keepsy_demo MYSQL_USER=keepsy_demo MYSQL_PASSWORD=keepsy-demo ./gradlew bootRun` (로컬 시연 컨테이너용 임시 값). 데모 매장 로그인은 `demo@example.com` / `keepsy-demo-1234`, 원장 PIN `1111` (모의 데이터).
 
 ## 협업
 
