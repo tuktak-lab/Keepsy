@@ -10,6 +10,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -87,6 +88,37 @@ class StaffPinVerifierDbTest {
         // 행 잠금으로 한 줄씩 처리되면 1~4번째는 틀림, 5번째에 막히고, 6~10번째는 차단 중
         assertThat(codes).filteredOn(c -> c == ErrorCode.PIN_INVALID).hasSize(4);
         assertThat(codes).filteredOn(c -> c == ErrorCode.PIN_LOCKED).hasSize(6);
+        assertThat(errorOf(shopId, "1234")).isEqualTo(ErrorCode.PIN_LOCKED);
+    }
+
+    @Test
+    void 맞는_PIN과_틀린_PIN을_섞어_동시에_보내도_성공이_실패_횟수를_비우지_못한다() throws Exception {
+        // F60, Keepsy #333: 성공은 횟수를 되돌리지 않으니 틀린 5개 중 4개만 pin_invalid이고 마지막에 차단된다
+        long shopId = shop("pin-mixed-race@example.com");
+        ExecutorService pool = Executors.newFixedThreadPool(10);
+        CountDownLatch start = new CountDownLatch(1);
+        List<Future<ErrorCode>> wrong = new ArrayList<>();
+        for (int i = 0; i < 10; i++) {
+            String pin = i % 2 == 0 ? "0000" : "1234";
+            Future<ErrorCode> result =
+                    pool.submit(() -> {
+                        start.await();
+                        return errorOf(shopId, pin);
+                    });
+            if (pin.equals("0000")) {
+                wrong.add(result);
+            }
+        }
+        start.countDown();
+        List<ErrorCode> codes = new ArrayList<>();
+        for (Future<ErrorCode> result : wrong) {
+            codes.add(result.get());
+        }
+        pool.shutdown();
+        pool.awaitTermination(10, TimeUnit.SECONDS);
+
+        assertThat(codes).filteredOn(c -> c == ErrorCode.PIN_INVALID).hasSize(4);
+        assertThat(codes).filteredOn(c -> c == ErrorCode.PIN_LOCKED).hasSize(1);
         assertThat(errorOf(shopId, "1234")).isEqualTo(ErrorCode.PIN_LOCKED);
     }
 }

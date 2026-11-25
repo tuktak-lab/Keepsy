@@ -81,10 +81,41 @@ class StaffPinVerifierTest {
     }
 
     @Test
-    void 맞는_PIN의_활성_스탭을_돌려주고_실패_횟수를_되돌린다() {
+    void 맞는_PIN의_활성_스탭을_돌려주고_실패_횟수는_되돌리지_않는다() {
         shop.pinFailed(NOW);
 
         assertThat(verifier.verify(SHOP, "5678", false)).isSameAs(other);
+        assertThat(shop.getPinFailCount()).isEqualTo(1);
+    }
+
+    @Test
+    void 원장_PIN_추측_사이에_자기_PIN으로_성공해도_5번째_실패에서_막힌다() {
+        // F60, Keepsy #333: 잠긴 기능 PIN 4회 실패 → 근무자 전환 성공 → 다시 실패
+        for (int i = 0; i < 4; i++) {
+            assertThatThrownBy(() -> verifier.verify(SHOP, "0000", true))
+                    .extracting(e -> ((ApiException) e).errorCode())
+                    .isEqualTo(ErrorCode.PIN_INVALID);
+        }
+        assertThat(verifier.verify(SHOP, "9999", false)).isSameAs(notAllowed);
+
+        assertThat(errorOf("0000")).isEqualTo(ErrorCode.PIN_LOCKED);
+    }
+
+    @Test
+    void 차단이_끝나면_맞는_PIN으로_인증되고_횟수는_0부터_다시_센다() {
+        for (int i = 0; i < 5; i++) {
+            errorOf("0000");
+        }
+        StaffPinVerifier later =
+                new StaffPinVerifier(
+                        shopRepository,
+                        staffRepository,
+                        encoder,
+                        Clock.fixed(
+                                NOW.plus(Shop.PIN_LOCK).atZone(TimeConfig.ZONE).toInstant(),
+                                TimeConfig.ZONE));
+
+        assertThat(later.verify(SHOP, "1234", false)).isSameAs(owner);
         assertThat(shop.getPinFailCount()).isZero();
     }
 
