@@ -1,13 +1,17 @@
 // 계정(ACC) API 타입. 이름은 docs CONTRACTS 4장 그대로. 세션(GET /api/session) 타입은 lib/session.ts에 있다.
 import type { StaffRef } from '@/lib/session';
 
-/** POST /api/shops 요청 (매장 가입) */
+/** POST /api/shops 요청 (매장 가입). 사업자등록번호 · 전화 · 주소 · 업종(여러 개)은 [제안] (모의 데이터로만 받는다) */
 export type SignUpRequest = {
   email: string;
   password: string;
   shopName: string;
   ownerName: string;
   ownerPin: string;
+  businessNumber: string;
+  phone: string;
+  address: string;
+  industries: string[];
 };
 
 /** POST /api/shops 응답 */
