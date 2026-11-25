@@ -3,7 +3,6 @@ package com.tuktaklab.keepsy.campaign;
 import com.tuktaklab.keepsy.campaign.MessageSender.Outgoing;
 import com.tuktaklab.keepsy.campaign.port.ShopName;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -16,11 +15,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class UnsubscribeNoticeService {
-
-    /** 야간 시작 · 끝(서울) (FR-CMP-07) */
-    static final LocalTime NIGHT_START = LocalTime.of(21, 0);
-
-    static final LocalTime NIGHT_END = LocalTime.of(8, 0);
 
     private final MessageSender sender;
     private final ShopName shopName;
@@ -50,16 +44,9 @@ public class UnsubscribeNoticeService {
     }
 
     /**
-     * @return 야간(21:00~08:00)이면 다음 08:00, 낮이면 null(바로)
+     * @return 야간이면 다음 08:00, 낮이면 null(바로). 기준은 {@link NightSendPolicy} 한 곳 (F52)
      */
     static LocalDateTime sendAfter(LocalDateTime at) {
-        LocalTime t = at.toLocalTime();
-        if (!t.isBefore(NIGHT_START)) {
-            return at.toLocalDate().plusDays(1).atTime(NIGHT_END);
-        }
-        if (t.isBefore(NIGHT_END)) {
-            return at.toLocalDate().atTime(NIGHT_END);
-        }
-        return null;
+        return NightSendPolicy.nextDaytime(at);
     }
 }

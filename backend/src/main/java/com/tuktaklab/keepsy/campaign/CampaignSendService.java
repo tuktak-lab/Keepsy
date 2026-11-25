@@ -43,8 +43,9 @@ public class CampaignSendService {
     public record Result(int sendCount, int skippedCount) {}
 
     /**
-     * @throws ApiException 다른 매장 · 없는 캠페인 {@code not_found}, 검토 기록 없음 {@code review_required}, 광고인데
-     *     매장 전화번호 · 수신 거부 번호가 없거나 이미 발송 중 · 완료 · 취소면 {@code conflict}
+     * @throws ApiException 다른 매장 · 없는 캠페인 {@code not_found}, 검토 기록 없음 {@code review_required}, 야간
+     *     제한에 걸리면 {@code night_send_blocked} (F52), 광고인데 매장 전화번호 · 수신 거부 번호가 없거나 이미 발송 중 · 완료 · 취소면
+     *     {@code conflict}
      */
     @Transactional
     public Result send(long shopId, long campaignId) {
@@ -53,7 +54,6 @@ public class CampaignSendService {
                         .findByIdAndShopId(campaignId, shopId)
                         .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND));
         campaign.requireReviewed();
-        // ponytail: 야간 제한(#94) · 일 발송 한도(#95)는 각 이슈에서 이 자리(상태 전이 전)에 붙인다
         String body = templates.findById(campaign.getTemplateId()).orElseThrow().getBody();
         ShopContact shop = shopSettings.contact(shopId);
         boolean ad = campaign.getMessageKind() == TemplatePurpose.MessageKind.AD;
@@ -61,16 +61,13 @@ public class CampaignSendService {
         AdSender adSender = ad ? shop.adSender() : null;
         LocalDateTime now = LocalDateTime.now(clock);
 
-        // 중복 발송 방지: 바뀐 행이 1일 때만 진행한다. 두 번째 요청은 첫 요청이 커밋될 때까지 기다린 뒤 0을 받는다 (F7)
-        if (campaigns.startSending(campaignId, shopId, now) != 1) {
-            throw new ApiException(ErrorCode.CONFLICT, "이미 발송했거나 취소된 캠페인입니다");
-        }
-
+        // 누구에게 보내고 누구를 빼는지 먼저 정한다. 야간 · 한도 검사가 이 결과를 보고, 막히면 상태 · 기록을 바꾸지 않는다
         String category = campaign.getCategory();
         Map<Long, String> phones = recipients.phones(shopId, campaignId);
         LocalDate today = now.toLocalDate();
         List<CampaignMessage> notSent = new ArrayList<>();
         List<Outgoing> outgoing = new ArrayList<>();
+        boolean allNightAdConsent = true;
         for (Recipient r : recipients.find(shopId, campaignId, category)) {
             long id = r.customerId();
             if (r.controlGroup()) {
@@ -92,6 +89,7 @@ public class CampaignSendService {
                                 shopId, campaignId, kind, id, category, phone, reason, now));
                 continue;
             }
+            allNightAdConsent &= r.nightAdConsent();
             outgoing.add(
                     new Outgoing(
                             shopId,
@@ -101,6 +99,17 @@ public class CampaignSendService {
                             category,
                             phone,
                             new ComposedMessage(m.text(), m.bytes())));
+        }
+
+        // 야간 제한: 광고이고 실제로 보낼 고객 전원이 야간 광고 동의일 때만 예외 (FR-CMP-07, C11, F52)
+        if (!NightSendPolicy.allows(now, ad, allNightAdConsent)) {
+            throw new ApiException(ErrorCode.NIGHT_SEND_BLOCKED);
+        }
+        // ponytail: 일 발송 한도(#95)는 이 자리(상태 전이 전)에 붙인다
+
+        // 중복 발송 방지: 바뀐 행이 1일 때만 진행한다. 두 번째 요청은 첫 요청이 커밋될 때까지 기다린 뒤 0을 받는다 (F7)
+        if (campaigns.startSending(campaignId, shopId, now) != 1) {
+            throw new ApiException(ErrorCode.CONFLICT, "이미 발송했거나 취소된 캠페인입니다");
         }
         messages.saveAll(notSent);
         sender.send(outgoing);
