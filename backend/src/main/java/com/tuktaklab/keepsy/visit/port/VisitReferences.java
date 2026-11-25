@@ -27,8 +27,12 @@ public interface VisitReferences {
     /** 그 매장 메뉴의 시술 카테고리. 다른 매장 · 없는 메뉴는 결과에서 빠진다 */
     Map<Long, String> menuCategories(long shopId, Collection<Long> serviceMenuIds);
 
-    /** 고객 행을 트랜잭션 끝까지 잠근다. 같은 고객 · 같은 날 방문이 동시에 두 건 생기지 않게 한다 (C6) */
-    void lockCustomer(long shopId, long customerId);
+    /**
+     * 고객 행을 트랜잭션 끝까지 잠근다. 같은 고객 · 같은 날 방문이 동시에 두 건 생기지 않게 하고 (C6), 고객 삭제와 메모 추가의 차례를 정한다 (F61).
+     *
+     * @return 그 매장의 삭제되지 않은 고객인지. 잠금 읽기라 먼저 커밋된 삭제가 보인다
+     */
+    boolean lockCustomer(long shopId, long customerId);
 
     /** 그 매장의 삭제되지 않은 고객인지 (FR-CUS-10: 삭제된 고객의 상세 영역은 not_found) */
     boolean isActiveCustomer(long shopId, long customerId);

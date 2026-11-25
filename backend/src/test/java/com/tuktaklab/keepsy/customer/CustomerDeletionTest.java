@@ -1,14 +1,20 @@
 package com.tuktaklab.keepsy.customer;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.tuktaklab.keepsy.common.error.ApiException;
+import com.tuktaklab.keepsy.common.error.ErrorCode;
 import com.tuktaklab.keepsy.common.security.ShopSession;
 import com.tuktaklab.keepsy.support.TestShopData;
+import com.tuktaklab.keepsy.visit.Closing;
+import com.tuktaklab.keepsy.visit.PaymentMethod;
+import com.tuktaklab.keepsy.visit.VisitAppService;
 import java.sql.PreparedStatement;
 import java.sql.Statement;
 import java.time.Clock;
@@ -17,6 +23,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -26,13 +38,18 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
+import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.context.SecurityContextImpl;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
+import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 /**
  * 고객 삭제(파기) (Keepsy #50 완료 조건 · 검증 방법, C12). 실제 MySQL에서 돌고 모의 데이터만 쓴다.
@@ -51,6 +68,8 @@ class CustomerDeletionTest {
     @Autowired ShopSession shopSession;
     @Autowired CustomerService customerService;
     @Autowired Clock clock;
+    @Autowired VisitAppService visits;
+    @Autowired TransactionTemplate tx;
 
     private TestShopData data;
     private long shop;
@@ -61,6 +80,7 @@ class CustomerDeletionTest {
     private long futureConfirmed;
     private long completed;
     private long canceled;
+    private long cVisit;
 
     @BeforeEach
     void seed() {
@@ -79,12 +99,10 @@ class CustomerDeletionTest {
         futureConfirmed = reservation(now.plusDays(3), "CONFIRMED", "앞으로 확정 메모");
         completed = reservation(now.minusDays(10), "COMPLETED", "완료 메모");
         canceled = reservation(now.minusDays(5), "CANCELED", null);
-        long visit =
-                insert(
-                        "INSERT INTO visit (shop_id, customer_id, visit_date, source) VALUES (?, ?, ?, 'NORMAL')",
-                        shop,
-                        c,
-                        now.minusDays(10).toLocalDate());
+        long visit = visit(shop, c, now.minusDays(10));
+        cVisit = visit;
+        visitNote(shop, visit, staff, "모의 방문 메모 1");
+        visitNote(shop, visit, staff, "모의 방문 메모 2");
         jdbc.update("UPDATE reservation SET visit_id = ? WHERE id = ?", visit, completed);
         insert(
                 "INSERT INTO payment (shop_id, reservation_id, visit_id, amount, method, paid_at)"
@@ -151,7 +169,22 @@ class CustomerDeletionTest {
 
     @Test
     void 삭제하면_식별_정보를_비우고_관련_데이터를_정리하되_통계는_남긴다() throws Exception {
+        // 지우면 안 되는 방문 메모: 같은 매장의 다른 고객, 다른 매장 고객 (F61)
+        LocalDateTime now = LocalDateTime.now(clock);
+        long otherCustomer = data.customer(shop, false, null);
+        long otherVisit = visit(shop, otherCustomer, now.minusDays(2));
+        visitNote(shop, otherVisit, staff, "다른 고객 메모");
+        long otherShop = data.shop();
+        long otherShopVisit =
+                visit(otherShop, data.customer(otherShop, false, null), now.minusDays(2));
+        visitNote(otherShop, otherShopVisit, data.staff(otherShop, "ACTIVE", true), "다른 매장 메모");
+
         perform(delete("/api/customers/" + c), true).andExpect(status().isNoContent());
+
+        assertThat(count("SELECT COUNT(*) FROM visit_note WHERE visit_id = ?", cVisit)).isZero();
+        assertThat(count("SELECT COUNT(*) FROM visit_note WHERE visit_id = ?", otherVisit)).isOne();
+        assertThat(count("SELECT COUNT(*) FROM visit_note WHERE visit_id = ?", otherShopVisit))
+                .isOne();
 
         Map<String, Object> row =
                 new HashMap<>(
@@ -212,6 +245,61 @@ class CustomerDeletionTest {
     }
 
     @Test
+    void 삭제된_고객의_완료_예약에는_방문_메모를_더할_수_없다() throws Exception {
+        perform(delete("/api/customers/" + c), true).andExpect(status().isNoContent());
+
+        assertThatThrownBy(() -> visits.close(shop, completed, memoClosing(), staff))
+                .isInstanceOfSatisfying(
+                        ApiException.class,
+                        e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.INVALID));
+        assertThat(count("SELECT COUNT(*) FROM visit_note WHERE visit_id = ?", cVisit)).isZero();
+        assertThat(count("SELECT COUNT(*) FROM payment WHERE visit_id = ?", cVisit)).isOne();
+    }
+
+    /**
+     * 삭제 트랜잭션이 고객 행을 잠그고 메모를 지운 채 커밋 직전에 멈춘 사이, 같은 고객의 완료 예약에 메모를 더한다. 메모 추가는 잠금에서 기다렸다가 삭제 커밋을 보고
+     * 거절되어야 한다 (F61). 기다리는 것은 MySQL 접속 목록(자기 계정 것만 보임)으로 확인한다.
+     */
+    @Test
+    void 고객_삭제와_방문_메모_추가가_겹쳐도_삭제된_고객의_메모는_남지_않는다() throws Exception {
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+        CountDownLatch deleted = new CountDownLatch(1);
+        CountDownLatch commit = new CountDownLatch(1);
+        try {
+            Future<?> deletion =
+                    pool.submit(
+                            asOwner(() ->
+                                    tx.executeWithoutResult(s -> {
+                                        customerService.delete(shop, c);
+                                        deleted.countDown();
+                                        awaitQuietly(commit);
+                                    })));
+            assertThat(deleted.await(10, TimeUnit.SECONDS)).isTrue();
+
+            Future<Long> memo =
+                    pool.submit(() -> visits.close(shop, completed, memoClosing(), staff));
+            awaitBlockedQuery();
+            commit.countDown();
+            deletion.get(10, TimeUnit.SECONDS);
+
+            assertThatThrownBy(() -> memo.get(10, TimeUnit.SECONDS))
+                    .isInstanceOf(ExecutionException.class)
+                    .cause()
+                    .isInstanceOfSatisfying(
+                            ApiException.class,
+                            e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.INVALID));
+        } finally {
+            commit.countDown();
+            pool.shutdownNow();
+        }
+        assertThat(count("SELECT COUNT(*) FROM visit_note WHERE visit_id = ?", cVisit)).isZero();
+        // 거절된 요청의 결제도 함께 롤백된다
+        assertThat(count("SELECT COUNT(*) FROM payment WHERE visit_id = ?", cVisit)).isOne();
+        assertThat(jdbc.queryForObject("SELECT status FROM customer WHERE id = ?", String.class, c))
+                .isEqualTo("DELETED");
+    }
+
+    @Test
     void 같은_번호로_다시_등록하면_예전_기록과_잇지_않은_새_고객() throws Exception {
         String phone =
                 jdbc.queryForObject("SELECT phone FROM customer WHERE id = ?", String.class, c);
@@ -247,6 +335,25 @@ class CustomerDeletionTest {
         perform(delete("/api/customers/" + otherCustomer), true).andExpect(status().isNotFound());
         perform(get("/api/customers/" + otherCustomer + "/deletion-preview"), true)
                 .andExpect(status().isNotFound());
+    }
+
+    private long visit(long shopId, long customerId, LocalDateTime at) {
+        return insert(
+                "INSERT INTO visit (shop_id, customer_id, visit_date, source) VALUES (?, ?, ?, 'NORMAL')",
+                shopId,
+                customerId,
+                at.toLocalDate());
+    }
+
+    private void visitNote(long shopId, long visitId, long staffId, String content) {
+        insert(
+                "INSERT INTO visit_note (shop_id, visit_id, staff_id, content, created_at)"
+                        + " VALUES (?, ?, ?, ?, ?)",
+                shopId,
+                visitId,
+                staffId,
+                content,
+                LocalDateTime.now(clock));
     }
 
     private long reservation(LocalDateTime start, String status, String memo) {
@@ -304,6 +411,10 @@ class CustomerDeletionTest {
 
     private ResultActions perform(MockHttpServletRequestBuilder request, boolean ownerPin)
             throws Exception {
+        return mvc.perform(request.session(session(ownerPin)).with(csrf()));
+    }
+
+    private MockHttpSession session(boolean ownerPin) {
         MockHttpSession session = new MockHttpSession();
         session.setAttribute(
                 HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY,
@@ -311,6 +422,55 @@ class CustomerDeletionTest {
                         UsernamePasswordAuthenticationToken.authenticated(shop, null, List.of())));
         shopSession.setCurrentStaffId(session, staff);
         shopSession.setPin(session, ownerPin ? owner : staff, LocalDateTime.now().plusMinutes(5));
-        return mvc.perform(request.session(session).with(csrf()));
+        return session;
+    }
+
+    /** 요청 밖 스레드에서 원장 PIN 세션으로 실행한다 (접근 로그가 세션 · 요청을 읽는다) */
+    private Runnable asOwner(Runnable body) {
+        return () -> {
+            MockHttpServletRequest request = new MockHttpServletRequest();
+            request.setSession(session(true));
+            SecurityContextHolder.getContext()
+                    .setAuthentication(
+                            UsernamePasswordAuthenticationToken.authenticated(
+                                    shop, null, List.of()));
+            RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
+            try {
+                body.run();
+            } finally {
+                RequestContextHolder.resetRequestAttributes();
+                SecurityContextHolder.clearContext();
+            }
+        };
+    }
+
+    private Closing memoClosing() {
+        return new Closing(null, 10_000, PaymentMethod.CARD, "모의 추가 메모", false);
+    }
+
+    /** 다른 접속이 잠금 조회 · 결제 INSERT에서 기다릴 때까지 확인한다 (고정 sleep이 아니라 상태 조건) */
+    private void awaitBlockedQuery() throws InterruptedException {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+        while (System.nanoTime() < deadline) {
+            Integer blocked =
+                    jdbc.queryForObject(
+                            "SELECT COUNT(*) FROM information_schema.PROCESSLIST"
+                                    + " WHERE ID <> CONNECTION_ID() AND COMMAND = 'Query'"
+                                    + " AND (INFO LIKE '%for update%' OR INFO LIKE 'insert into payment%')",
+                            Integer.class);
+            if (blocked != null && blocked > 0) {
+                return;
+            }
+            Thread.sleep(20);
+        }
+        throw new AssertionError("메모 추가가 잠금에서 기다리지 않았습니다");
+    }
+
+    private static void awaitQuietly(CountDownLatch latch) {
+        try {
+            latch.await(10, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 }

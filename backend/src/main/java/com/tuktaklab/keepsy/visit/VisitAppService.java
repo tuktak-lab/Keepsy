@@ -98,6 +98,10 @@ public class VisitAppService {
             if (visit.getCustomerId() == null && hasMemo) {
                 throw new ApiException(ErrorCode.INVALID, "고객 없음으로 마감한 방문에는 메모를 남길 수 없습니다");
             }
+            // 고객 삭제(파기)는 방문 메모를 지운다 (F61). 삭제와 겹치거나 삭제 뒤에 메모가 다시 생기지 않게 고객 행을 잠그고 확인한다
+            if (hasMemo && !refs.lockCustomer(shopId, visit.getCustomerId())) {
+                throw new ApiException(ErrorCode.INVALID, "삭제된 고객의 방문에는 메모를 남길 수 없습니다");
+            }
         } else {
             throw new ApiException(ErrorCode.CONFLICT, "취소 · 노쇼 예약은 마감할 수 없습니다");
         }
@@ -172,6 +176,15 @@ public class VisitAppService {
     public boolean hasActivePayments(long shopId, long visitId) {
         return payments.findByShopIdAndVisitId(shopId, visitId).stream()
                 .anyMatch(p -> !p.isCanceled());
+    }
+
+    /**
+     * 고객 삭제(파기, FR-CUS-10, F61): 그 고객 방문의 방문 메모를 지운다. 방문 · 시술 · 결제는 남긴다 (C12). 부르는 쪽이 고객 행을 잠근
+     * 트랜잭션에서 함께 커밋된다.
+     */
+    @Transactional
+    public void eraseNotesForDeletedCustomer(long shopId, long customerId) {
+        notes.deleteCustomerVisitNotes(shopId, customerId);
     }
 
     /**

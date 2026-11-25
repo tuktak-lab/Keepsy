@@ -126,11 +126,13 @@ class VisitReferencesAdapter implements VisitReferences {
     }
 
     @Override
-    public void lockCustomer(long shopId, long customerId) {
-        jdbc.queryForList(
-                "SELECT id FROM customer WHERE id = :customerId AND shop_id = :shopId FOR UPDATE",
-                Map.of("shopId", shopId, "customerId", customerId),
-                Long.class);
+    public boolean lockCustomer(long shopId, long customerId) {
+        return jdbc.queryForList(
+                        "SELECT status FROM customer WHERE id = :customerId AND shop_id = :shopId"
+                                + " FOR UPDATE",
+                        Map.of("shopId", shopId, "customerId", customerId),
+                        String.class)
+                .contains("ACTIVE");
     }
 
     @Override
