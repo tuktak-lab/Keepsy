@@ -16,16 +16,8 @@ export default function LoginPage() {
   const [pending, setPending] = useState(false);
 
   // 오류(login_failed · login_locked 등)는 전역 토스트 대신 폼 안에 보여 준다 (silent)
-  async function login(body: LoginRequest): Promise<LoginResponse> {
-    const send = () => api<LoginResponse>('/api/session', { method: 'POST', body, silent: true });
-    try {
-      return await send();
-    } catch (e) {
-      // 처음 접속하면 아직 CSRF 쿠키가 없어 csrf_invalid가 난다. 그 응답에 쿠키가 내려오므로 한 번만 다시 보낸다.
-      if (e instanceof ApiError && e.code === 'csrf_invalid') return send();
-      throw e;
-    }
-  }
+  // 처음 접속해 CSRF 쿠키가 없을 때의 csrf_invalid는 api.ts가 한 번 다시 보낸다
+  const login = (body: LoginRequest) => api<LoginResponse>('/api/session', { method: 'POST', body, silent: true });
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();

@@ -164,6 +164,43 @@ test('오류 모양이 아닌 응답은 internal_error로 보고 기본 문구�
   assert.deepEqual(shown, ['잠시 후 다시 시도해 주세요']);
 });
 
+test('서버에 닿지 못하면 network_error(status 0)로 보여 주고, 다시 보내지 않는다', async () => {
+  globalThis.fetch = (async (url: string, init: RequestInit) => {
+    calls.push({ url, init });
+    throw new TypeError('Failed to fetch');
+  }) as typeof fetch;
+  await assert.rejects(api('/api/visits', { method: 'POST', body: {} }), (e: ApiError) => e instanceof ApiError && e.code === 'network_error' && e.status === 0);
+  assert.equal(calls.length, 1);
+  assert.equal(shown.length, 1);
+});
+
+test('network_error도 silent면 보여 주지 않는다', async () => {
+  globalThis.fetch = (async () => {
+    throw new TypeError('Failed to fetch');
+  }) as typeof fetch;
+  await assert.rejects(api('/api/dashboard/today', { silent: true }), (e: ApiError) => e.code === 'network_error');
+  assert.deepEqual(shown, []);
+});
+
+test('성공 응답인데 JSON이 아니면 invalid_response', async () => {
+  responses.push(new Response('<html>proxy</html>', { status: 200 }));
+  await assert.rejects(api('/api/customers'), (e: ApiError) => e instanceof ApiError && e.code === 'invalid_response' && e.status === 200);
+  assert.deepEqual(shown, ['잠시 후 다시 시도해 주세요']);
+});
+
+test('csrf_invalid는 한 번만 다시 보낸다 (처음 접속해 쿠키가 없는 첫 POST)', async () => {
+  responses.push(errorResponse(403, 'csrf_invalid', '요청이 만료되었습니다'), new Response('{"shopId":1}'));
+  assert.deepEqual(await api('/api/session', { method: 'POST', body: {}, silent: true }), { shopId: 1 });
+  assert.equal(calls.length, 2);
+});
+
+test('다시 보내도 csrf_invalid면 그대로 ApiError (무한 반복 없음)', async () => {
+  responses.push(errorResponse(403, 'csrf_invalid', '요청이 만료되었습니다'), errorResponse(403, 'csrf_invalid', '요청이 만료되었습니다'));
+  await assert.rejects(api('/api/session', { method: 'POST', body: {} }), (e: ApiError) => e.code === 'csrf_invalid');
+  assert.equal(calls.length, 2);
+  assert.deepEqual(shown, ['요청이 만료되었습니다']);
+});
+
 test('시각은 Asia/Seoul로 표시한다', () => {
   assert.equal(formatDateTime('2026-11-23T05:30:00Z'), '2026-11-23 14:30');
   assert.equal(formatDateTime('2026-11-23T23:59:00+09:00'), '2026-11-23 23:59');

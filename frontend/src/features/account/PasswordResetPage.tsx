@@ -18,16 +18,9 @@ export default function PasswordResetPage() {
 }
 
 // 오류는 전역 토스트 대신 폼 안에 보여 준다 (silent).
-// 처음 접속하면 CSRF 쿠키가 없어 csrf_invalid가 난다. 그 응답에 쿠키가 내려오므로 한 번만 다시 보낸다 (로그인 화면과 같음)
-async function send(method: 'POST' | 'PUT', body: PasswordResetRequest | PasswordResetConfirmRequest): Promise<void> {
-  const call = () => api<void>('/api/password-reset', { method, body, silent: true });
-  try {
-    await call();
-  } catch (e) {
-    if (e instanceof ApiError && e.code === 'csrf_invalid') return call();
-    throw e;
-  }
-}
+// 처음 접속해 CSRF 쿠키가 없을 때의 csrf_invalid는 api.ts가 한 번 다시 보낸다
+const send = (method: 'POST' | 'PUT', body: PasswordResetRequest | PasswordResetConfirmRequest) =>
+  api<void>('/api/password-reset', { method, body, silent: true });
 
 /** invalid 400의 details에서 그 칸의 사유를 꺼낸다 (CONTRACTS 2장) */
 function reasonFor(err: unknown, field: string): string | undefined {

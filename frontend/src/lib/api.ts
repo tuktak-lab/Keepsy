@@ -6,6 +6,7 @@ export const CSRF_COOKIE = 'XSRF-TOKEN';
 export const CSRF_HEADER = 'X-XSRF-TOKEN';
 
 const FALLBACK_MESSAGE = '잠시 후 다시 시도해 주세요';
+const NETWORK_MESSAGE = '서버에 연결하지 못했어요. 인터넷 연결을 확인하고 다시 시도해 주세요';
 
 /** 목록 API의 페이지 응답 (CONTRACTS 3장). 요청은 `?page=0&size=20` */
 export type Page<T> = { items: T[]; page: number; size: number; totalElements: number };
@@ -61,19 +62,35 @@ export type ApiOptions = { method?: Method; body?: unknown; silent?: boolean };
 /**
  * 같은 출처 `/api` 호출. path는 `/api/…` 전체를 쓴다 (CONTRACTS 4장 경로 그대로).
  * 실패하면 code별 동작을 한 뒤 ApiError를 던진다.
+ * - 서버에 닿지 못하면 `network_error`(status 0), 성공 응답인데 JSON이 아니면 `invalid_response`. 둘 다 자동으로 다시 보내지 않는다
+ * - `csrf_invalid`는 한 번만 다시 보낸다: 처음 접속해 CSRF 쿠키가 없으면 첫 POST가 거부되고, 그 응답에 쿠키가 내려온다 (서버가 처리 전에 거부한 요청이라 다시 보내도 안전)
  */
-export async function api<T>(path: string, options: ApiOptions = {}): Promise<T> {
+export function api<T>(path: string, options: ApiOptions = {}): Promise<T> {
+  return request<T>(path, options, false);
+}
+
+async function request<T>(path: string, options: ApiOptions, csrfRetried: boolean): Promise<T> {
   const method = options.method ?? 'GET';
-  const res = await fetch(path, {
-    method,
-    headers: buildHeaders(method, options.body),
-    body: encodeBody(options.body),
-    credentials: 'same-origin',
-  });
+  let res: Response;
+  try {
+    res = await fetch(path, {
+      method,
+      headers: buildHeaders(method, options.body),
+      body: encodeBody(options.body),
+      credentials: 'same-origin',
+    });
+  } catch {
+    return fail(new ApiError(0, 'network_error', NETWORK_MESSAGE), options);
+  }
 
   if (res.ok) {
     const text = await res.text();
-    return (text ? JSON.parse(text) : undefined) as T;
+    if (!text) return undefined as T;
+    try {
+      return JSON.parse(text) as T;
+    } catch {
+      return fail(new ApiError(res.status, 'invalid_response', FALLBACK_MESSAGE), options);
+    }
   }
 
   const error = await readError(res);
@@ -87,13 +104,21 @@ export async function api<T>(path: string, options: ApiOptions = {}): Promise<T>
     case 'pin_required':
     case 'owner_pin_required':
       if (await askPin({ owner: error.code === 'owner_pin_required', message: error.message })) {
-        return api<T>(path, options);
+        return request<T>(path, options, csrfRetried);
       }
       throw error;
+    case 'csrf_invalid':
+      if (!csrfRetried) return request<T>(path, options, true);
+      return fail(error, options);
     default:
-      if (!options.silent) handlers.showError(error.message);
-      throw error;
+      return fail(error, options);
   }
+}
+
+/** 「그 밖의 code」: silent가 아니면 message를 보여 주고 던진다 */
+function fail(error: ApiError, options: ApiOptions): never {
+  if (!options.silent) handlers.showError(error.message);
+  throw error;
 }
 
 function buildHeaders(method: Method, body: unknown): Record<string, string> {

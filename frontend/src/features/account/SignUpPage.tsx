@@ -49,16 +49,8 @@ export default function SignUpPage() {
     setErrors((e) => ({ ...e, industries: undefined }));
   }
 
-  async function signUp(body: SignUpRequest): Promise<SignUpResponse> {
-    const send = () => api<SignUpResponse>('/api/shops', { method: 'POST', body, silent: true });
-    try {
-      return await send();
-    } catch (e) {
-      // 처음 접속하면 CSRF 쿠키가 없어 csrf_invalid가 난다. 그 응답에 쿠키가 내려오므로 한 번만 다시 보낸다 (로그인 화면과 같음)
-      if (e instanceof ApiError && e.code === 'csrf_invalid') return send();
-      throw e;
-    }
-  }
+  // 처음 접속해 CSRF 쿠키가 없을 때의 csrf_invalid는 api.ts가 한 번 다시 보낸다
+  const signUp = (body: SignUpRequest) => api<SignUpResponse>('/api/shops', { method: 'POST', body, silent: true });
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
