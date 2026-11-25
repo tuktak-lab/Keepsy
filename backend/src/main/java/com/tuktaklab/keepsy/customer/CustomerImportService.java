@@ -16,6 +16,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
+import org.hibernate.exception.ConstraintViolationException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -85,19 +87,28 @@ public class CustomerImportService {
                 continue; // 기존 고객: 기본 정보 · 동의는 바꾸지 않는다
             }
             Customer customer =
-                    customerRepository.save(
-                            Customer.register(
-                                    shopId,
-                                    new NewCustomer(
-                                            r.name(),
-                                            r.phone(),
-                                            Set.of(Consent.Item.PRIVACY),
-                                            Consent.Method.IMPORT,
-                                            r.gender(),
-                                            r.birthYear(),
-                                            null,
-                                            null),
-                                    now));
+                    Customer.register(
+                            shopId,
+                            new NewCustomer(
+                                    r.name(),
+                                    r.phone(),
+                                    Set.of(Consent.Item.PRIVACY),
+                                    Consent.Method.IMPORT,
+                                    r.gender(),
+                                    r.birthYear(),
+                                    null,
+                                    null),
+                            now);
+            try {
+                customerRepository.save(customer); // IDENTITY라 여기서 INSERT가 나간다
+            } catch (DataIntegrityViolationException e) {
+                // 위에서 번호를 확인한 뒤 다른 요청(고객 등록 · 다른 가져오기)이 같은 번호를 먼저 커밋했다. 예상할 수 있는 업무 중복만 duplicate로
+                // 바꾸고 나머지 제약 위반은 그대로 500이다 (F63). 파일 전체를 되돌린다
+                if (isPhoneDuplicate(e)) {
+                    throw new ApiException(ErrorCode.DUPLICATE, "같은 번호가 방금 등록되었습니다. 파일을 다시 올려 주세요");
+                }
+                throw e;
+            }
             // 마케팅 동의는 행을 만들지 않아 "받은 적 없음"(미동의)이다 (F19)
             consentRepository.save(
                     Consent.agreed(
@@ -129,6 +140,13 @@ public class CustomerImportService {
 
         return new Result(
                 created, addedVisits, notes, rows.size() - touched.size(), errors.size(), errors);
+    }
+
+    /** 매장 안 번호 고유 제약(uk_customer_shop_phone) 위반인지. MySQL은 제약 이름 앞에 테이블 이름을 붙여 알려 준다 */
+    private static boolean isPhoneDuplicate(DataIntegrityViolationException e) {
+        return e.getCause() instanceof ConstraintViolationException cv
+                && cv.getConstraintName() != null
+                && cv.getConstraintName().endsWith("uk_customer_shop_phone");
     }
 
     /** 같은 고객에 내용이 완전히 같은 상담 메모가 없을 때만 만든다 (F5). 파일 안 반복 행 · 같은 파일 재업로드도 늘지 않는다 */

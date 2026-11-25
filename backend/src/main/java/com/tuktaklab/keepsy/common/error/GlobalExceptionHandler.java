@@ -2,6 +2,7 @@ package com.tuktaklab.keepsy.common.error;
 
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
@@ -31,10 +32,26 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 .body(ErrorResponse.of(code, e.getMessage(), e.details()));
     }
 
-    /** 처리하지 못한 예외. 내부 정보는 응답에 넣지 않고 로그에 한 번만 남긴다 */
+    /**
+     * DB 잠금 대기 시간 초과 · 교착 (MySQL 1205 · 1213) → {@code conflict} 409. 서버는 다시 시도하지 않고 사용자에게 맡긴다
+     * (F63, CONTRACTS 2장)
+     */
+    @ExceptionHandler(PessimisticLockingFailureException.class)
+    ResponseEntity<ErrorResponse> handleLockConflict(PessimisticLockingFailureException e) {
+        log.warn("DB 잠금 충돌", SqlSafeException.of(e));
+        return ResponseEntity.status(ErrorCode.CONFLICT.status())
+                .body(ErrorResponse.of(ErrorCode.CONFLICT, LOCK_CONFLICT_MESSAGE, null));
+    }
+
+    static final String LOCK_CONFLICT_MESSAGE = "다른 작업과 겹쳤습니다. 잠시 후 다시 시도해 주세요";
+
+    /**
+     * 처리하지 못한 예외. 내부 정보는 응답에 넣지 않고 로그에 한 번만 남긴다. DB 예외는 메시지에 SQL 값 · 연락처가 들어가므로 종류 · SQL 상태 · 오류 번호
+     * · 제약 이름 · 스택만 남긴다 (F63, NFR-06)
+     */
     @ExceptionHandler(Exception.class)
     ResponseEntity<ErrorResponse> handleUnexpected(Exception e) {
-        log.error("처리하지 못한 예외", e);
+        log.error("처리하지 못한 예외", SqlSafeException.isSql(e) ? SqlSafeException.of(e) : e);
         return ResponseEntity.status(ErrorCode.INTERNAL_ERROR.status())
                 .body(ErrorResponse.of(ErrorCode.INTERNAL_ERROR));
     }

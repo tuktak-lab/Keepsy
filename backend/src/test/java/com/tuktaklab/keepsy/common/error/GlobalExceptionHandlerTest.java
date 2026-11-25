@@ -1,5 +1,6 @@
 package com.tuktaklab.keepsy.common.error;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -7,8 +8,16 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import java.sql.SQLException;
+import java.sql.SQLIntegrityConstraintViolationException;
 import java.util.List;
+import org.hibernate.exception.ConstraintViolationException;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
+import org.springframework.dao.CannotAcquireLockException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -18,7 +27,10 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
-/** CONTRACTS 2장 모양과 HTTP 상태 (Keepsy #1 「작업 항목」 테스트). 스프링 컨텍스트 · DB 없이 돈다. */
+/**
+ * CONTRACTS 2장 모양과 HTTP 상태 (Keepsy #1 「작업 항목」 테스트, #338 잠금 충돌 · SQL 예외 로그). 스프링 컨텍스트 · DB 없이 돈다.
+ */
+@ExtendWith(OutputCaptureExtension.class)
 class GlobalExceptionHandlerTest {
 
     record Form(@NotBlank(message = "이름을 입력해 주세요") String name) {}
@@ -46,6 +58,39 @@ class GlobalExceptionHandlerTest {
         @PostMapping("/api/test/upload")
         void upload() {
             throw new MaxUploadSizeExceededException(10L * 1024 * 1024);
+        }
+
+        @GetMapping("/api/test/lock-timeout")
+        void lockTimeout() {
+            throw new CannotAcquireLockException(
+                    "could not execute statement",
+                    new SQLException(
+                            "Lock wait timeout exceeded; try restarting transaction",
+                            "HY000",
+                            1205));
+        }
+
+        @GetMapping("/api/test/duplicate-sql")
+        void duplicateSql() {
+            String mysql =
+                    "Duplicate entry '1-010-1234-5678' for key 'customer.uk_customer_shop_phone'";
+            throw new DataIntegrityViolationException(
+                    "could not execute statement [" + mysql + "]",
+                    new ConstraintViolationException(
+                            "could not execute statement [" + mysql + "]",
+                            new SQLIntegrityConstraintViolationException(mysql, "23000", 1062),
+                            "insert into customer (phone) values (?)",
+                            "customer.uk_customer_shop_phone"));
+        }
+
+        @GetMapping("/api/test/fk-sql")
+        void fkSql() {
+            throw new DataIntegrityViolationException(
+                    "could not execute statement",
+                    new SQLIntegrityConstraintViolationException(
+                            "Cannot add or update a child row: a foreign key constraint fails",
+                            "23000",
+                            1452));
         }
     }
 
@@ -86,6 +131,39 @@ class GlobalExceptionHandlerTest {
                 .andExpect(status().isInternalServerError())
                 .andExpect(jsonPath("$.error.code").value("internal_error"))
                 .andExpect(jsonPath("$.error.message").value("일시적인 오류가 발생했습니다"));
+    }
+
+    @Test
+    void 잠금_대기_초과_교착은_conflict_409이고_다시_시도하라고_안내한다() throws Exception {
+        // F63: 서버는 자동으로 다시 시도하지 않는다
+        mvc.perform(get("/api/test/lock-timeout"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("conflict"))
+                .andExpect(jsonPath("$.error.message").value("다른 작업과 겹쳤습니다. 잠시 후 다시 시도해 주세요"));
+    }
+
+    @Test
+    void DB_제약_위반은_한꺼번에_409로_바꾸지_않고_internal_error_500이다() throws Exception {
+        mvc.perform(get("/api/test/fk-sql"))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.error.code").value("internal_error"));
+    }
+
+    @Test
+    void SQL_예외_로그에는_값과_연락처가_없고_종류_SQL상태_오류번호_제약_이름_스택이_남는다(CapturedOutput output)
+            throws Exception {
+        // F63, NFR-06: MySQL 1062 메시지에 들어가는 값(번호)을 남기지 않는다
+        mvc.perform(get("/api/test/duplicate-sql")).andExpect(status().isInternalServerError());
+
+        assertThat(output.getAll())
+                .doesNotContain("010-1234-5678")
+                .doesNotContain("Duplicate entry")
+                .contains("DataIntegrityViolationException")
+                .contains("SQLIntegrityConstraintViolationException")
+                .contains("23000")
+                .contains("1062")
+                .contains("uk_customer_shop_phone")
+                .contains("at com.tuktaklab.keepsy.common.error.GlobalExceptionHandlerTest");
     }
 
     @Test

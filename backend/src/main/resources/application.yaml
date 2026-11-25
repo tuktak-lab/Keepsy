@@ -32,6 +32,13 @@ spring:
       max-file-size: 10MB
       max-request-size: 11MB
 
+# Hibernate가 SQL 오류를 MySQL 메시지 그대로(예: Duplicate entry '1-010-…') 찍지 않게 끈다. 처리하지 못한 DB 예외는
+# GlobalExceptionHandler가 종류 · SQL 상태 · 오류 번호 · 제약 이름만 남긴다 (F63, NFR-06).
+# Hibernate 7은 SqlExceptionHelper가 아니라 이 이름(SQLExceptionLogging.ERROR_NAME)으로 찍는다
+logging:
+  level:
+    org.hibernate.orm.jdbc.error: "OFF"
+
 # 세션 쿠키 (NFR-02, CONTRACTS 1장). Secure는 Spring 기본값(false)을 그대로 쓴다. 로컬은 http이고, HTTPS로 운영하게 되면 그때 켠다
 # (docs DEVELOPMENT 5장, ARCHITECTURE 3장, 팀 결정).
 server:
