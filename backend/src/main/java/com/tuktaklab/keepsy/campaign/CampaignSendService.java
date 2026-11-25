@@ -44,11 +44,16 @@ public class CampaignSendService {
 
     /**
      * @throws ApiException 다른 매장 · 없는 캠페인 {@code not_found}, 검토 기록 없음 {@code review_required}, 야간
-     *     제한에 걸리면 {@code night_send_blocked} (F52), 광고인데 매장 전화번호 · 수신 거부 번호가 없거나 이미 발송 중 · 완료 · 취소면
-     *     {@code conflict}
+     *     제한에 걸리면 {@code night_send_blocked} (F52), 일 발송 한도를 넘으면 {@code daily_limit_exceeded}
+     *     (F54), 광고인데 매장 전화번호 · 수신 거부 번호가 없거나 이미 발송 중 · 완료 · 취소면 {@code conflict}
      */
     @Transactional
     public Result send(long shopId, long campaignId) {
+        // 일 발송 한도용 매장 행 잠금은 트랜잭션의 첫 문장이어야 한다 (F7 · F54). MySQL REPEATABLE READ는 첫 일반 조회 때 스냅샷을
+        // 잡으므로,
+        // 다른 조회 뒤에 잠그면 앞선 동시 발송이 커밋한 기록이 "오늘 건수"에 보이지 않아 둘 다 한도를 통과한다. 잠금(locking read)은
+        // 스냅샷을 잡지 않아, 잠금을 받은 뒤의 조회는 앞 발송의 커밋을 본다
+        int limit = shopSettings.lockDailySendLimit(shopId);
         Campaign campaign =
                 campaigns
                         .findByIdAndShopId(campaignId, shopId)
@@ -105,7 +110,13 @@ public class CampaignSendService {
         if (!NightSendPolicy.allows(now, ad, allNightAdConsent)) {
             throw new ApiException(ErrorCode.NIGHT_SEND_BLOCKED);
         }
-        // ponytail: 일 발송 한도(#95)는 이 자리(상태 전이 전)에 붙인다
+        // 일 발송 한도: 맨 처음 잡은 매장 행 잠금 안에서 오늘 건수 + 이번 인원을 비교한다 (FR-CMP-12, F7 · F54)
+        long sentToday =
+                messages.countSentBetween(
+                        shopId, today.atStartOfDay(), today.plusDays(1).atStartOfDay());
+        if (!DailyLimitPolicy.allows(sentToday, outgoing.size(), limit)) {
+            throw new ApiException(ErrorCode.DAILY_LIMIT_EXCEEDED);
+        }
 
         // 중복 발송 방지: 바뀐 행이 1일 때만 진행한다. 두 번째 요청은 첫 요청이 커밋될 때까지 기다린 뒤 0을 받는다 (F7)
         if (campaigns.startSending(campaignId, shopId, now) != 1) {

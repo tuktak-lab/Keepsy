@@ -42,4 +42,7 @@ public interface ShopSendSettings {
     Settings of(long shopId);
 
     ShopContact contact(long shopId);
+
+    /** 매장 일 발송 한도. 매장 행을 잠가 부르는 쪽 트랜잭션 동안 같은 매장의 다른 발송이 기다린다 (FR-CMP-12, F54) */
+    int lockDailySendLimit(long shopId);
 }

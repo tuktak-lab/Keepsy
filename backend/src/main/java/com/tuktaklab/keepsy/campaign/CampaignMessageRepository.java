@@ -21,6 +21,19 @@ interface CampaignMessageRepository extends JpaRepository<CampaignMessage, Long>
                     + " AND (m.sendAfter IS NULL OR m.sendAfter <= :now) ORDER BY m.id")
     List<CampaignMessage> findDuePending(@Param("now") LocalDateTime now, Pageable pageable);
 
+    /**
+     * 오늘 보낸 건수 (FR-CMP-12, F54): 발송 시각이 [from, to)인 그 매장 캠페인의 발송 기록 중 발송기에 넘긴 것(메시지 유형이 있는 행). 대조군
+     * · 발송 시점에 빠진 고객(F51)은 메시지 유형이 없어 빠지고, 수신 거부 안내는 캠페인이 없어 빠진다.
+     */
+    @Query(
+            "SELECT COUNT(m) FROM CampaignMessage m, Campaign c WHERE m.campaignId = c.id"
+                    + " AND c.shopId = :shopId AND c.sentAt >= :from AND c.sentAt < :to"
+                    + " AND m.messageType IS NOT NULL")
+    long countSentBetween(
+            @Param("shopId") long shopId,
+            @Param("from") LocalDateTime from,
+            @Param("to") LocalDateTime to);
+
     /** 한 번호의 발송 기록, 받은 시각 최신순 (가상 수신함 FR-CMP-16, idx_campaign_message_shop_phone) */
     Page<CampaignMessage> findByShopIdAndRecipientPhoneAndSendStatusOrderByResultAtDescIdDesc(
             Long shopId, String recipientPhone, SendStatus sendStatus, Pageable pageable);
