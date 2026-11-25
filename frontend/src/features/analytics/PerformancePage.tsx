@@ -4,45 +4,46 @@ import { PinGate } from '@/components/common/PinGate';
 import { CountUp } from '@/components/common/CountUp';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Topbar } from '@/components/layout/Topbar';
+import { ApiError, api, type Page } from '@/lib/api';
+import { PERIODS, periodQuery, sumFunnels, type Funnel, type Period } from '@/lib/analytics';
+import { rateText } from '@/lib/campaignResult';
+import { formatDateTime } from '@/lib/format';
+import { CATEGORY_LABEL, type Category } from '@/lib/menus';
 import styleText from './PerformancePage.css?inline';
 import { useStyleSheet } from '@/hooks/useStyleSheet';
 
-type Camp = {
-  id: string;
-  name: string;
-  cat: string;
-  date: string;
-  sent: number;
-  reach: number;
-  rebook: number;
-  visit: number;
-  sales: number;
-  ctrlN: number;
-  ctrlVisit: number;
+// 성과 분석 (FR-ANL-01 · 02 · 05 · 06 · 07 · 09). 화면 전체가 「매출 · 성과 분석」 기능이다 (SALES_ANALYTICS, PinGate).
+// API (docs CONTRACTS 4장): 기간별 GET /api/analytics/summary · /prediction-accuracy,
+// 캠페인별 GET /api/campaigns (목록) → 발송한 캠페인마다 …/funnel · …/revenue, 고른 캠페인의 …/control-comparison
+// 결과는 모의 데이터로 만든 값임을 밝힌다 (E9).
+
+type Summary = {
+  from: string;
+  to: string;
+  revenue: number;
+  visitCount: number;
+  newCustomerCount: number;
+  // shortcut: F58 계약 필드라 백엔드 구현 전에는 오지 않는다. 오면 바로 보이고, 없으면 그 카드만 「준비 중」
+  cycleRevisits?: { category: Category; endedCount: number; revisitedCount: number }[];
 };
-
-const CAMPS: Camp[] = [
-  { id: 'c3', name: '펄 디자인 재방문 캠페인', cat: '젤 네일', date: '11.06', sent: 24, reach: 23, rebook: 6, visit: 5, sales: 310000, ctrlN: 6, ctrlVisit: 1 },
-  { id: 'c4', name: '가을 컬러 리마인드', cat: '젤 네일', date: '11.13', sent: 24, reach: 24, rebook: 4, visit: 3, sales: 176000, ctrlN: 6, ctrlVisit: 0 },
-];
-
-const CAT_RATE = [
-  { cat: '젤 네일', n: 62, rate: 68 },
-  { cat: '속눈썹 연장', n: 31, rate: 72 },
-  { cat: '네일 케어', n: 24, rate: 61 },
-  { cat: '패디큐어', n: 18, rate: 55 },
-];
-
-const ACC = [
-  { cat: '젤 네일', hit: 81, err: 2.9 },
-  { cat: '속눈썹 연장', hit: 79, err: 3.1 },
-  { cat: '네일 케어', hit: 74, err: 4.0 },
-  { cat: '패디큐어', hit: 70, err: 4.6 },
-];
+type Accuracy = { evaluatedCount: number; hitCount: number; averageErrorDays: number | null };
+type CampaignItem = { id: number; name: string; category: Category | null; sentAt: string | null };
+type Camp = CampaignItem & { funnel: Funnel; revenue: number | null };
+type Control = {
+  reachedCount: number;
+  rebookedCount: number;
+  controlCount: number;
+  controlRebookedCount: number;
+  reachedCycleCount: number;
+  reachedCycleRevisitedCount: number;
+  controlCycleCount: number;
+  controlCycleRevisitedCount: number;
+};
 
 const pct = (a: number, b: number) => (b ? Math.round((a / b) * 1000) / 10 : 0);
 const won = (n: number) => n.toLocaleString() + '원';
 const unit = (u: string) => (n: number) => n + u;
+const errorText = (err: unknown) => (err instanceof ApiError ? err.message : '잠시 후 다시 시도해 주세요');
 
 // 막대: 처음 진입 시 0 → 값으로 한 번 차오르고, 값이 바뀌면 transition 으로 이동. hover 시 정확한 수치 툴팁.
 function Bar(props: { w: number; color: string; tip: ReactNode; grown: boolean; show: boolean }) {
@@ -56,165 +57,254 @@ function Bar(props: { w: number; color: string; tip: ReactNode; grown: boolean; 
 }
 
 function Body() {
-  const [sel, setSel] = useState('all');
+  const [period, setPeriod] = useState<Period>('THIS_MONTH');
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
+  const query = periodQuery(period, from, to);
+  const [stats, setStats] = useState<{ q: string; summary?: Summary; accuracy?: Accuracy; error?: string } | null>(null);
+  const [camps, setCamps] = useState<Camp[] | null>(null);
+  const [campError, setCampError] = useState('');
+  const [sel, setSel] = useState<number | 'all'>('all');
+  const [control, setControl] = useState<{ id: number; value?: Control; error?: string } | null>(null);
   const [grown, setGrown] = useState(false);
   const [hover, setHover] = useState('');
+
   useEffect(() => {
     let r2 = 0;
     const r1 = requestAnimationFrame(() => { r2 = requestAnimationFrame(() => setGrown(true)); });
     return () => { cancelAnimationFrame(r1); cancelAnimationFrame(r2); };
   }, []);
-  const list = sel === 'all' ? CAMPS : CAMPS.filter((x) => x.id === sel);
-  const sum = (k: keyof Camp) => list.reduce((a, x) => a + (x[k] as number), 0);
-  const sent = sum('sent');
-  const reach = sum('reach');
-  const rebook = sum('rebook');
-  const visit = sum('visit');
-  const sales = sum('sales');
-  const ctrlN = sum('ctrlN');
-  const ctrlVisit = sum('ctrlVisit');
 
-  const funnel = [
-    { label: '발송', n: sent, c: '#D9AFA6' },
-    { label: '도달', n: reach, c: '#CC9A9E' },
-    { label: '재예약', n: rebook, c: '#A9707A' },
-    { label: '재방문', n: visit, c: '#7A4450' },
+  // 기간 지표 (FR-ANL-05 · 06 · 07)
+  useEffect(() => {
+    if (!query) return;
+    let cancelled = false;
+    Promise.all([api<Summary>(`/api/analytics/summary?${query}`, { silent: true }), api<Accuracy>(`/api/analytics/prediction-accuracy?${query}`, { silent: true })])
+      .then(([summary, accuracy]) => !cancelled && setStats({ q: query, summary, accuracy }))
+      .catch((err) => !cancelled && setStats({ q: query, error: errorText(err) }));
+    return () => { cancelled = true; };
+  }, [query]);
+
+  // 발송한 캠페인과 캠페인마다 퍼널 · 연결 매출 (FR-ANL-01 · 02)
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      // shortcut: 최근 100개 캠페인만 보고 캠페인마다 2번 더 부른다. 캠페인이 많아지면 성과 요약 API를 따로 두기
+      const list = await api<Page<CampaignItem>>('/api/campaigns?page=0&size=100', { silent: true });
+      const sent = list.items.filter((c) => c.sentAt);
+      const rows = await Promise.all(
+        sent.map(async (c) => {
+          const [funnel, revenue] = await Promise.all([
+            api<Funnel>(`/api/campaigns/${c.id}/funnel`, { silent: true }),
+            api<{ revenue: number }>(`/api/campaigns/${c.id}/revenue`, { silent: true }).then((r) => r.revenue, () => null),
+          ]);
+          return { ...c, funnel, revenue };
+        }),
+      );
+      if (!cancelled) setCamps(rows);
+    })().catch((err) => !cancelled && setCampError(errorText(err)));
+    return () => { cancelled = true; };
+  }, []);
+
+  // 고른 캠페인의 대조군 비교 (FR-ANL-09)
+  useEffect(() => {
+    if (sel === 'all') return;
+    let cancelled = false;
+    api<Control>(`/api/campaigns/${sel}/control-comparison`, { silent: true })
+      .then((value) => !cancelled && setControl({ id: sel, value }))
+      .catch((err) => !cancelled && setControl({ id: sel, error: errorText(err) }));
+    return () => { cancelled = true; };
+  }, [sel]);
+
+  const cur = stats && stats.q === query ? stats : null;
+  const picked = camps?.filter((c) => sel === 'all' || c.id === sel) ?? [];
+  const f = sumFunnels(picked.map((c) => c.funnel));
+  const ctrl = sel !== 'all' && control?.id === sel ? control : null;
+  const funnelRows = [
+    { label: '발송', n: f.sentCount, c: '#D9AFA6' },
+    { label: '도달', n: f.reachedCount, c: '#CC9A9E' },
+    { label: '재예약', n: f.rebookedCount, c: '#A9707A' },
+    { label: '재방문', n: f.revisitedCount, c: '#7A4450' },
   ];
-  const sendRate = pct(visit, sent);
-  const ctrlRate = pct(ctrlVisit, ctrlN);
-  const diff = Math.round((sendRate - ctrlRate) * 10) / 10;
-  const totalAcc = Math.round(ACC.reduce((a, x) => a + x.hit * 1, 0) / ACC.length);
-  const avgErr = Math.round((ACC.reduce((a, x) => a + x.err, 0) / ACC.length) * 10) / 10;
 
   return (
     <div className="pf-wrap">
       <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-end', gap: 16 }}>
         <div>
           <h1 className="pf-h1">성과 분석</h1>
-          <p className="pf-sub">발송 이후의 재예약과 재방문, 대조군과의 차이까지 캠페인 결과를 확인하세요.</p>
+          <p className="pf-sub">기간별 매장 지표와 예측 정확도, 캠페인 발송 이후의 재예약 · 재방문을 확인하세요.</p>
         </div>
-        <div className="pf-seg" role="group" aria-label="캠페인 선택">
-          <button type="button" aria-pressed={sel === 'all'} onClick={() => setSel('all')}>전체</button>
-          {CAMPS.map((x) => (
-            <button type="button" key={x.id} aria-pressed={sel === x.id} onClick={() => setSel(x.id)}>{x.name}</button>
-          ))}
-        </div>
-      </div>
-
-      <section className="pf-kpis pf-card" aria-label="성과 요약">
-        <div className="pf-kpi"><span>발송</span><b className="num"><CountUp value={sent} format={unit('건')} /></b><em>가상 발송 기준 · 캠페인 {list.length}개</em></div>
-        <div className="pf-kpi"><span>재예약</span><b className="num" style={{ color: '#7A4450' }}><CountUp value={rebook} format={unit('건')} /></b><em className="num">발송 대비 {pct(rebook, sent)}%</em></div>
-        <div className="pf-kpi"><span>재방문</span><b className="num"><CountUp value={visit} format={unit('건')} /></b><em className="num">발송 대비 {sendRate}%</em></div>
-        <div className="pf-kpi"><span>연결 매출</span><b className="num"><CountUp value={sales} format={won} /></b><em>귀속된 재방문 결제 합계</em></div>
-      </section>
-
-      <div className="pf-two">
-        <section className="pf-card" aria-label="전환 퍼널">
-          <div>
-            <h2>발송에서 재방문까지</h2>
-            <span className="pf-note">발송 → 도달 → 재예약 → 재방문 · 고객은 캠페인별 1회 집계</span>
-          </div>
-          <div>
-            {funnel.map((f) => (
-              <div className="pf-frow" key={f.label} onMouseEnter={() => setHover('f' + f.label)} onMouseLeave={() => setHover('')}>
-                <span style={{ fontSize: 13, color: '#4A3F3B' }}>{f.label}</span>
-                <Bar w={pct(f.n, sent)} color={f.c} grown={grown} show={hover === 'f' + f.label} tip={<>{f.label} <b>{f.n}건</b> · 발송 대비 {pct(f.n, sent)}%</>} />
-                <b className="num" style={{ textAlign: 'right' }}><CountUp value={f.n} format={unit('건')} /></b>
-                <span className="num pf-note" style={{ textAlign: 'right' }}>{pct(f.n, sent)}%</span>
-              </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+          <div className="pf-seg" role="group" aria-label="기간">
+            {PERIODS.map(([p, label]) => (
+              <button type="button" key={p} aria-pressed={period === p} onClick={() => setPeriod(p)}>{label}</button>
             ))}
           </div>
-          <span className="pf-note">전환율은 발송 건수 기준이에요.</span>
-        </section>
-
-        <section className="pf-card" aria-label="귀속 규칙">
-          <h2>귀속 규칙</h2>
-          <div className="pf-box">
-            캠페인 성과로 인정하는 기준이에요.
-            <ul>
-              <li>귀속 기간: 발송 후 기본 14일</li>
-              <li>같은 시술 카테고리의 예약만 인정</li>
-              <li>기간 안 고객의 첫 예약만 집계</li>
-              <li>여러 캠페인을 받았다면 가장 최근 발송에 연결</li>
-            </ul>
-          </div>
-          <span className="pf-note">연결 매출은 위 규칙으로 귀속된 재방문의 결제 금액이에요.</span>
-        </section>
+          {period === 'CUSTOM' ? (
+            <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
+              <input type="date" className="inp" aria-label="시작일" value={from} onChange={(e) => setFrom(e.target.value)} />~
+              <input type="date" className="inp" aria-label="종료일" value={to} onChange={(e) => setTo(e.target.value)} />
+            </span>
+          ) : null}
+        </div>
       </div>
 
-      <div className="pf-two">
-        <section className="pf-card" aria-label="대조군 비교">
-          <div>
-            <h2>대조군 비교</h2>
-            <span className="pf-note">발송군과 발송하지 않은 대조군의 주기 내 재방문율 비교</span>
-          </div>
-          <div className="pf-cmp">
-            <div><span>발송군</span><b className="num"><CountUp value={sendRate} decimals={1} format={unit('%')} /></b><span className="num">{visit}/{sent}명</span></div>
-            <div><span>대조군</span><b className="num"><CountUp value={ctrlRate} decimals={1} format={unit('%')} /></b><span className="num">{ctrlVisit}/{ctrlN}명</span></div>
-            <div><span>차이</span><b className="num" style={{ color: diff >= 0 ? '#7A4450' : '#8F2F2F' }}><CountUp value={diff} decimals={1} format={(n) => (n >= 0 ? '+' : '') + n + '%p'} /></b><span>발송군 − 대조군</span></div>
-          </div>
-          <span className="pf-note">대조군은 대상 중 무작위로 발송하지 않은 고객이에요. 인원이 적어 차이를 단정하기는 어려워요.</span>
-        </section>
-
-        <section className="pf-card" aria-label="예측 정확도">
-          <h2>예측 정확도</h2>
-          <div className="pf-cmp" style={{ gridTemplateColumns: 'repeat(2,minmax(0,1fr))' }}>
-            <div><span>기간 적중률</span><b className="num">{totalAcc}%</b><span>예측 기간 안에 실제 방문</span></div>
-            <div><span>평균 오차</span><b className="num">{avgErr}일</b><span>예측일과 실제 방문일 차이</span></div>
-          </div>
-          <table className="pf-tbl">
-            <thead><tr><th>시술 카테고리</th><th>적중률</th><th>평균 오차</th></tr></thead>
-            <tbody>
-              {ACC.map((a) => (
-                <tr key={a.cat}><td>{a.cat}</td><td className="num">{a.hit}%</td><td className="num">{a.err}일</td></tr>
-              ))}
-            </tbody>
-          </table>
-        </section>
-      </div>
+      <section className="pf-kpis pf-card" aria-label="매장 기본 지표">
+        {!query ? (
+          <p className="pf-note" style={{ padding: '12px 24px' }}>시작일과 종료일을 골라 주세요. 시작일은 종료일보다 늦을 수 없어요.</p>
+        ) : cur?.error ? (
+          <p className="pf-note" style={{ padding: '12px 24px' }}>불러오지 못했어요. {cur.error}</p>
+        ) : !cur?.summary || !cur.accuracy ? (
+          <p className="pf-note" style={{ padding: '12px 24px' }}>불러오는 중…</p>
+        ) : (
+          <>
+            <div className="pf-kpi"><span>매출</span><b className="num"><CountUp value={cur.summary.revenue} format={won} /></b><em className="num">{cur.summary.from} ~ {cur.summary.to}</em></div>
+            <div className="pf-kpi"><span>방문 수</span><b className="num"><CountUp value={cur.summary.visitCount} format={unit('건')} /></b><em>가져온 방문 제외</em></div>
+            <div className="pf-kpi"><span>신규 고객</span><b className="num"><CountUp value={cur.summary.newCustomerCount} format={unit('명')} /></b><em>첫 방문일 기준</em></div>
+            <div className="pf-kpi">
+              <span>예측 적중률</span>
+              <b className="num">{rateText(cur.accuracy.hitCount, cur.accuracy.evaluatedCount) ?? '-'}</b>
+              <em className="num">
+                평가 {cur.accuracy.evaluatedCount}건 · 평균 오차 {cur.accuracy.averageErrorDays === null ? '-' : `${cur.accuracy.averageErrorDays}일`}
+              </em>
+            </div>
+          </>
+        )}
+      </section>
 
       <section className="pf-card" aria-label="주기 내 재방문율">
         <div>
           <h2>주기 내 재방문율 (시술 카테고리별)</h2>
-          <span className="pf-note">예측 방문 주기 안에 다시 방문한 고객 비율</span>
+          <span className="pf-note">이 기간에 이탈 신호 기간이 끝난 예측 중, 그 안에 다시 방문한 비율</span>
         </div>
-        <div>
-          {CAT_RATE.map((r) => (
-            <div className="pf-frow" key={r.cat} style={{ gridTemplateColumns: '110px 1fr 60px 64px' }} onMouseEnter={() => setHover('r' + r.cat)} onMouseLeave={() => setHover('')}>
-              <span style={{ fontSize: 13, color: '#4A3F3B' }}>{r.cat}</span>
-              <Bar w={r.rate} color="#7A4450" grown={grown} show={hover === 'r' + r.cat} tip={<>{r.cat} <b>{r.rate}%</b> · {r.n}명 기준</>} />
-              <b className="num" style={{ textAlign: 'right' }}>{r.rate}%</b>
-              <span className="num pf-note" style={{ textAlign: 'right' }}>{r.n}명</span>
+        {!cur?.summary ? (
+          <p className="pf-note">불러오는 중…</p>
+        ) : !cur.summary.cycleRevisits ? (
+          <p className="pf-note">서버 계산 준비 중이에요. 준비되면 여기에 카테고리별로 보여요.</p>
+        ) : (
+          <div>
+            {cur.summary.cycleRevisits.map((r) => {
+              const rate = rateText(r.revisitedCount, r.endedCount);
+              return (
+                <div className="pf-frow" key={r.category} style={{ gridTemplateColumns: '110px 1fr 60px 84px' }} onMouseEnter={() => setHover('r' + r.category)} onMouseLeave={() => setHover('')}>
+                  <span style={{ fontSize: 13, color: '#4A3F3B' }}>{CATEGORY_LABEL[r.category] ?? r.category}</span>
+                  <Bar w={pct(r.revisitedCount, r.endedCount)} color="#7A4450" grown={grown} show={hover === 'r' + r.category} tip={<>{CATEGORY_LABEL[r.category]} <b>{rate ?? '-'}</b> · {r.revisitedCount}/{r.endedCount}명</>} />
+                  <b className="num" style={{ textAlign: 'right' }}>{rate ?? '-'}</b>
+                  <span className="num pf-note" style={{ textAlign: 'right' }}>{r.revisitedCount}/{r.endedCount}명</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-end', gap: 16 }}>
+        <h2 style={{ fontSize: 19, fontWeight: 600 }}>캠페인 성과</h2>
+        {camps && camps.length > 0 ? (
+          <div className="pf-seg" role="group" aria-label="캠페인 선택">
+            <button type="button" aria-pressed={sel === 'all'} onClick={() => setSel('all')}>전체</button>
+            {camps.map((x) => (
+              <button type="button" key={x.id} aria-pressed={sel === x.id} onClick={() => setSel(x.id)}>{x.name}</button>
+            ))}
+          </div>
+        ) : null}
+      </div>
+
+      {campError ? (
+        <p className="pf-note">캠페인 성과를 불러오지 못했어요. {campError}</p>
+      ) : !camps ? (
+        <p className="pf-note">불러오는 중…</p>
+      ) : camps.length === 0 ? (
+        <p className="pf-note">아직 발송한 캠페인이 없어요.</p>
+      ) : (
+        <>
+          <div className="pf-two">
+            <section className="pf-card" aria-label="전환 퍼널">
+              <div>
+                <h2>발송에서 재방문까지</h2>
+                <span className="pf-note">발송 → 도달 → 재예약 → 재방문 · 고객은 캠페인별 1회 집계{sel === 'all' ? ` · 캠페인 ${camps.length}개 합계` : ''}</span>
+              </div>
+              <div>
+                {funnelRows.map((r) => (
+                  <div className="pf-frow" key={r.label} onMouseEnter={() => setHover('f' + r.label)} onMouseLeave={() => setHover('')}>
+                    <span style={{ fontSize: 13, color: '#4A3F3B' }}>{r.label}</span>
+                    <Bar w={pct(r.n, f.sentCount)} color={r.c} grown={grown} show={hover === 'f' + r.label} tip={<>{r.label} <b>{r.n}명</b> · 발송 대비 {pct(r.n, f.sentCount)}%</>} />
+                    <b className="num" style={{ textAlign: 'right' }}><CountUp value={r.n} format={unit('명')} /></b>
+                    <span className="num pf-note" style={{ textAlign: 'right' }}>{pct(r.n, f.sentCount)}%</span>
+                  </div>
+                ))}
+              </div>
+              <span className="pf-note">전환율은 발송 인원 기준이에요. 대조군은 넣지 않아요.</span>
+            </section>
+
+            <section className="pf-card" aria-label="대조군 비교">
+              <div>
+                <h2>대조군 비교</h2>
+                <span className="pf-note">발송군과 발송하지 않은 대조군의 재예약률 · 주기 내 재방문율</span>
+              </div>
+              {sel === 'all' ? (
+                <p className="pf-note">위에서 캠페인을 하나 고르면 대조군 비교가 보여요.</p>
+              ) : !ctrl ? (
+                <p className="pf-note">불러오는 중…</p>
+              ) : ctrl.error || !ctrl.value ? (
+                <p className="pf-note">불러오지 못했어요. {ctrl.error}</p>
+              ) : ctrl.value.controlCount === 0 ? (
+                <p className="pf-note">대조군이 없는 캠페인이라 비교 대상이 아니에요.</p>
+              ) : (
+                <div className="pf-cmp" style={{ gridTemplateColumns: 'repeat(2,minmax(0,1fr))' }}>
+                  <div><span>발송군 재예약률</span><b className="num">{rateText(ctrl.value.rebookedCount, ctrl.value.reachedCount) ?? '-'}</b><span className="num">{ctrl.value.rebookedCount}/{ctrl.value.reachedCount}명</span></div>
+                  <div><span>대조군 재예약률</span><b className="num">{rateText(ctrl.value.controlRebookedCount, ctrl.value.controlCount) ?? '-'}</b><span className="num">{ctrl.value.controlRebookedCount}/{ctrl.value.controlCount}명</span></div>
+                  <div><span>발송군 주기 내 재방문율</span><b className="num">{rateText(ctrl.value.reachedCycleRevisitedCount, ctrl.value.reachedCycleCount) ?? '-'}</b><span className="num">{ctrl.value.reachedCycleRevisitedCount}/{ctrl.value.reachedCycleCount}명</span></div>
+                  <div><span>대조군 주기 내 재방문율</span><b className="num">{rateText(ctrl.value.controlCycleRevisitedCount, ctrl.value.controlCycleCount) ?? '-'}</b><span className="num">{ctrl.value.controlCycleRevisitedCount}/{ctrl.value.controlCycleCount}명</span></div>
+                </div>
+              )}
+              <span className="pf-note">대조군은 대상 중 무작위로 발송하지 않은 고객이에요. 인원이 적으면 차이를 단정하기 어려워요.</span>
+            </section>
+          </div>
+
+          <section className="pf-card" aria-label="캠페인별 성과">
+            <h2>캠페인별 성과</h2>
+            <div style={{ overflowX: 'auto' }}>
+              <table className="pf-tbl">
+                <thead>
+                  <tr><th>캠페인</th><th>발송</th><th>도달</th><th>재예약</th><th>재방문</th><th>연결 매출</th></tr>
+                </thead>
+                <tbody>
+                  {camps.map((x) => (
+                    <tr key={x.id}>
+                      <td>
+                        <AppLink href={`/campaigns/detail?id=${x.id}`} style={{ color: '#221D1B', fontWeight: 600 }}>{x.name}</AppLink>
+                        <div className="pf-note">{x.sentAt ? formatDateTime(x.sentAt) : ''} 발송 · {x.category ? CATEGORY_LABEL[x.category] : '동의 재확인 안내'}</div>
+                      </td>
+                      <td className="num">{x.funnel.sentCount}</td>
+                      <td className="num">{x.funnel.reachedCount}</td>
+                      <td className="num" style={{ color: '#7A4450', fontWeight: 600 }}>{x.funnel.rebookedCount} ({rateText(x.funnel.rebookedCount, x.funnel.reachedCount) ?? '-'})</td>
+                      <td className="num">{x.funnel.revisitedCount}</td>
+                      <td className="num">{x.revenue === null ? '-' : won(x.revenue)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          ))}
+            <span className="pf-note">재예약 비율은 도달 대비예요. 연결 매출은 캠페인마다 따로 세서, 한 방문이 여러 캠페인에 귀속되면 각 캠페인에 모두 들어가요. 그래서 합계는 보이지 않아요.</span>
+            <AppLink href="/campaigns" className="pf-btn" style={{ color: '#fff' }}>유사 캠페인 만들기</AppLink>
+          </section>
+        </>
+      )}
+
+      <section className="pf-card" aria-label="귀속 규칙">
+        <h2>귀속 규칙</h2>
+        <div className="pf-box">
+          캠페인 성과로 인정하는 기준이에요.
+          <ul>
+            <li>귀속 기간: 발송 후 기본 14일 (매장 설정에서 바꿀 수 있어요)</li>
+            <li>같은 시술 카테고리의 예약만 인정</li>
+            <li>발송에 성공한 고객만 인정 (대조군 · 실패 제외)</li>
+          </ul>
         </div>
       </section>
 
-      <section className="pf-card" aria-label="캠페인별 성과">
-        <h2>캠페인별 성과</h2>
-        <div style={{ overflowX: 'auto' }}>
-          <table className="pf-tbl">
-            <thead>
-              <tr><th>캠페인</th><th>발송</th><th>도달</th><th>재예약</th><th>재방문</th><th>연결 매출</th></tr>
-            </thead>
-            <tbody>
-              {CAMPS.map((x) => (
-                <tr key={x.id}>
-                  <td><AppLink href="/campaigns" style={{ color: '#221D1B', fontWeight: 600 }}>{x.name}</AppLink><div className="pf-note">{x.date} 발송 · {x.cat}</div></td>
-                  <td className="num">{x.sent}</td>
-                  <td className="num">{x.reach}</td>
-                  <td className="num" style={{ color: '#7A4450', fontWeight: 600 }}>{x.rebook} ({pct(x.rebook, x.sent)}%)</td>
-                  <td className="num">{x.visit}</td>
-                  <td className="num">{won(x.sales)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <AppLink href="/campaigns" className="pf-btn" style={{ color: '#fff' }}>유사 캠페인 만들기</AppLink>
-      </section>
-
-      <p className="pf-foot">모의 데이터로 생성한 값입니다. 발송 후 14일이 지나지 않은 캠페인은 진행 중 성과예요.</p>
+      <p className="pf-foot">모의 데이터로 생성한 결과값이에요. 발송 후 귀속 기간이 지나지 않은 캠페인은 진행 중 성과예요.</p>
     </div>
   );
 }
