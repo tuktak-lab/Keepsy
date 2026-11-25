@@ -130,6 +130,22 @@ public class Customer {
         healthCaution = health;
     }
 
+    /**
+     * 삭제(파기, FR-CUS-10, C12): 행은 남기고 식별 정보를 비운 뒤 {@code DELETED}로 바꾼다. 번호가 NULL이 되어 같은 번호로 다시 등록하면
+     * 새 고객이 된다. 유입 경로 · 등록일은 통계용으로 남긴다. 매핑하지 않은 예약 제한 사유는 서비스가 비운다.
+     */
+    void erase() {
+        name = null;
+        phone = null;
+        gender = null;
+        birthYear = null;
+        preferredLanguage = null;
+        serviceCaution = null;
+        healthCaution = null;
+        preferenceMemo = null;
+        status = Status.DELETED;
+    }
+
     /** 응답용 마스킹 {@code 010-****-1234} (NFR-04, A4). 연락처 전체는 CONTACT_FULL 권한 API에서만 */
     public static String maskPhone(String phone) {
         return phone == null ? null : phone.substring(0, 4) + "****" + phone.substring(8);

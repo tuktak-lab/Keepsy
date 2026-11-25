@@ -117,6 +117,18 @@ public class CampaignService {
                 reconfirmQuery.count(shopId, today));
     }
 
+    /**
+     * 고객 삭제 (FR-CUS-10, C12): 그 고객 발송 기록의 수신 번호 · 치환 본문을 비운다. 발송 결과 · 귀속 통계는 남긴다. 부르는 쪽 트랜잭션에서 함께
+     * 커밋된다.
+     */
+    @Transactional
+    public void eraseRecipient(long shopId, long customerId) {
+        jdbc.update(
+                "UPDATE campaign_message SET recipient_phone = NULL, body = NULL"
+                        + " WHERE shop_id = :shopId AND customer_id = :customerId",
+                Map.of("shopId", shopId, "customerId", customerId));
+    }
+
     private static ApiException invalid(String field, String reason) {
         return new ApiException(
                 ErrorCode.INVALID, reason, List.of(new FieldViolation(field, reason)));

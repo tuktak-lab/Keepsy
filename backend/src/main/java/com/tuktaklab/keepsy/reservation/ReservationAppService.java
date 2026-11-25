@@ -166,6 +166,22 @@ public class ReservationAppService {
         passOnAttribution(shopId, reservation);
     }
 
+    /** 고객 삭제 전 확인 (FR-CUS-10): 삭제하면 취소될 확정 예약 수. 시작 시각과 관계없다 */
+    @Transactional(readOnly = true)
+    public int confirmedCount(long shopId, long customerId) {
+        return reservations.countConfirmed(shopId, customerId);
+    }
+
+    /**
+     * 고객 삭제 (FR-CUS-10, C12): 마감 안 된 지난 예약을 포함해 확정 예약을 모두 취소해 그 시간을 풀고, 그 고객 예약의 메모를 비운다. 고객의 다른 확정
+     * 예약이 남지 않으므로 귀속 승계는 하지 않는다. 부르는 쪽 트랜잭션에서 함께 커밋된다.
+     */
+    @Transactional
+    public void releaseForDeletedCustomer(long shopId, long customerId) {
+        reservations.cancelConfirmed(shopId, customerId);
+        reservations.clearMemos(shopId, customerId);
+    }
+
     /** {@code POST /api/reservations/{id}/no-show}. 시작 시각이 지난 확정 예약만 (C8). 고객 없는 예약도 된다 (E3) */
     @Transactional
     public void markNoShow(long shopId, long reservationId) {

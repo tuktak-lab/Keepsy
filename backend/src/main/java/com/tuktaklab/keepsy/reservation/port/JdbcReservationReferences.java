@@ -180,7 +180,9 @@ class JdbcReservationReferences implements ReservationReferences {
         return jdbc
                 .query(
                         "SELECT reservation_restricted, reservation_restrict_reason FROM customer"
-                                + " WHERE id = :customerId AND shop_id = :shopId AND status = 'ACTIVE'",
+                                + " WHERE id = :customerId AND shop_id = :shopId AND status = 'ACTIVE'"
+                                // 고객 삭제(행 잠금)가 끝날 때까지 기다려 삭제된 고객에게 확정 예약이 남지 않게 한다 (C12)
+                                + " FOR SHARE",
                         Map.of("shopId", shopId, "customerId", customerId),
                         (rs, i) ->
                                 new CustomerState(
