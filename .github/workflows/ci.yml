@@ -20,7 +20,7 @@ jobs:
         image: mysql:8.4
         # CI 컨테이너 안에서만 쓰는 임시 값. 실제 비밀 값이 아니다.
         env:
-          MYSQL_DATABASE: keepsy
+          MYSQL_DATABASE: keepsy_test
           MYSQL_USER: keepsy
           MYSQL_PASSWORD: keepsy-ci
           MYSQL_ROOT_PASSWORD: keepsy-ci-root
@@ -33,16 +33,14 @@ jobs:
           --health-timeout=5s
           --health-retries=20
 
-    # application.yaml이 읽는 값. 로컬의 ../.env 대신 환경 변수로 준다.
+    # 테스트 DB 값. 테스트 지원 클래스 TestDatabaseGuard가 읽어 위 서비스 컨테이너를 가리킨다 (Keepsy #330).
+    # DB 이름은 _test로 끝나야 한다. 사진 경로 · 서명 키는 TestDatabaseGuard가 테스트 값으로 고정한다
     env:
-      MYSQL_HOST: 127.0.0.1
-      MYSQL_PORT: 3306
-      MYSQL_DATABASE: keepsy
-      MYSQL_USER: keepsy
-      MYSQL_PASSWORD: keepsy-ci
-      # 사진 저장소 (F16). CI에서만 쓰는 임시 값이다.
-      APP_STORAGE_DIR: build/ci-photos
-      APP_STORAGE_SIGNING_KEY: keepsy-ci-only-signing-key-not-a-secret
+      MYSQL_TEST_HOST: 127.0.0.1
+      MYSQL_TEST_PORT: 3306
+      MYSQL_TEST_DATABASE: keepsy_test
+      MYSQL_TEST_USER: keepsy
+      MYSQL_TEST_PASSWORD: keepsy-ci
 
     defaults:
       run:

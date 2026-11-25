@@ -35,6 +35,8 @@ spring:
 # 세션 쿠키 (NFR-02, CONTRACTS 1장). Secure는 Spring 기본값(false)을 그대로 쓴다. 로컬은 http이고, HTTPS로 운영하게 되면 그때 켠다
 # (docs DEVELOPMENT 5장, ARCHITECTURE 3장, 팀 결정).
 server:
+  # 이 PC에서만 접속한다 (결정 F64). 비로그인 가상 메일함(F59)이 같은 네트워크에 노출되지 않게
+  address: 127.0.0.1
   servlet:
     session:
       cookie:

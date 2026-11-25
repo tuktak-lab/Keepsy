@@ -11,10 +11,38 @@ services:
     command:
       - --character-set-server=utf8mb4
       - --default-time-zone=+09:00
+    # 이 PC에서만 접속한다 (결정 F64). 같은 네트워크의 다른 기기에는 열지 않는다
     ports:
-      - "${MYSQL_PORT:-3306}:3306"
+      - "127.0.0.1:${MYSQL_PORT:-3306}:3306"
     volumes:
       - keepsy-mysql-data:/var/lib/mysql
+
+  # 백엔드 테스트 전용 DB (Keepsy #330). 일부 테스트가 모든 매장의 발송 대기 · 접근 로그를 바꾸므로 개발 DB와 나눈다.
+  # `docker compose --profile test up -d --wait mysql-test`로 띄운다(--wait: 접속 준비까지 기다림). 데이터는 메모리(tmpfs)라 컨테이너를 내리면 사라진다.
+  # 값은 테스트 컨테이너 안에서만 쓰는 임시 값이고 실제 비밀 값이 아니다 (CI 서비스 컨테이너와 같은 방식).
+  mysql-test:
+    image: mysql:8.4
+    container_name: keepsy-mysql-test
+    profiles: [test]
+    environment:
+      MYSQL_DATABASE: keepsy_test
+      MYSQL_USER: keepsy_test
+      MYSQL_PASSWORD: keepsy-test
+      MYSQL_ROOT_PASSWORD: keepsy-test-root
+      TZ: Asia/Seoul
+    command:
+      - --character-set-server=utf8mb4
+      - --default-time-zone=+09:00
+    ports:
+      - "127.0.0.1:${MYSQL_TEST_PORT:-3307}:3306"
+    tmpfs:
+      - /var/lib/mysql
+    # 초기화 중 임시 서버는 TCP를 열지 않으므로, TCP ping이 되면 접속 준비가 끝난 것이다
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-ukeepsy_test", "-pkeepsy-test"]
+      interval: 3s
+      timeout: 3s
+      retries: 40
 
 volumes:
   keepsy-mysql-data:

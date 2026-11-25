@@ -19,6 +19,7 @@ docs 저장소를 이 저장소와 같은 상위 폴더에 `docs`라는 이름�
 
 1. `.env.example`을 복사해 `.env`를 만들고 값을 채웁니다.
 2. 실행 명령과 순서는 docs 저장소 [`docs/DEVELOPMENT.md` 6장 「실행 명령」](https://github.com/tuktak-lab/docs/blob/main/docs/DEVELOPMENT.md)을 따릅니다. "확인됨"으로 표시된 명령만 검증된 것입니다.
+3. 백엔드 테스트(`./gradlew test` · `build`)는 개발 DB가 아니라 테스트 전용 DB(`127.0.0.1:3307`, 데이터는 메모리)에 붙습니다. 먼저 저장소 루트에서 `docker compose --profile test up -d --wait mysql-test`로 띄웁니다. 테스트 DB가 없거나 DB 이름이 `_test`로 끝나지 않으면 테스트가 바로 실패합니다. 백엔드 · MySQL · 프론트 개발 서버는 이 PC(`127.0.0.1`)에서만 열립니다 (결정 F64).
 
 ## 협업
 
