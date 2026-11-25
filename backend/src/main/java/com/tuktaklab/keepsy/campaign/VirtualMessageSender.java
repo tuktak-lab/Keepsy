@@ -30,6 +30,7 @@ class VirtualMessageSender implements MessageSender {
     private static final Pattern PHONE = Pattern.compile("010-\\d{4}-\\d{4}");
 
     private final CampaignMessageRepository repository;
+    private final CampaignRepository campaigns;
     private final ShopSendSettings settings;
     private final RandomGenerator virtualSendRandom;
     private final Clock clock;
@@ -73,6 +74,8 @@ class VirtualMessageSender implements MessageSender {
             repository.completeIfPending(
                     m.getId(), reason == null ? SendStatus.SENT : SendStatus.FAILED, reason, now);
         }
+        // 대기 행이 모두 결과가 난 발송 중 캠페인은 발송 완료 (F7 「SENDING → SENT」)
+        campaigns.finishSent();
     }
 
     /**

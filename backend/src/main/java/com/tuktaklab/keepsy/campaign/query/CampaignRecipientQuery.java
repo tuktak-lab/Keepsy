@@ -2,7 +2,9 @@ package com.tuktaklab.keepsy.campaign.query;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -79,5 +81,24 @@ public class CampaignRecipientQuery {
                                 rs.getBoolean("night_ad"),
                                 rs.getObject("last_service_date", LocalDate.class),
                                 rs.getString("last_service_name")));
+    }
+
+    /**
+     * 대상 고객의 수신 번호 (즉시 발송 · 예약 발송, #96). 미리보기는 번호가 필요 없어 {@link Recipient}에 넣지 않았다. 삭제된 고객은 번호가 비어
+     * 있다 (C12)
+     *
+     * @return 고객 ID → 번호(저장 형식 010-0000-0000, 없으면 null)
+     */
+    public Map<Long, String> phones(long shopId, long campaignId) {
+        Map<Long, String> phones = new HashMap<>();
+        jdbc.query(
+                "SELECT t.customer_id, c.phone FROM campaign_target t"
+                        + " JOIN customer c ON c.id = t.customer_id"
+                        + " WHERE t.campaign_id = :campaignId AND t.shop_id = :shopId",
+                new MapSqlParameterSource("shopId", shopId).addValue("campaignId", campaignId),
+                rs -> {
+                    phones.put(rs.getLong("customer_id"), rs.getString("phone"));
+                });
+        return phones;
     }
 }

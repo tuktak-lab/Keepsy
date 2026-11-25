@@ -57,6 +57,9 @@ public class Campaign {
 
     private LocalDateTime reviewedAt;
 
+    /** 발송 시작 시각. 즉시 발송 · 예약 시각 도래 때 조건부 UPDATE로 채운다 (F7) */
+    private LocalDateTime sentAt;
+
     /**
      * 즉시 발송 · 예약 발송 전에 부른다 (FR-CMP-06, CONTRACTS 1장). 동의 재확인 안내 캠페인도 같다 (FR-CMP-13)
      *

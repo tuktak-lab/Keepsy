@@ -73,4 +73,40 @@ public class CampaignMessage {
         row.sendAfter = m.sendAfter();
         return row;
     }
+
+    /** 대조군 행: 발송하지 않고 비교용으로만 남긴다. 발송 상태 · 메시지 유형 · 본문이 없다 (FR-CMP-18) */
+    static CampaignMessage control(
+            long shopId, long campaignId, MessageKind kind, long customerId, String category) {
+        CampaignMessage row = new CampaignMessage();
+        row.shopId = shopId;
+        row.campaignId = campaignId;
+        row.kind = kind;
+        row.customerId = customerId;
+        row.category = category;
+        row.controlGroup = true;
+        return row;
+    }
+
+    /** 발송 시점 재확인으로 빠진 고객: 보내지 않고 실패와 사유로 남긴다 (F51) */
+    static CampaignMessage skipped(
+            long shopId,
+            long campaignId,
+            MessageKind kind,
+            long customerId,
+            String category,
+            String recipientPhone,
+            String reason,
+            LocalDateTime now) {
+        CampaignMessage row = new CampaignMessage();
+        row.shopId = shopId;
+        row.campaignId = campaignId;
+        row.kind = kind;
+        row.customerId = customerId;
+        row.category = category;
+        row.recipientPhone = recipientPhone;
+        row.sendStatus = SendStatus.FAILED;
+        row.failureReason = reason;
+        row.resultAt = now;
+        return row;
+    }
 }
