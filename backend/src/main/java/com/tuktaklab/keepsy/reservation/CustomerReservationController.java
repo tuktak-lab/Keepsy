@@ -1,5 +1,7 @@
 package com.tuktaklab.keepsy.reservation;
 
+import com.tuktaklab.keepsy.common.audit.AccessLogger;
+import com.tuktaklab.keepsy.common.audit.AccessLogger.Action;
 import com.tuktaklab.keepsy.common.security.FeatureKey;
 import com.tuktaklab.keepsy.common.security.RequireFeature;
 import com.tuktaklab.keepsy.common.security.ShopSession;
@@ -24,12 +26,17 @@ class CustomerReservationController {
 
     private final ReservationCalendarQuery query;
     private final ShopSession shopSession;
+    private final AccessLogger accessLogger;
 
     @GetMapping("/api/customers/{customerId}/reservations")
-    PageResponse<ReservationCalendarQuery.Item> list(
+    PageResponse<ReservationCalendarQuery.CustomerItem> list(
             @PathVariable long customerId,
             @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
-        return query.findByCustomer(shopSession.shopId(), customerId, page, size);
+        PageResponse<ReservationCalendarQuery.CustomerItem> result =
+                query.findByCustomer(shopSession.shopId(), customerId, page, size);
+        // 예약 메모를 보여 주므로 그 고객의 개인정보 조회 (NFR-06, 결정 F66. 예약 상세와 같음)
+        accessLogger.record(FeatureKey.RESERVATION, AccessLogger.CUSTOMER, customerId, Action.VIEW);
+        return result;
     }
 }

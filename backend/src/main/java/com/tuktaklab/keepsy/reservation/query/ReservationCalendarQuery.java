@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.BiFunction;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -40,6 +41,37 @@ public class ReservationCalendarQuery {
             Ref customer,
             List<Service> services) {}
 
+    /**
+     * 고객의 예약 목록 항목: 예약 필드에 예약 메모를 더한다 (결정 F66). 메모는 개인정보라 기간 조회({@link Item})에는 넣지 않고, 이 목록은 컨트롤러가
+     * 그 고객 조회로 접근 로그를 남긴다 (NFR-06).
+     */
+    public record CustomerItem(
+            long id,
+            String status,
+            OffsetDateTime startAt,
+            int minutes,
+            Ref staff,
+            boolean consultFirst,
+            String channel,
+            Ref customer,
+            List<Service> services,
+            String memo) {
+
+        static CustomerItem of(Item i, String memo) {
+            return new CustomerItem(
+                    i.id(),
+                    i.status(),
+                    i.startAt(),
+                    i.minutes(),
+                    i.staff(),
+                    i.consultFirst(),
+                    i.channel(),
+                    i.customer(),
+                    i.services(),
+                    memo);
+        }
+    }
+
     public record Ref(long id, String name) {}
 
     public record Service(long serviceMenuId, String name) {}
@@ -60,16 +92,18 @@ public class ReservationCalendarQuery {
                 Map.of(
                         "shopId", shopId,
                         "from", from.atStartOfDay(),
-                        "toExclusive", to.plusDays(1).atStartOfDay()));
+                        "toExclusive", to.plusDays(1).atStartOfDay()),
+                (item, memo) -> item);
     }
 
     /**
-     * 고객의 예약 목록 (FR-CUS-03, CONTRACTS 6장 「예약 (RSV)」). 시작 시각이 늦은 순, 상태와 관계없이.
+     * 고객의 예약 목록 (FR-CUS-03, CONTRACTS 6장 「고객 (CUS)」). 시작 시각이 늦은 순, 상태와 관계없이. 항목에 예약 메모를 넣는다 (F66).
      *
      * @throws ApiException 다른 매장 · 없는 · 삭제된 고객이면 {@code not_found}
      */
     @Transactional(readOnly = true)
-    public PageResponse<Item> findByCustomer(long shopId, long customerId, int page, int size) {
+    public PageResponse<CustomerItem> findByCustomer(
+            long shopId, long customerId, int page, int size) {
         Map<String, Object> p = Map.of("shopId", shopId, "customerId", customerId);
         if (jdbc.queryForList(
                         "SELECT 1 FROM customer WHERE id = :customerId AND shop_id = :shopId"
@@ -91,7 +125,8 @@ public class ReservationCalendarQuery {
                 items(
                         " AND r.customer_id = :customerId ORDER BY r.start_at DESC, r.id DESC"
                                 + " LIMIT :limit OFFSET :offset",
-                        paged),
+                        paged,
+                        CustomerItem::of),
                 page,
                 size,
                 total);
@@ -99,12 +134,13 @@ public class ReservationCalendarQuery {
 
     /**
      * @param tail 매장 조건 뒤에 붙일 조건 · 정렬 (사용자 입력을 넣지 않는다)
+     * @param row 예약 필드와 예약 메모로 응답 항목을 만든다. 메모를 응답에 넣을지는 부르는 쪽이 정한다
      */
-    private List<Item> items(String tail, Map<String, Object> p) {
-        List<Item> items = new ArrayList<>();
+    private <T> List<T> items(String tail, Map<String, Object> p, BiFunction<Item, String, T> row) {
+        List<T> items = new ArrayList<>();
         Map<Long, List<Service>> servicesById = new HashMap<>();
         jdbc.query(
-                "SELECT r.id, r.status, r.start_at, r.end_at, r.consult_first, r.channel,"
+                "SELECT r.id, r.status, r.start_at, r.end_at, r.consult_first, r.channel, r.memo,"
                         + " st.id AS staff_id, st.name AS staff_name, c.id AS customer_id, c.name AS customer_name"
                         + " FROM reservation r JOIN staff st ON st.id = r.staff_id"
                         + " LEFT JOIN customer c ON c.id = r.customer_id"
@@ -117,7 +153,7 @@ public class ReservationCalendarQuery {
                     Long customerId = rs.getObject("customer_id", Long.class);
                     List<Service> services = new ArrayList<>();
                     servicesById.put(rs.getLong("id"), services);
-                    items.add(
+                    Item item =
                             new Item(
                                     rs.getLong("id"),
                                     rs.getString("status"),
@@ -129,7 +165,8 @@ public class ReservationCalendarQuery {
                                     customerId == null
                                             ? null
                                             : new Ref(customerId, rs.getString("customer_name")),
-                                    services));
+                                    services);
+                    items.add(row.apply(item, rs.getString("memo")));
                 });
         if (!servicesById.isEmpty()) {
             // 예정 시술은 한 번에 읽는다 (반복문 안 조회 없음, DEVELOPMENT 4장)
