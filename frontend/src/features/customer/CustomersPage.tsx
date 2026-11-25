@@ -127,6 +127,7 @@ export default function CustomersPage() {
             </div>
             <div className="row" style={{ gap: '8px' }}>
               <AppLink href="/customers/retention" className="btn">파기 대상</AppLink>
+              <AppLink href="/customers/import" className="btn">CSV 일괄 등록</AppLink>
               <AppLink href="/customers/new" className="btn btn-p">+ 고객 등록</AppLink>
             </div>
           </div>
