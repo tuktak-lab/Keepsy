@@ -105,7 +105,11 @@ export default function ConsentTabletPage() {
         {(step === 'form' || step === 'saving') && (
           <>
             <h1 className={styles.title}>{name} 고객님, 동의 항목을 확인해 주세요</h1>
-            <p className={styles.sub}>원하시는 항목만 체크해 주세요. 선택 항목은 동의하지 않아도 시술을 받으실 수 있고, 언제든 바꾸실 수 있어요.</p>
+            <p className={styles.sub}>
+              원하시는 항목만 체크해 주세요.
+              <br />
+              선택 항목은 동의하지 않아도 시술을 받으실 수 있고, 언제든 바꾸실 수 있어요.
+            </p>
 
             <div className={styles.items}>
               <label className={`${styles.item} ${styles.required}`}>
