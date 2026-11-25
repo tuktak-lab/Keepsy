@@ -25,4 +25,10 @@ public interface VisitRepository extends JpaRepository<Visit, Long> {
             "select vs.attributedMessageId from VisitService vs where vs.shopId = :shopId"
                     + " and vs.visit.id <> :visitId and vs.attributedMessageId in :messageIds")
     List<Long> findClaimedMessageIds(long shopId, long visitId, Collection<Long> messageIds);
+
+    /** 고객들의 방문과 시술 (CSV 가져오기 중복 판정, F50). 한 번에 읽는다 */
+    @Query(
+            "select distinct v from Visit v left join fetch v.services where v.shopId = :shopId"
+                    + " and v.customerId in :customerIds")
+    List<Visit> findWithServices(long shopId, Collection<Long> customerIds);
 }

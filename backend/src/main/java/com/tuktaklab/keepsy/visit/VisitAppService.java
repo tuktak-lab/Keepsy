@@ -10,8 +10,11 @@ import com.tuktaklab.keepsy.visit.Visit.ActualService;
 import com.tuktaklab.keepsy.visit.port.VisitReferences;
 import com.tuktaklab.keepsy.visit.port.VisitReferences.ReservationToClose;
 import java.time.Clock;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -315,6 +318,50 @@ public class VisitAppService {
                                 i.staffId(),
                                 i.cycleExcluded()))
                 .toList();
+    }
+
+    /** CSV 한 행의 방문 (FR-CUS-13) */
+    public record ImportedVisit(long customerId, LocalDate visitDate, String category) {}
+
+    /**
+     * CSV로 가져온 과거 방문을 더한다 (FR-CUS-13, C6, 결정 F50). 그날 방문이 없으면 {@code IMPORT} 방문과 메뉴 없는 시술을 만들고, 그날
+     * 가져온 방문이 있으면 새 카테고리만 시술을 더하고, 그날 매장 방문이 있으면 건드리지 않는다. 더해진 고객만 예측을 다시 계산한다. 부르는 쪽 트랜잭션에서 함께
+     * 커밋된다.
+     *
+     * @param items 다른 매장 고객이 아님은 부르는 쪽이 확인한다
+     * @return 항목마다 방문 · 시술을 더했는지, 같은 순서
+     */
+    @Transactional
+    public List<Boolean> importVisits(long shopId, List<ImportedVisit> items) {
+        if (items.isEmpty()) {
+            return List.of();
+        }
+        Map<String, Visit> byDay = new HashMap<>();
+        for (Visit v :
+                visits.findWithServices(
+                        shopId,
+                        items.stream().map(ImportedVisit::customerId).distinct().toList())) {
+            byDay.put(v.getCustomerId() + ":" + v.getVisitDate(), v);
+        }
+        List<Boolean> added = new ArrayList<>(items.size());
+        Set<Long> changed = new HashSet<>();
+        for (ImportedVisit i : items) {
+            Visit visit =
+                    byDay.computeIfAbsent(
+                            i.customerId() + ":" + i.visitDate(),
+                            k ->
+                                    visits.save(
+                                            Visit.imported(shopId, i.customerId(), i.visitDate())));
+            boolean add = visit.addImportedService(i.category());
+            added.add(add);
+            if (add) {
+                changed.add(i.customerId());
+            }
+        }
+        // 예측 재계산은 JDBC로 방문을 읽으므로 먼저 내보낸다
+        visits.flush();
+        refs.recalculatePredictions(shopId, changed);
+        return added;
     }
 
     private static boolean anyCycleExcluded(List<Closing.Item> items) {

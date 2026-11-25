@@ -68,6 +68,7 @@ class CustomerControllerTest {
 
     @Autowired MockMvc mvc;
     @MockitoBean CustomerService service;
+    @MockitoBean CustomerImportService importService;
     @MockitoBean FeatureSettingsReader settings;
     @MockitoBean AccessLogger accessLogger;
 

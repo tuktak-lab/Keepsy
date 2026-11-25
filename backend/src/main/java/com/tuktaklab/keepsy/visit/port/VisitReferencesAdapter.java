@@ -52,6 +52,11 @@ class VisitReferencesAdapter implements VisitReferences {
     }
 
     @Override
+    public void recalculatePredictions(long shopId, Collection<Long> customerIds) {
+        predictions.recalculate(shopId, customerIds);
+    }
+
+    @Override
     public void recalculatePrediction(long shopId, long customerId) {
         predictions.recalculate(shopId, customerId);
     }
