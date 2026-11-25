@@ -193,9 +193,7 @@ public class VisitAppService {
      */
     @Transactional
     public void deleteVisit(long shopId, long visitId) {
-        Visit visit =
-                visits.findForUpdateByIdAndShopId(visitId, shopId)
-                        .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND));
+        Visit visit = lockVisit(shopId, visitId);
         if (visit.getCustomerId() == null) {
             // 되돌리면 다시 마감할 때 고객을 연결할 수 있어 "고객 없음 방문은 나중에 고객과 연결하지 않음"(E3)을 우회한다
             throw new ApiException(ErrorCode.CONFLICT, "고객 없음으로 마감한 방문은 삭제할 수 없습니다");
@@ -221,9 +219,7 @@ public class VisitAppService {
         if (items == null || items.isEmpty()) {
             throw new ApiException(ErrorCode.INVALID, "실제 시술을 1개 이상 골라 주세요");
         }
-        Visit visit =
-                visits.findForUpdateByIdAndShopId(visitId, shopId)
-                        .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND));
+        Visit visit = lockVisit(shopId, visitId);
         if (visit.getSource() == VisitSource.IMPORT) {
             // 메뉴 · 스탭 없이 카테고리만 있는 방문. 가져오기(FR-CUS-13)를 구현할 때 다시 정한다 (F25)
             throw new ApiException(ErrorCode.CONFLICT, "가져온 방문은 수정할 수 없습니다");
@@ -237,6 +233,25 @@ public class VisitAppService {
         if (visit.getCustomerId() != null) {
             refs.recalculatePrediction(shopId, visit.getCustomerId());
         }
+    }
+
+    /**
+     * 방문 수정 · 삭제 잠금 (#337). 고객 있는 방문은 고객 → 방문 순서로, 첫 일반 조회보다 먼저 잠근다. 마감(고객 → 예약 → 방문)과 순서가 같아 교착하지
+     * 않고, 예측 재계산이 같은 고객의 앞선 마감 · 수정을 본다. 삭제는 그 뒤 예약을 되돌린다(고객 → 방문 → 예약). 방문의 고객은 바뀌지 않지만 잠그기 전에 따로
+     * 읽으므로 다시 비교한다.
+     */
+    private Visit lockVisit(long shopId, long visitId) {
+        Long customerId = visits.findCustomerIdByIdAndShopId(visitId, shopId).orElse(null);
+        if (customerId != null) {
+            refs.lockCustomer(shopId, customerId);
+        }
+        Visit visit =
+                visits.findForUpdateByIdAndShopId(visitId, shopId)
+                        .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND));
+        if (!Objects.equals(customerId, visit.getCustomerId())) {
+            throw new ApiException(ErrorCode.CONFLICT, "방문 정보가 바뀌었습니다. 다시 시도해 주세요");
+        }
+        return visit;
     }
 
     private Payment findPayment(long shopId, long paymentId) {
