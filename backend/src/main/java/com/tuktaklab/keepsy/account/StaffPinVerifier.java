@@ -25,7 +25,7 @@ public class StaffPinVerifier {
 
     /**
      * PIN은 해시라 매장 활성 스탭의 해시와 하나씩 비교한다 (ARCHITECTURE 5장 「PIN 중복 검사」). 매장 행을 잠근 한 트랜잭션에서 차단 확인 → 비교 →
-     * 횟수 갱신을 하고, 실패해도 횟수는 저장한다.
+     * 횟수 갱신을 하고, 실패해도 횟수는 저장한다. 근무자 전환과 잠긴 기능 인증이 같은 횟수를 쓰고, 성공해도 횟수를 되돌리지 않는다 (F60).
      *
      * @param lockedFeatureRequired 잠긴 기능 PIN 인증이면 true: "잠긴 기능 사용 허용" 스탭만 비교한다 (FR-ACC-08). 허용이 꺼진
      *     스탭의 PIN은 틀린 PIN과 똑같이 실패로 센다
@@ -44,7 +44,6 @@ public class StaffPinVerifier {
                 continue;
             }
             if (passwordEncoder.matches(pin, staff.getPinHash())) {
-                shop.pinSucceeded();
                 return staff;
             }
         }
