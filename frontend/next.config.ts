@@ -4,7 +4,8 @@ import { PHASE_DEVELOPMENT_SERVER } from 'next/constants';
 // 정적 빌드(A14, docs ARCHITECTURE 3장)
 // - `next build`는 `output: 'export'`로 `out/`에 정적 파일을 만든다.
 // - `/api/**` → 백엔드(8080) rewrites는 개발 서버에서만 켠다. 정적 빌드에는 rewrites가 들어가지 않는다.
-const BACKEND_URL = 'http://localhost:8080';
+// - 백엔드는 127.0.0.1에만 열려 있다(결정 F64). `localhost`는 ::1(IPv6)로 먼저 풀릴 수 있어 주소를 그대로 쓴다.
+const BACKEND_URL = 'http://127.0.0.1:8080';
 
 export default function nextConfig(phase: string): NextConfig {
   const base: NextConfig = {

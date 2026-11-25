@@ -33,13 +33,13 @@ jobs:
           --health-timeout=5s
           --health-retries=20
 
-    # application.yaml이 읽는 값. 로컬의 ../.env 대신 환경 변수로 준다.
+    # 테스트 설정(src/test/resources/config/application.yaml)이 읽는 테스트 DB 값. 위 서비스 컨테이너를 가리킨다 (Keepsy #330).
     env:
-      MYSQL_HOST: 127.0.0.1
-      MYSQL_PORT: 3306
-      MYSQL_DATABASE: keepsy
-      MYSQL_USER: keepsy
-      MYSQL_PASSWORD: keepsy-ci
+      MYSQL_TEST_HOST: 127.0.0.1
+      MYSQL_TEST_PORT: 3306
+      MYSQL_TEST_DATABASE: keepsy
+      MYSQL_TEST_USER: keepsy
+      MYSQL_TEST_PASSWORD: keepsy-ci
       # 사진 저장소 (F16). CI에서만 쓰는 임시 값이다.
       APP_STORAGE_DIR: build/ci-photos
       APP_STORAGE_SIGNING_KEY: keepsy-ci-only-signing-key-not-a-secret
