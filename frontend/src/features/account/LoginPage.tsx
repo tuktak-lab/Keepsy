@@ -92,6 +92,8 @@ export default function LoginPage() {
         </form>
 
         <p className={styles.foot}>
+          <Link href="/password-reset">비밀번호를 잊으셨나요?</Link>
+          <br />
           처음이신가요? <Link href="/signup">매장 가입</Link>
         </p>
       </section>
