@@ -445,6 +445,12 @@ public class Shop {
         loginLockedUntil = null;
     }
 
+    /** 비밀번호 재설정 (FR-ACC-06, F49). 잊어서 여러 번 틀려 잠긴 경우도 풀어 준다 */
+    void resetPassword(String passwordHash) {
+        this.passwordHash = passwordHash;
+        loginSucceeded();
+    }
+
     boolean isPinLocked(LocalDateTime now) {
         return pinLockedUntil != null && now.isBefore(pinLockedUntil);
     }
