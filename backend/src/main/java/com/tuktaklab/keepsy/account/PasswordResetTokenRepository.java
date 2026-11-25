@@ -16,14 +16,17 @@ interface PasswordResetTokenRepository extends JpaRepository<PasswordResetToken,
      *
      * @return 바뀐 행 수 (0이면 이미 썼거나 만료)
      */
-    @Modifying(clearAutomatically = true)
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query(
             "UPDATE PasswordResetToken t SET t.usedAt = :now"
                     + " WHERE t.id = :id AND t.usedAt IS NULL AND t.expiresAt > :now")
     int useIfValid(@Param("id") long id, @Param("now") LocalDateTime now);
 
-    /** 그 매장의 아직 안 쓴 토큰을 모두 쓸 수 없게 한다 (재설정 성공 뒤, F49) */
-    @Modifying(clearAutomatically = true)
+    /**
+     * 그 매장의 아직 안 쓴 토큰을 모두 쓸 수 없게 한다 (재설정 성공 뒤, F49). 실행 전에 바꾼 비밀번호를 먼저 반영한다(flush). 안 그러면
+     * clearAutomatically가 아직 쓰지 않은 매장 변경을 버린다
+     */
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query(
             "UPDATE PasswordResetToken t SET t.usedAt = :now"
                     + " WHERE t.shopId = :shopId AND t.usedAt IS NULL")
