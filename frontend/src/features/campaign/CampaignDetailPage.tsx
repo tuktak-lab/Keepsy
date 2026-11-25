@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { AppLink } from '@/components/common/AppLink';
 import { Sidebar } from '@/components/layout/Sidebar';
@@ -12,7 +12,7 @@ import styleText from '../reservation/SchedulePage.css?inline';
 
 // 캠페인 결과 (FR-ANL-01 · 04 · 09, FR-CMP-10). 경로: /campaigns/detail?id=
 // API (docs CONTRACTS 4장): GET /api/campaigns/{id} (고객별 발송 결과) · …/funnel · …/control-comparison (CAMPAIGN_VIEW), …/revenue (SALES_ANALYTICS)
-// 결과는 모의 데이터로 만든 값임을 화면에 밝힌다 (E9). 대조군 주기 내 재방문율은 아직 응답에 없다 (F36).
+// 결과는 모의 데이터로 만든 값임을 화면에 밝힌다 (E9).
 
 type Message = {
   customerId: number;
@@ -38,7 +38,16 @@ type Campaign = {
   messages: Page<Message>;
 };
 type Funnel = { sentCount: number; reachedCount: number; rebookedCount: number; revisitedCount: number };
-type Control = { reachedCount: number; rebookedCount: number; controlCount: number; controlRebookedCount: number };
+type Control = {
+  reachedCount: number;
+  rebookedCount: number;
+  controlCount: number;
+  controlRebookedCount: number;
+  reachedCycleCount: number;
+  reachedCycleRevisitedCount: number;
+  controlCycleCount: number;
+  controlCycleRevisitedCount: number;
+};
 type Loaded = { id: number; campaign?: Campaign; funnel?: Funnel; control?: Control; error?: string };
 
 const errorText = (err: unknown) => (err instanceof ApiError ? err.message : '잠시 후 다시 열어 주세요');
@@ -256,26 +265,34 @@ function Funnel({ f }: { f: Funnel }) {
   );
 }
 
-/** 발송군 vs 대조군 재예약률 (FR-ANL-09, E2) */
+/** 발송군 vs 대조군 재예약률 · 주기 내 재방문율 (FR-ANL-09, E2, F36 · F57). 분모가 0인 비율은 '-' */
 function ControlComparison({ k }: { k: Control }) {
+  const rows: [string, number, number][] = [
+    ['발송군 재예약률', k.rebookedCount, k.reachedCount],
+    ['대조군 재예약률', k.controlRebookedCount, k.controlCount],
+    ['발송군 주기 내 재방문율', k.reachedCycleRevisitedCount, k.reachedCycleCount],
+    ['대조군 주기 내 재방문율', k.controlCycleRevisitedCount, k.controlCycleCount],
+  ];
   return (
     <div>
       <span className="lbl">대조군 비교</span>
       {k.controlCount === 0 ? (
         <p className="meta">대조군이 없는 캠페인이라 비교 대상이 아니에요.</p>
       ) : (
-        <dl className="d-dl" style={{ gridTemplateColumns: '120px 1fr' }}>
-          <dt>발송군 재예약률</dt>
-          <dd className="num">
-            <b>{rateText(k.rebookedCount, k.reachedCount) ?? '-'}</b> <span className="meta">({k.rebookedCount} / {k.reachedCount}명)</span>
-          </dd>
-          <dt>대조군 재예약률</dt>
-          <dd className="num">
-            <b>{rateText(k.controlRebookedCount, k.controlCount) ?? '-'}</b> <span className="meta">({k.controlRebookedCount} / {k.controlCount}명)</span>
-          </dd>
+        <dl className="d-dl" style={{ gridTemplateColumns: '160px 1fr' }}>
+          {rows.map(([label, n, base]) => (
+            <Fragment key={label}>
+              <dt>{label}</dt>
+              <dd className="num">
+                <b>{rateText(n, base) ?? '-'}</b> <span className="meta">({n} / {base}명)</span>
+              </dd>
+            </Fragment>
+          ))}
         </dl>
       )}
-      <p className="meta" style={{ marginTop: 6 }}>주기 내 재방문율 비교는 아직 서버에서 계산하지 않아요 (결정 F36). 계산이 추가되면 여기에 함께 보여요.</p>
+      <p className="meta" style={{ marginTop: 6 }}>
+        주기 내 재방문율은 발송 시각의 예측으로 셀 수 있는 고객만 분모에 넣어요. 예측이 없거나 셀 수 없는 고객은 빠져요.
+      </p>
     </div>
   );
 }
