@@ -125,7 +125,10 @@ export default function CustomersPage() {
               <h1 className="h1">고객 목록</h1>
               <p className="sub">이름이나 연락처 뒷자리로 찾고, 방문 횟수 · 시술 카테고리 · 예측 상태로 다시 만날 고객을 골라 보세요.</p>
             </div>
-            <AppLink href="/customers/new" className="btn btn-p">+ 고객 등록</AppLink>
+            <div className="row" style={{ gap: '8px' }}>
+              <AppLink href="/customers/retention" className="btn">파기 대상</AppLink>
+              <AppLink href="/customers/new" className="btn btn-p">+ 고객 등록</AppLink>
+            </div>
           </div>
 
           <div className="row" style={{ gap: '8px' }}>
