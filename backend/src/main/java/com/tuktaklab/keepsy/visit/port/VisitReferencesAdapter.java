@@ -73,6 +73,11 @@ class VisitReferencesAdapter implements VisitReferences {
     }
 
     @Override
+    public Long reservationCustomerId(long shopId, long reservationId) {
+        return reservations.customerIdForClosing(shopId, reservationId);
+    }
+
+    @Override
     public void completeReservation(
             long shopId, long reservationId, long visitId, boolean confirmServices) {
         reservations.complete(shopId, reservationId, visitId, confirmServices);

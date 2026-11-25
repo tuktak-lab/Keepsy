@@ -18,6 +18,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
@@ -46,7 +47,7 @@ public class VisitAppService {
      */
     @Transactional
     public long completeWithoutPayment(long shopId, long reservationId, List<Long> actualMenuIds) {
-        ReservationToClose r = refs.lockReservation(shopId, reservationId);
+        ReservationToClose r = lockForClosing(shopId, reservationId);
         if (!r.confirmed()) {
             throw new ApiException(ErrorCode.CONFLICT, "확정 예약만 완료할 수 있습니다");
         }
@@ -74,7 +75,7 @@ public class VisitAppService {
         if (in.method() == null || in.amount() < 0) {
             throw new ApiException(ErrorCode.INVALID, "금액과 결제 수단을 입력해 주세요");
         }
-        ReservationToClose r = refs.lockReservation(shopId, reservationId);
+        ReservationToClose r = lockForClosing(shopId, reservationId);
         boolean hasMemo = in.memo() != null && !in.memo().isBlank();
         Visit visit;
         if (r.confirmed()) {
@@ -230,6 +231,23 @@ public class VisitAppService {
                 .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND));
     }
 
+    /**
+     * 마감 잠금 (#336). 순서는 고객 → 예약 → 방문이고, 모든 잠금이 이 트랜잭션의 첫 일반 조회보다 먼저다. 그래서 같은 고객의 앞선 마감이 커밋한 방문 ·
+     * 예측을 스냅샷이 본다. 고객 삭제(고객 → 예약)와도 순서가 같아 교착하지 않는다. 고객 ID는 잠그기 전에 따로 읽으므로, 잠근 뒤 다르면(그사이 고객 연결)
+     * conflict.
+     */
+    private ReservationToClose lockForClosing(long shopId, long reservationId) {
+        Long customerId = refs.reservationCustomerId(shopId, reservationId);
+        if (customerId != null) {
+            refs.lockCustomer(shopId, customerId);
+        }
+        ReservationToClose r = refs.lockReservation(shopId, reservationId);
+        if (!Objects.equals(customerId, r.customerId())) {
+            throw new ApiException(ErrorCode.CONFLICT, "예약 정보가 바뀌었습니다. 다시 시도해 주세요");
+        }
+        return r;
+    }
+
     /** 확정 예약 하나를 방문에 붙이고 완료로 바꾼다. 고객이 있으면 같은 날 방문에 합치고, 없으면 예약마다 새 방문 (C6, E3) */
     private Visit completeWithVisit(long shopId, ReservationToClose r, List<Closing.Item> items) {
         if (items != null && items.isEmpty()) {
@@ -247,8 +265,7 @@ public class VisitAppService {
         if (r.customerId() == null) {
             visit = visits.save(Visit.fromReservation(shopId, null, r.date()));
         } else {
-            // 같은 고객 · 같은 날 방문 1건 (C6). 동시에 두 예약이 완료돼도 방문이 하나만 생기게 고객 행을 잠근다
-            refs.lockCustomer(shopId, r.customerId());
+            // 같은 고객 · 같은 날 방문 1건 (C6). 고객 행은 lockForClosing에서 이미 잠갔다
             visit =
                     visits.findByShopIdAndCustomerIdAndVisitDate(shopId, r.customerId(), r.date())
                             .orElseGet(() ->
