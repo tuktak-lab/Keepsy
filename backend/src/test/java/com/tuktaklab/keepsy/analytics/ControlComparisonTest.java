@@ -119,6 +119,72 @@ class ControlComparisonTest {
                 .andExpect(jsonPath("$.controlRebookedCount").value(3)); // P Q U
     }
 
+    /**
+     * 주기 내 재방문 (FR-ANL-09, F57). 캠페인 Y(10/1 10:00 발송)의 발송군과 대조군에 스냅샷을 직접 둔다. 재방문 = 발송 시각 예측의 실제 다음
+     * 방문일 ≤ 종료일 + 이탈 신호 기간
+     */
+    @Test
+    void 주기_내_재방문은_발송_시각_예측의_이탈_신호_기간_안에_다음_방문이_왔는지() throws Exception {
+        long y = campaign(shop, "AD", "NAIL", SENT_AT);
+        LocalDateTime before = SENT_AT.minusDays(20);
+        // 발송군 (도달)
+        snapshot(reached(y), before, "2026-10-05", 10, "2026-10-15"); // 끝날 = 10/15 → 재방문
+        snapshot(reached(y), before, "2026-10-05", 10, "2026-10-16"); // 하루 늦음
+        snapshot(reached(y), before, "2026-10-05", 10, null); // 아직 안 옴 → 분모에만
+        snapshot(reached(y), before, "2026-10-05", null, "2026-10-06"); // 기간 없는 옛 스냅샷 → 뺌
+        reached(y); // 스냅샷 없음(예측 없음 · 종료 신호) → 뺌
+        long twice = reached(y);
+        snapshot(twice, before.minusDays(30), "2026-09-10", 10, "2026-09-20"); // 발송 전에 끝난 예측
+        snapshot(twice, before, "2026-10-10", 5, "2026-10-03"); // 발송 때의 예측 → 재방문
+        snapshot(reached(y), SENT_AT.plusHours(1), "2026-10-05", 10, "2026-10-06"); // 발송 뒤 → 뺌
+        message(y, data.customer(shop, false, null), false, "FAILED"); // 실패는 어느 집단에도 없다
+        // 대조군
+        long c1 = control(y);
+        long c2 = control(y);
+        control(y); // 스냅샷 없음
+        snapshot(c1, before, "2026-10-08", 3, "2026-10-02");
+        snapshot(c2, before, "2026-10-08", 3, "2026-10-12"); // 끝날 10/11 다음날
+
+        mvc.perform(get("/api/campaigns/{id}/control-comparison", y).session(session(true)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.reachedCount").value(7))
+                .andExpect(jsonPath("$.reachedCycleCount").value(4))
+                .andExpect(jsonPath("$.reachedCycleRevisitedCount").value(2))
+                .andExpect(jsonPath("$.controlCount").value(3))
+                .andExpect(jsonPath("$.controlCycleCount").value(2))
+                .andExpect(jsonPath("$.controlCycleRevisitedCount").value(1));
+        // 스냅샷이 없는 기존 캠페인은 0
+        mvc.perform(get("/api/campaigns/{id}/control-comparison", campaignX).session(session(true)))
+                .andExpect(jsonPath("$.reachedCycleCount").value(0))
+                .andExpect(jsonPath("$.controlCycleCount").value(0));
+    }
+
+    private long reached(long campaign) {
+        long customer = data.customer(shop, false, null);
+        message(campaign, customer, false, "SENT");
+        return customer;
+    }
+
+    private void snapshot(
+            long customer,
+            LocalDateTime createdAt,
+            String endDate,
+            Integer churnSignalDays,
+            String actualVisitDate) {
+        jdbc.update(
+                "INSERT INTO prediction_snapshot (shop_id, customer_id, category, created_at,"
+                        + " start_date, end_date, basis_visit_count, churn_signal_days,"
+                        + " actual_visit_date) VALUES (?, ?, 'NAIL', ?, DATE_SUB(?, INTERVAL 6 DAY),"
+                        + " ?, 2, ?, ?)",
+                shop,
+                customer,
+                createdAt,
+                endDate,
+                endDate,
+                churnSignalDays,
+                actualVisitDate);
+    }
+
     @Test
     void 대조군_기간은_조회할_때의_매장_귀속_기간을_쓴다() throws Exception {
         jdbc.update("UPDATE shop SET attribution_days = 7 WHERE id = ?", shop);

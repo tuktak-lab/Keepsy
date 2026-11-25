@@ -29,8 +29,16 @@ public class CampaignResultQuery {
             long sentCount, long reachedCount, long rebookedCount, long revisitedCount) {}
 
     /** 모두 고객 수. 발송군은 도달 고객, {@code controlCount}가 0이면 비교 대상이 아니다 (F36) */
+    /** 주기 내 재방문 네 값은 결정 F57 */
     public record ControlComparison(
-            long reachedCount, long rebookedCount, long controlCount, long controlRebookedCount) {}
+            long reachedCount,
+            long rebookedCount,
+            long controlCount,
+            long controlRebookedCount,
+            long reachedCycleCount,
+            long reachedCycleRevisitedCount,
+            long controlCycleCount,
+            long controlCycleRevisitedCount) {}
 
     /** 도달 · 재예약은 퍼널과 같은 값 (F35, F36) */
     public record RecentCampaign(
@@ -76,6 +84,28 @@ public class CampaignResultQuery {
                     + OF_CAMPAIGNS;
 
     private static final String REBOOKED_CUSTOMERS = "SELECT cm.customer_id" + REBOOKED;
+
+    /**
+     * 집단 고객 {@code cm}과 그 고객의 발송 시각 예측 {@code ps} (F57): 캠페인 카테고리 스냅샷 중 발송 시각 이전에 만들어졌고 실제 다음 방문일이
+     * 없거나 발송일 이후인 것 가운데 가장 먼저 만든 것. 이탈 신호 기간이 없는 스냅샷이면 고객을 뺀다. 앞에 집단 조건을 붙여 쓴다
+     */
+    private static final String CYCLE_SNAPSHOT =
+            " JOIN prediction_snapshot ps ON ps.id = (SELECT MIN(ps2.id) FROM prediction_snapshot ps2"
+                    + "   WHERE ps2.shop_id = c.shop_id AND ps2.customer_id = cm.customer_id"
+                    + "   AND ps2.category = c.category AND ps2.created_at <= c.sent_at"
+                    + "   AND (ps2.actual_visit_date IS NULL"
+                    + "   OR ps2.actual_visit_date >= DATE(c.sent_at)))"
+                    + " AND ps.churn_signal_days IS NOT NULL"
+                    + OF_CAMPAIGNS;
+
+    /** 재방문: 발송 시각 예측의 이탈 신호 기간이 끝나기 전에 다음 방문이 왔다 (FR-ANL-09, F57) */
+    private static final String CYCLE_COUNTS =
+            "SELECT COUNT(DISTINCT cm.customer_id) AS base,"
+                    + " COUNT(DISTINCT CASE WHEN ps.actual_visit_date"
+                    + "   <= DATE_ADD(ps.end_date, INTERVAL ps.churn_signal_days DAY)"
+                    + "   THEN cm.customer_id END) AS revisited"
+                    + " FROM campaign c JOIN campaign_message cm ON cm.campaign_id = c.id"
+                    + " AND cm.shop_id = c.shop_id AND ";
 
     private final NamedParameterJdbcTemplate jdbc;
 
@@ -154,6 +184,14 @@ public class CampaignResultQuery {
         if (!exists(p)) {
             return Optional.empty();
         }
+        Map<String, Object> reachedCycle =
+                jdbc.queryForMap(
+                        CYCLE_COUNTS
+                                + "cm.control_group = FALSE AND cm.send_status = 'SENT'"
+                                + CYCLE_SNAPSHOT,
+                        p);
+        Map<String, Object> controlCycle =
+                jdbc.queryForMap(CYCLE_COUNTS + "cm.control_group = TRUE" + CYCLE_SNAPSHOT, p);
         return Optional.ofNullable(
                 jdbc.queryForObject(
                         "SELECT"
@@ -184,7 +222,11 @@ public class CampaignResultQuery {
                                         rs.getLong("reached"),
                                         rs.getLong("rebooked"),
                                         rs.getLong("control"),
-                                        rs.getLong("control_rebooked"))));
+                                        rs.getLong("control_rebooked"),
+                                        count(reachedCycle, "base"),
+                                        count(reachedCycle, "revisited"),
+                                        count(controlCycle, "base"),
+                                        count(controlCycle, "revisited"))));
     }
 
     /**
@@ -224,6 +266,10 @@ public class CampaignResultQuery {
                                 TimeConfig.offset(rs.getObject("sent_at", LocalDateTime.class)),
                                 rs.getLong("reached"),
                                 rs.getLong("rebooked")));
+    }
+
+    private static long count(Map<String, Object> row, String key) {
+        return ((Number) row.get(key)).longValue();
     }
 
     private static Map<String, Object> params(long shopId, long campaignId) {

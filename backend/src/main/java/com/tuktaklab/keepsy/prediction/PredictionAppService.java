@@ -102,6 +102,7 @@ public class PredictionAppService {
                                         s -> s,
                                         (a, b) -> a.getId() > b.getId() ? a : b));
         LocalDateTime now = LocalDateTime.now(clock);
+        int churnCapDays = visits.churnCapDays(shopId);
         List<PredictionSnapshot> snapshotSave = new ArrayList<>();
 
         List<CustomerPrediction> save = new ArrayList<>();
@@ -129,7 +130,9 @@ public class PredictionAppService {
                                                 customerId,
                                                 cat.getKey(),
                                                 result.get(),
+                                                churnCapDays,
                                                 now),
+                                churnCapDays,
                                 now)
                         .forEach(snapshotSave::add);
                 row.apply(result);
@@ -167,6 +170,7 @@ public class PredictionAppService {
             Optional<NextVisitPrediction> result,
             List<CategoryVisit> visits,
             Supplier<PredictionSnapshot> create,
+            int churnCapDays,
             LocalDateTime now) {
         LocalDate newBasis = result.map(NextVisitPrediction::lastVisitDate).orElse(null);
         boolean predicts = result.isPresent() && !result.get().endSignal();
@@ -187,7 +191,7 @@ public class PredictionAppService {
             }
         } else if (predicts) {
             if (open != null) {
-                open.rewrite(result.get(), now);
+                open.rewrite(result.get(), churnCapDays, now);
                 out.add(open);
             } else {
                 out.add(create.get());
