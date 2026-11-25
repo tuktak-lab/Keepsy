@@ -17,6 +17,9 @@ public interface VisitReferences {
     /** 완료 · 마감할 예약을 행 잠금으로 읽는다. 없거나 다른 매장 것이면 not_found */
     ReservationToClose lockReservation(long shopId, long reservationId);
 
+    /** 잠그기 전 예약의 고객 ID. 부르는 쪽 트랜잭션 밖에서 읽는다 (#336). 고객 없는 예약이면 null */
+    Long reservationCustomerId(long shopId, long reservationId);
+
     /** 예약을 완료로 바꾸고 방문을 연결한다 */
     void completeReservation(
             long shopId, long reservationId, long visitId, boolean confirmServices);

@@ -27,6 +27,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /** 예약 가능 시간 조회와 예약 등록 (FR-RSV-01·04). 매장은 호출하는 쪽이 세션에서 넘긴다 (NFR-03). */
@@ -287,6 +288,17 @@ public class ReservationAppService {
             List<Long> plannedMenuIds,
             LocalDateTime startAt,
             Map<String, Long> attributedMessageIds) {}
+
+    /**
+     * 마감 잠금 전에 예약의 고객 ID만 읽는다 (#336). 마감은 고객 → 예약 순서로 잠그는데 잠그기 전에 고객을 알아야 한다. 자기 트랜잭션에서 읽어 부르는 쪽
+     * 트랜잭션의 첫 일반 조회(스냅샷 시점)가 되지 않게 한다. 잠근 뒤 {@link #lockForClosing} 값과 다시 비교한다.
+     *
+     * @return 고객 없는 예약이면 null
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true)
+    public Long customerIdForClosing(long shopId, long reservationId) {
+        return find(shopId, reservationId).getCustomerId();
+    }
 
     /** 예약을 행 잠금으로 읽는다. 같은 예약의 완료 · 마감이 동시에 들어와도 한 번만 처리된다 */
     @Transactional
