@@ -39,6 +39,7 @@ class CampaignController {
     private final CampaignService campaigns;
     private final ShopSession shopSession;
     private final FeatureGuard featureGuard;
+    private final CampaignPreviewService previews;
 
     /** 대상 고르기 (CONTRACTS 6장). 캠페인 만들기도 같은 칸을 받는다 */
     record TargetsRequest(
@@ -130,5 +131,14 @@ class CampaignController {
             @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
         return campaigns.reconfirmTargets(shopSession.shopId(), page, size);
+    }
+
+    /** 캠페인 미리보기 (CONTRACTS 6장, F46 · F47). page · size는 고객별 결과의 페이지 */
+    @GetMapping("/api/campaigns/{campaignId}/preview")
+    CampaignPreviewService.Preview preview(
+            @PathVariable long campaignId,
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
+        return previews.preview(shopSession.shopId(), campaignId, page, size);
     }
 }
