@@ -27,6 +27,12 @@ public class InsightService {
                     PredictionStatus.CHURN_SIGNAL,
                     PredictionStatus.LONG_ABSENT);
 
+    /** 오늘 관리할 고객에 나오는 상태 (FR-DSH-02) */
+    private static final List<PredictionStatus> CARE_TARGETS =
+            List.of(PredictionStatus.DUE, PredictionStatus.CHURN_SIGNAL);
+
+    private static final int CARE_TARGET_LIMIT = 10;
+
     /** CONTRACTS 6장 「`GET /api/insights` 항목 필드」 */
     public record Item(
             long customerId,
@@ -58,28 +64,43 @@ public class InsightService {
         }
         List<PredictionStatus> statuses = status == null ? TABS : List.of(status);
         LocalDate today = LocalDate.now(clock);
-        List<Item> items =
-                query.find(shopId, statuses, category, today, page, size).stream()
-                        .map(r ->
-                                new Item(
-                                        r.customerId(),
-                                        r.name(),
-                                        r.category(),
-                                        r.status(),
-                                        r.lastServiceDate(),
-                                        ChronoUnit.DAYS.between(r.lastServiceDate(), today),
-                                        r.startDate(),
-                                        r.endDate(),
-                                        r.marketingConsent(),
-                                        NextAction.suggest(
-                                                        r.status(),
-                                                        r.marketingConsent(),
-                                                        r.marketingWithdrawn())
-                                                .orElse(null),
-                                        r.handlingMark(),
-                                        TimeConfig.offset(r.handlingMarkedAt())))
-                        .toList();
+        List<Item> items = items(shopId, statuses, category, today, page, size);
         return new PageResponse<>(
                 items, page, size, query.count(shopId, statuses, category, today));
+    }
+
+    /** 오늘 관리할 고객: 주기 도래 · 이탈 신호 행 우선순위 상위 10행 (FR-DSH-02, C13, CONTRACTS 6장) */
+    @Transactional(readOnly = true)
+    public List<Item> careTargets(long shopId) {
+        return items(shopId, CARE_TARGETS, null, LocalDate.now(clock), 0, CARE_TARGET_LIMIT);
+    }
+
+    private List<Item> items(
+            long shopId,
+            List<PredictionStatus> statuses,
+            String category,
+            LocalDate today,
+            int page,
+            int size) {
+        return query.find(shopId, statuses, category, today, page, size).stream()
+                .map(r ->
+                        new Item(
+                                r.customerId(),
+                                r.name(),
+                                r.category(),
+                                r.status(),
+                                r.lastServiceDate(),
+                                ChronoUnit.DAYS.between(r.lastServiceDate(), today),
+                                r.startDate(),
+                                r.endDate(),
+                                r.marketingConsent(),
+                                NextAction.suggest(
+                                                r.status(),
+                                                r.marketingConsent(),
+                                                r.marketingWithdrawn())
+                                        .orElse(null),
+                                r.handlingMark(),
+                                TimeConfig.offset(r.handlingMarkedAt())))
+                .toList();
     }
 }

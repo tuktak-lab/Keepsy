@@ -50,6 +50,13 @@ class PredictionController {
         return insightService.list(shopSession.shopId(), status, category, page, size);
     }
 
+    /** 오늘 관리할 고객 (FR-DSH-02). 대시보드 자체는 {@code DASHBOARD_SEARCH}지만 이 영역은 "인사이트" 설정을 따른다 (명세서 2장) */
+    @RequireFeature(FeatureKey.INSIGHT)
+    @GetMapping("/api/dashboard/care-targets")
+    List<InsightService.Item> careTargets() {
+        return insightService.careTargets(shopSession.shopId());
+    }
+
     /** null이거나 빠지면 표시를 지운다 (CONTRACTS 6장, F55) */
     record HandlingRequest(HandlingMark mark) {}
 
