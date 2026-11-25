@@ -175,9 +175,13 @@ function Body() {
           <h1 className="cp-h1">캠페인 관리</h1>
           <p className="cp-sub">시술 카테고리 하나를 정해 대상을 고르고, 제외 사유와 비용을 확인한 뒤 검토 후 발송해요.</p>
         </div>
-        <button type="button" className="cp-btn p" onClick={() => { setSel('new'); setDone(''); }}>
-          + 캠페인 만들기
-        </button>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          <AppLink href="/campaigns/templates" className="cp-btn">템플릿</AppLink>
+          <AppLink href="/virtual-phone" className="cp-btn">가상 휴대폰</AppLink>
+          <button type="button" className="cp-btn p" onClick={() => { setSel('new'); setDone(''); }}>
+            + 캠페인 만들기
+          </button>
+        </div>
       </div>
 
       <section className="cp-kpis cp-card" aria-label="캠페인 현황">
