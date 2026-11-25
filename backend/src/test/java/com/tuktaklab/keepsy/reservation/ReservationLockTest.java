@@ -142,10 +142,20 @@ class ReservationLockTest {
         }
     }
 
-    /** 다른 트랜잭션이 행 잠금을 기다리기 시작할 때까지 (고정 sleep 대신 조건 polling) */
+    /**
+     * 다른 연결이 예약 행 잠금을 기다리기 시작할 때까지 (고정 sleep 대신 조건 polling). 도우미가 행을 잡고 있으니 다른 연결에서 실행 중인 예약 {@code
+     * FOR UPDATE} 조회 · {@code UPDATE}는 그 잠금을 기다리는 중이다. CI 계정은 {@code performance_schema} 권한이 없어 같은
+     * 계정의 연결이 보이는 {@code information_schema.PROCESSLIST}를 쓴다.
+     */
     private void awaitLockWait(Future<?> command) {
         long deadline = System.nanoTime() + 10_000_000_000L;
-        while (count("SELECT count(*) FROM performance_schema.data_lock_waits") == 0) {
+        while (count(
+                        "SELECT count(*) FROM information_schema.PROCESSLIST"
+                                + " WHERE ID <> CONNECTION_ID() AND ("
+                                + " LOWER(INFO) LIKE 'update reservation set%'"
+                                + " OR (LOWER(INFO) LIKE '%from reservation %'"
+                                + " AND LOWER(INFO) LIKE '%for update%'))")
+                == 0) {
             if (command.isDone() || System.nanoTime() > deadline) {
                 throw new AssertionError("명령이 예약 잠금을 기다리지 않았습니다");
             }
