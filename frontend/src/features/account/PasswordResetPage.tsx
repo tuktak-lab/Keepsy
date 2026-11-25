@@ -78,6 +78,8 @@ function RequestForm() {
             가입된 매장 계정이면 <strong>{email.trim()}</strong>(으)로 재설정 링크를 보냈어요.
             <br />
             링크는 30분 동안만 쓸 수 있어요.
+            <br />
+            <Link href={`/virtual-mailbox?email=${encodeURIComponent(email.trim())}`}>가상 메일함 열기</Link> (시연용 · 실제 메일은 오가지 않아요)
           </p>
         ) : (
           <>
