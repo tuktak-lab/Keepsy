@@ -7,6 +7,7 @@ import com.tuktaklab.keepsy.common.error.ErrorCode;
 import com.tuktaklab.keepsy.common.error.GlobalExceptionHandler.FieldViolation;
 import com.tuktaklab.keepsy.common.security.FeatureKey;
 import com.tuktaklab.keepsy.common.web.PageResponse;
+import com.tuktaklab.keepsy.customer.port.UnsubscribeNotice;
 import com.tuktaklab.keepsy.customer.query.ConsentHistoryQuery;
 import com.tuktaklab.keepsy.customer.query.CustomerDetailQuery;
 import com.tuktaklab.keepsy.customer.query.CustomerListQuery;
@@ -49,6 +50,7 @@ public class CustomerService {
     private final AccessLogger accessLogger;
     private final PhotoStorage photoStorage;
     private final NamedParameterJdbcTemplate jdbc;
+    private final UnsubscribeNotice unsubscribeNotice;
     private final Clock clock;
 
     /**
@@ -188,21 +190,56 @@ public class CustomerService {
                 agreed
                         ? null
                         : withdrawalPath == null ? Consent.WithdrawalPath.DIRECT : withdrawalPath;
+        // 이미 수신 거부 상태였으면 이력은 쌓되 처리 안내는 다시 보내지 않는다 (F48)
+        boolean noticeNeeded =
+                path == Consent.WithdrawalPath.UNSUBSCRIBE && !alreadyUnsubscribed(customerId);
+        LocalDateTime now = LocalDateTime.now(clock);
         Consent row =
                 consentRepository.save(
-                        Consent.of(
-                                customer,
-                                item,
-                                agreed,
-                                method,
-                                path,
-                                staffId,
-                                LocalDateTime.now(clock)));
+                        Consent.of(customer, item, agreed, method, path, staffId, now));
         if (!agreed) {
             applyWithdrawal(customer, item);
         }
+        if (noticeNeeded) {
+            unsubscribeNotice.send(shopId, customerId, customer.getPhone(), now);
+        }
         accessLogger.record(FeatureKey.CONSENT, AccessLogger.CUSTOMER, customerId, Action.UPDATE);
         return row.getId();
+    }
+
+    /**
+     * 가상 휴대폰 [수신거부] (FR-CMP-11 · 16, E8, F48). 그 번호의 고객을 마케팅 철회(철회 경로 UNSUBSCRIBE)로 처리하고 처리 안내를 자동
+     * 발송한다. 고객 본인이 누른 것이라 처리 스탭 · 동의 방법은 비운다. 이미 수신 거부 상태면 아무것도 하지 않는다. 권한(CAMPAIGN_SEND)은 컨트롤러에서
+     * 검사한다.
+     *
+     * @param phone 저장 형식 010-0000-0000
+     * @throws ApiException 세션 매장에 그 번호의 활성 고객이 없으면 {@code not_found}
+     */
+    @Transactional
+    public void unsubscribeByPhone(long shopId, String phone) {
+        // 같은 번호의 요청이 겹쳐도 이력 · 안내가 한 번만 생기게 고객 행을 잠근다
+        Customer customer =
+                customerRepository
+                        .findForUpdateByShopIdAndPhoneAndStatus(
+                                shopId, phone, Customer.Status.ACTIVE)
+                        .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND));
+        if (alreadyUnsubscribed(customer.getId())) {
+            return;
+        }
+        LocalDateTime now = LocalDateTime.now(clock);
+        consentRepository.save(Consent.unsubscribedByCustomer(customer, now));
+        applyWithdrawal(customer, Consent.Item.MARKETING);
+        unsubscribeNotice.send(shopId, customer.getId(), customer.getPhone(), now);
+        accessLogger.record(
+                FeatureKey.CAMPAIGN_SEND, AccessLogger.CUSTOMER, customer.getId(), Action.UPDATE);
+    }
+
+    /** 마케팅 동의의 최신 행이 수신 거부 철회인지 (F48) */
+    private boolean alreadyUnsubscribed(long customerId) {
+        return consentRepository
+                .findFirstByCustomerIdAndItemOrderByIdDesc(customerId, Consent.Item.MARKETING)
+                .map(Consent::isUnsubscribed)
+                .orElse(false);
     }
 
     /**

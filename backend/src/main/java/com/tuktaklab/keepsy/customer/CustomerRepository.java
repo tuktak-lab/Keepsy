@@ -19,4 +19,9 @@ public interface CustomerRepository extends JpaRepository<Customer, Long> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<Customer> findForUpdateByIdAndShopIdAndStatus(
             long id, long shopId, Customer.Status status);
+
+    /** 번호로 찾아 잠근다. 같은 번호의 [수신거부]가 겹쳐도 이력 · 안내가 한 번만 생긴다 (FR-CMP-11, F48). 번호는 매장 안에서 고유하다 */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    Optional<Customer> findForUpdateByShopIdAndPhoneAndStatus(
+            long shopId, String phone, Customer.Status status);
 }

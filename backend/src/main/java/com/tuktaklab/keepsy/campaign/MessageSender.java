@@ -1,5 +1,6 @@
 package com.tuktaklab.keepsy.campaign;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -15,6 +16,7 @@ public interface MessageSender {
      * @param campaignId 수신 거부 처리 안내면 null (FR-CMP-11)
      * @param category 캠페인 카테고리. 동의 재확인 · 수신 거부 안내면 null (E7)
      * @param message 광고 표기까지 붙은 최종 본문. 2,000바이트 이하여야 한다 (FR-CMP-05)
+     * @param sendAfter 이 시각(서울) 이후 발송. null이면 바로. 야간에 접수된 수신 거부 처리 안내만 쓴다 (FR-CMP-07 · 11, F48)
      */
     record Outgoing(
             long shopId,
@@ -23,7 +25,21 @@ public interface MessageSender {
             long customerId,
             String category,
             String recipientPhone,
-            ComposedMessage message) {}
+            ComposedMessage message,
+            LocalDateTime sendAfter) {
+
+        /** 바로 보내는 메시지 */
+        public Outgoing(
+                long shopId,
+                Long campaignId,
+                MessageKind kind,
+                long customerId,
+                String category,
+                String recipientPhone,
+                ComposedMessage message) {
+            this(shopId, campaignId, kind, customerId, category, recipientPhone, message, null);
+        }
+    }
 
     /**
      * 고객별 발송 기록을 {@code PENDING}으로 남긴다. 결과(SENT · FAILED)는 구현이 나중에 채운다 (FR-CMP-10). 부르는 쪽 트랜잭션에서 함께

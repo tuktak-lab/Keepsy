@@ -93,6 +93,26 @@ public class Consent {
         return consent;
     }
 
+    /**
+     * 고객 본인이 가상 휴대폰 [수신거부]로 낸 마케팅 철회 (FR-CMP-11, F48). 스탭 없이 들어와 처리 스탭 · 동의 방법을 비운다 (명세서 5장
+     * consent).
+     */
+    static Consent unsubscribedByCustomer(Customer customer, LocalDateTime now) {
+        Consent consent = new Consent();
+        consent.shopId = customer.getShopId();
+        consent.customerId = customer.getId();
+        consent.item = Item.MARKETING;
+        consent.agreed = false;
+        consent.recordedAt = now;
+        consent.withdrawalPath = WithdrawalPath.UNSUBSCRIBE;
+        return consent;
+    }
+
+    /** 수신 거부로 철회된 상태인지 (마케팅 동의의 최신 행 기준, F48) */
+    boolean isUnsubscribed() {
+        return item == Item.MARKETING && !agreed && withdrawalPath == WithdrawalPath.UNSUBSCRIBE;
+    }
+
     static Consent agreed(
             Customer customer, Item item, Method method, long staffId, LocalDateTime now) {
         return of(customer, item, true, method, null, staffId, now);

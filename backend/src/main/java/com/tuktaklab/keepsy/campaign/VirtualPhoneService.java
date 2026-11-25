@@ -1,5 +1,6 @@
 package com.tuktaklab.keepsy.campaign;
 
+import com.tuktaklab.keepsy.campaign.port.CustomerUnsubscribe;
 import com.tuktaklab.keepsy.common.time.TimeConfig;
 import com.tuktaklab.keepsy.common.web.PageResponse;
 import java.time.OffsetDateTime;
@@ -14,6 +15,17 @@ import org.springframework.transaction.annotation.Transactional;
 public class VirtualPhoneService {
 
     private final CampaignMessageRepository messages;
+    private final CustomerUnsubscribe customers;
+
+    /**
+     * 가상 휴대폰 [수신거부] (FR-CMP-11 · 16, F48). 마케팅 철회 기록과 처리 안내는 고객 도메인이 한 트랜잭션에서 한다.
+     *
+     * @param phone 하이픈이 있든 없든 010으로 시작하는 11자리 (Controller가 검증)
+     */
+    @Transactional
+    public void unsubscribe(long shopId, String phone) {
+        customers.unsubscribe(shopId, normalize(phone));
+    }
 
     public record InboxItem(
             long id,
