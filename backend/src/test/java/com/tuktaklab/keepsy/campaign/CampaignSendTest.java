@@ -9,8 +9,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.tuktaklab.keepsy.common.error.ApiException;
 import com.tuktaklab.keepsy.common.error.ErrorCode;
 import com.tuktaklab.keepsy.common.security.ShopSession;
+import com.tuktaklab.keepsy.common.time.TimeConfig;
 import com.tuktaklab.keepsy.support.TestShopData;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -23,7 +28,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -48,6 +56,45 @@ class CampaignSendTest {
     @Autowired ShopSession shopSession;
     @Autowired CampaignSendService sendService;
     @Autowired VirtualMessageSender sender;
+    @Autowired MutableClock clock;
+
+    /** 야간 제한(F52)이 CI 시각(UTC)에 따라 흔들리지 않게 시계를 고정한다. 기본은 서울 오늘 14:00 */
+    @TestConfiguration
+    static class FixedClock {
+        @Bean
+        @Primary
+        MutableClock testClock() {
+            return new MutableClock();
+        }
+    }
+
+    /** 테스트에서 시각을 바꿀 수 있는 서울 시계 */
+    static class MutableClock extends Clock {
+        private volatile Instant now;
+
+        MutableClock() {
+            at(LocalDate.now(TimeConfig.ZONE).atTime(14, 0));
+        }
+
+        void at(LocalDateTime seoul) {
+            now = seoul.atZone(TimeConfig.ZONE).toInstant();
+        }
+
+        @Override
+        public ZoneId getZone() {
+            return TimeConfig.ZONE;
+        }
+
+        @Override
+        public Clock withZone(ZoneId zone) {
+            return Clock.fixed(now, zone);
+        }
+
+        @Override
+        public Instant instant() {
+            return now;
+        }
+    }
 
     private TestShopData data;
     private long shop;
@@ -66,6 +113,7 @@ class CampaignSendTest {
     @AfterEach
     void cleanUp() {
         data.cleanUp();
+        clock.at(LocalDate.now(TimeConfig.ZONE).atTime(14, 0));
     }
 
     @Test
@@ -185,6 +233,50 @@ class CampaignSendTest {
     }
 
     @Test
+    void 야간에도_광고이고_보낼_고객_전원이_야간_광고_동의면_보낸다() throws Exception {
+        clock.at(LocalDate.now(TimeConfig.ZONE).atTime(22, 0));
+        long a = nightConsentCustomer();
+        long b = nightConsentCustomer();
+        // 빠지는 고객 · 대조군은 야간 광고 동의가 없어도 막지 않는다 (F52)
+        long withdrawn = agreedCustomer();
+        consent(withdrawn, false);
+        long control = agreedCustomer();
+        long campaign = campaign(BODY, List.of(a, b, withdrawn), List.of(control), true);
+
+        send(campaign)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.sendCount").value(2))
+                .andExpect(jsonPath("$.skippedCount").value(1));
+    }
+
+    @Test
+    void 야간에_보낼_고객_중_한_명이라도_야간_광고_동의가_없으면_night_send_blocked이고_그대로() throws Exception {
+        clock.at(LocalDate.now(TimeConfig.ZONE).atTime(21, 0));
+        long campaign =
+                campaign(BODY, List.of(nightConsentCustomer(), agreedCustomer()), List.of(), true);
+
+        send(campaign)
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("night_send_blocked"));
+        assertThat(campaignRow(campaign)).containsEntry("status", "DRAFT");
+        assertThat(rowCount(campaign)).isZero();
+
+        // 08:00부터는 낮이라 보낸다
+        clock.at(LocalDate.now(TimeConfig.ZONE).plusDays(1).atTime(8, 0));
+        send(campaign).andExpect(status().isOk());
+    }
+
+    @Test
+    void 동의_재확인_안내는_야간_예외가_없다() throws Exception {
+        clock.at(LocalDate.now(TimeConfig.ZONE).atTime(23, 0));
+        long campaign = infoCampaign(List.of(nightConsentCustomer()));
+
+        send(campaign)
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("night_send_blocked"));
+    }
+
+    @Test
     void 다른_매장_캠페인은_not_found_PIN이_없으면_pin_required() throws Exception {
         long otherShop = data.shop();
         long other = campaignIn(otherShop, BODY, List.of(), true);
@@ -218,6 +310,48 @@ class CampaignSendTest {
     private long agreedCustomer() {
         long id = data.customer(shop, false, null);
         consent(id, true);
+        return id;
+    }
+
+    private long nightConsentCustomer() {
+        long id = agreedCustomer();
+        jdbc.update(
+                "INSERT INTO consent (shop_id, customer_id, item, agreed, recorded_at, staff_id, method)"
+                        + " VALUES (?, ?, 'NIGHT_AD', TRUE, ?, ?, 'TABLET')",
+                shop,
+                id,
+                LocalDateTime.of(2026, 1, 1, 0, 0),
+                staff);
+        return id;
+    }
+
+    /** 동의 재확인 안내 캠페인 (카테고리 없음, 메시지 종류 INFO) */
+    private long infoCampaign(List<Long> send) {
+        jdbc.update(
+                "INSERT INTO message_template (shop_id, name, body, purpose)"
+                        + " VALUES (?, '모의', '{고객명}님 동의 확인', 'CONSENT_RECONFIRM')",
+                shop);
+        long template =
+                jdbc.queryForObject(
+                        "SELECT MAX(id) FROM message_template WHERE shop_id = ?", Long.class, shop);
+        jdbc.update(
+                "INSERT INTO campaign (shop_id, name, template_id, message_kind, reviewed_by_staff_id, reviewed_at)"
+                        + " VALUES (?, '모의', ?, 'INFO', ?, ?)",
+                shop,
+                template,
+                staff,
+                LocalDateTime.now());
+        long id =
+                jdbc.queryForObject(
+                        "SELECT MAX(id) FROM campaign WHERE shop_id = ?", Long.class, shop);
+        for (long c : send) {
+            jdbc.update(
+                    "INSERT INTO campaign_target (shop_id, campaign_id, customer_id, control_group)"
+                            + " VALUES (?, ?, ?, FALSE)",
+                    shop,
+                    id,
+                    c);
+        }
         return id;
     }
 
