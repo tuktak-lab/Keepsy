@@ -10,7 +10,4 @@ public interface ShopSendSettings {
     record Settings(int failurePercent, int unitPrice) {}
 
     Settings of(long shopId);
-
-    /** 매장명. 수신 거부 처리 안내의 전송자 명칭에 쓴다 (FR-CMP-11, F48) */
-    String shopName(long shopId);
 }

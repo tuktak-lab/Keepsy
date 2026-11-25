@@ -1,7 +1,7 @@
 package com.tuktaklab.keepsy.campaign;
 
 import com.tuktaklab.keepsy.campaign.MessageSender.Outgoing;
-import com.tuktaklab.keepsy.campaign.port.ShopSendSettings;
+import com.tuktaklab.keepsy.campaign.port.ShopName;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
@@ -23,7 +23,7 @@ public class UnsubscribeNoticeService {
     static final LocalTime NIGHT_END = LocalTime.of(8, 0);
 
     private final MessageSender sender;
-    private final ShopSendSettings shopSettings;
+    private final ShopName shopName;
 
     /**
      * 처리 안내를 남긴다. 부르는 쪽(동의 철회) 트랜잭션에서 함께 커밋된다.
@@ -35,8 +35,7 @@ public class UnsubscribeNoticeService {
     public void send(
             long shopId, long customerId, String recipientPhone, LocalDateTime processedAt) {
         String body =
-                "[%s] %s 수신 거부가 처리되었습니다."
-                        .formatted(shopSettings.shopName(shopId), processedAt.toLocalDate());
+                "[%s] %s 수신 거부가 처리되었습니다.".formatted(shopName.of(shopId), processedAt.toLocalDate());
         sender.send(
                 List.of(
                         new Outgoing(
