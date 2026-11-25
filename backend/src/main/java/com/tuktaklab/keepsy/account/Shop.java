@@ -455,17 +455,15 @@ public class Shop {
         return pinLockedUntil != null && now.isBefore(pinLockedUntil);
     }
 
-    /** PIN이 틀렸을 때. 5회째면 5분 막고 횟수를 처음부터 다시 센다 */
+    /**
+     * PIN이 틀렸을 때. 5회째면 5분 막고 횟수를 처음부터 다시 센다. 성공해도 횟수를 되돌리지 않는다: 자기 PIN 성공으로 원장 PIN 추측 횟수를 비우지 못하게
+     * (F60, Keepsy #333)
+     */
     void pinFailed(LocalDateTime now) {
         pinFailCount++;
         if (pinFailCount >= PIN_MAX_FAILURES) {
             pinLockedUntil = now.plus(PIN_LOCK);
             pinFailCount = 0;
         }
-    }
-
-    void pinSucceeded() {
-        pinFailCount = 0;
-        pinLockedUntil = null;
     }
 }
