@@ -119,9 +119,7 @@ export default function ConsentTabletPage() {
                   <b>
                     {PRIVACY_TEXT.label} <em>필수</em>
                   </b>
-                  <span className={styles.desc}>{PRIVACY_TEXT.desc}</span>
-                  {privacyAgreed && <span className={styles.note}>이미 동의하셨어요. 철회를 원하시면 매장에 말씀해 주세요.</span>}
-                </span>
+                  <span className={styles.desc}>{PRIVACY_TEXT.desc}</span>                </span>
               </label>
 
               {OPTIONAL_CONSENTS.map(([item, label, desc]) => (

@@ -147,17 +147,12 @@
 }
 
 .desc,
-.note,
 .warn {
   display: block;
   margin-top: 4px;
   font-size: 14px;
   line-height: 1.6;
   color: var(--body);
-}
-
-.note {
-  color: var(--muted);
 }
 
 .warn {
