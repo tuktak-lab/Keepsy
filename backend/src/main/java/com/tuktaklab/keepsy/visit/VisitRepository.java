@@ -8,8 +8,18 @@ import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 public interface VisitRepository extends JpaRepository<Visit, Long> {
+
+    /**
+     * 잠그기 전 방문의 고객 ID (#337). 방문 수정 · 삭제는 고객 → 방문 순서로 잠그는데 잠그기 전에 고객을 알아야 한다. 자기 트랜잭션에서 읽어 부르는 쪽
+     * 트랜잭션의 첫 일반 조회(스냅샷 시점)가 되지 않게 한다. 없는 방문이거나 고객 없는 방문이면 empty
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true)
+    @Query("select v.customerId from Visit v where v.id = :id and v.shopId = :shopId")
+    Optional<Long> findCustomerIdByIdAndShopId(long id, long shopId);
 
     /** 방문 삭제 · 수정 때 행 잠금. 같은 방문을 동시에 지우면 하나만 성공한다 */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
