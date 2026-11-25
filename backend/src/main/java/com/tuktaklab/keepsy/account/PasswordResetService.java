@@ -90,16 +90,12 @@ public class PasswordResetService {
         tokens.invalidateUnused(shop.getId(), now);
     }
 
-    /** 세션 매장의 계정 이메일로 온 메일만, 최신순 (F49) */
+    /** 그 이메일 주소로 온 메일만, 최신순. 비로그인이라 매장으로 제한하지 않는다 (F59) */
     @Transactional(readOnly = true)
-    public PageResponse<MailItem> mailbox(long shopId, int page, int size) {
-        Shop shop =
-                shopRepository
-                        .findById(shopId)
-                        .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND));
+    public PageResponse<MailItem> mailbox(String email, int page, int size) {
         return PageResponse.of(
-                mails.findByShopIdAndRecipientEmailOrderBySentAtDescIdDesc(
-                        shopId, shop.getEmail(), PageRequest.of(page, size)),
+                mails.findByRecipientEmailOrderBySentAtDescIdDesc(
+                        email, PageRequest.of(page, size)),
                 m ->
                         new MailItem(
                                 m.getId(),
