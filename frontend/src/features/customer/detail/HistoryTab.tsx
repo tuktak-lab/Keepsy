@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useRef, useState } from 'react';
+import { useLoad } from '@/hooks/useLoad';
 import { toast } from '@/components/common/Toast';
 import { api, type Page } from '@/lib/api';
 import { CATEGORY_LABEL, dotDate } from '@/lib/customerDetail';
@@ -19,47 +20,32 @@ const MAX_BYTES = 10 * 1024 * 1024;
 const shown = (e: React.SyntheticEvent<HTMLImageElement>) => e.currentTarget.classList.remove('kp-img-wait');
 
 export function HistoryTab(props: { customerId: number; photoAgreed: boolean }) {
-  const [visits, setVisits] = useState<HistoryVisit[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loaded, setLoaded] = useState(false);
-  const [error, setError] = useState('');
+  const [actionError, setActionError] = useState('');
   const [gallery, setGallery] = useState(false);
   const [uploading, setUploading] = useState<number | null>(null);
+  // 지금까지 펼친 페이지 수. 서명 URL이 5분 뒤 만료되므로 더 보기 · 올린 뒤에는 처음부터 그만큼 다시 받는다
+  const pages = useRef(1);
 
-  // 서명 URL이 5분 뒤 만료되므로 올린 뒤에는 처음부터 다시 받는다
-  const load = useCallback(
-    async (pages: number) => {
-      try {
-        const r = await api<Page<HistoryVisit>>(`/api/customers/${props.customerId}/history?page=0&size=${pages * PAGE}`, { silent: true });
-        setVisits(r.items);
-        setTotal(r.totalElements);
-        setError('');
-      } catch (err) {
-        setError(errorText(err));
-      } finally {
-        setLoaded(true);
-      }
-    },
-    [props.customerId],
+  const history = useLoad(String(props.customerId), () =>
+    api<Page<HistoryVisit>>(`/api/customers/${props.customerId}/history?page=0&size=${pages.current * PAGE}`, { silent: true }),
   );
+  const visits = history.data?.items ?? [];
+  const total = history.data?.totalElements ?? 0;
+  const loaded = history.data !== null || history.error !== null;
+  const error = actionError || (history.error ? errorText(history.error) : '');
 
-  useEffect(() => {
-    api<Page<HistoryVisit>>(`/api/customers/${props.customerId}/history?page=0&size=${PAGE}`, { silent: true })
-      .then((r) => {
-        setVisits(r.items);
-        setTotal(r.totalElements);
-      })
-      .catch((err) => setError(errorText(err)))
-      .finally(() => setLoaded(true));
-  }, [props.customerId]);
+  function load(nextPages: number) {
+    pages.current = nextPages;
+    return history.reload();
+  }
 
   async function upload(visitId: number, files: FileList | null) {
     if (!files?.length) return;
     const list = [...files];
     const wrong = list.find((f) => !/\.(jpe?g|png)$/i.test(f.name) || f.size > MAX_BYTES);
-    if (wrong) return setError(`${wrong.name}: JPG · PNG, 장당 10MB 이하만 올릴 수 있어요`);
+    if (wrong) return setActionError(`${wrong.name}: JPG · PNG, 장당 10MB 이하만 올릴 수 있어요`);
     setUploading(visitId);
-    setError('');
+    setActionError('');
     let done = 0;
     try {
       for (const f of list) {
@@ -70,7 +56,7 @@ export function HistoryTab(props: { customerId: number; photoAgreed: boolean }) 
       }
       toast(`사진 ${done}장을 올렸어요`);
     } catch (err) {
-      setError(`${done ? `${done}장 올린 뒤 ` : ''}${errorText(err)}`);
+      setActionError(`${done ? `${done}장 올린 뒤 ` : ''}${errorText(err)}`);
     } finally {
       setUploading(null);
       await load(Math.ceil(visits.length / PAGE) || 1);

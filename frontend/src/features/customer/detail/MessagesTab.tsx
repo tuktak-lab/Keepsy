@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useLoad } from '@/hooks/useLoad';
 import { api, type Page } from '@/lib/api';
 import { CATEGORY_LABEL, MESSAGE_KIND_LABEL, RESERVATION_STATUS_LABEL, dotDate } from '@/lib/customerDetail';
 import { formatDateTime } from '@/lib/format';
@@ -8,14 +8,11 @@ import { AreaError, errorText } from './common';
 // 수신 이력 · 캠페인 연결 기록 (FR-CUS-03, FR-ANL-04). CAMPAIGN_VIEW 설정을 따르므로(명세서 2장) 이 탭을 열 때만 부른다.
 
 export function MessagesTab(props: { customerId: number }) {
-  const [items, setItems] = useState<ReceivedMessage[] | null>(null);
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    api<Page<ReceivedMessage>>(`/api/customers/${props.customerId}/messages?size=50`, { silent: true })
-      .then((r) => setItems(r.items))
-      .catch((err) => setError(errorText(err)));
-  }, [props.customerId]);
+  const messages = useLoad(String(props.customerId), () =>
+    api<Page<ReceivedMessage>>(`/api/customers/${props.customerId}/messages?size=50`, { silent: true }),
+  );
+  const items = messages.data?.items ?? null;
+  const error = messages.error ? errorText(messages.error) : '';
 
   return (
     <section className="card col">

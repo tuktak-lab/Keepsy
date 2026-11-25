@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { AppLink } from '@/components/common/AppLink';
 import { Avatar } from '@/components/common/Avatar';
@@ -15,6 +15,7 @@ import { MessagesTab } from './detail/MessagesTab';
 import { SummaryTab } from './detail/SummaryTab';
 import styleText from './CustomerDetailPage.css?inline';
 import { useStyleSheet } from '@/hooks/useStyleSheet';
+import { useLoad } from '@/hooks/useLoad';
 
 // 고객 상세 · 시술 히스토리북 (FR-CUS-03~11, FR-PRD-02). `?id=`로 연다.
 // 영역마다 기능 키가 달라(명세서 2장) 각 API를 따로 부르고, 실패하면 그 영역에만 사유를 보인다.
@@ -33,43 +34,28 @@ export default function CustomerDetailPage() {
   const customerId = Number(useSearchParams().get('id'));
   const valid = Number.isInteger(customerId) && customerId > 0;
   const [tab, setTab] = useState<Tab>('summary');
-  const [detail, setDetail] = useState<CustomerDetail | null>(null);
-  const [consents, setConsents] = useState<CustomerConsents | null>(null);
-  const [error, setError] = useState(valid ? '' : '고객을 고르지 않았어요. 고객 목록에서 열어 주세요.');
-  const [phone, setPhone] = useState<string | null>(null);
+  // 전체 번호는 그 고객 것일 때만 보인다 (다른 고객으로 바꾸면 가린 번호로)
+  const [fullPhone, setFullPhone] = useState<{ id: number; phone: string } | null>(null);
+  const phone = fullPhone?.id === customerId ? fullPhone.phone : null;
   const [phoneError, setPhoneError] = useState('');
   const [consentOpen, setConsentOpen] = useState(false);
 
-  const reload = useCallback(async () => {
-    try {
-      const [d, c] = await Promise.all([
-        api<CustomerDetail>(`/api/customers/${customerId}`, { silent: true }),
-        api<CustomerConsents>(`/api/customers/${customerId}/consents`, { silent: true }),
-      ]);
-      setDetail(d);
-      setConsents(c);
-    } catch (err) {
-      setError(errorText(err));
-    }
-  }, [customerId]);
-
-  useEffect(() => {
-    if (!valid) return;
+  // 고객 상세 + 동의를 함께 받는다. 다른 고객으로 바꾸면 지난 응답은 버린다 (useLoad, #344)
+  const load = useLoad(valid ? String(customerId) : null, () =>
     Promise.all([
       api<CustomerDetail>(`/api/customers/${customerId}`, { silent: true }),
       api<CustomerConsents>(`/api/customers/${customerId}/consents`, { silent: true }),
-    ])
-      .then(([d, c]) => {
-        setDetail(d);
-        setConsents(c);
-      })
-      .catch((err) => setError(errorText(err)));
-  }, [customerId, valid]);
+    ]),
+  );
+  const [detail, consents] = load.data ?? [null, null];
+  const error = valid ? (load.error ? errorText(load.error) : '') : '고객을 고르지 않았어요. 고객 목록에서 열어 주세요.';
+  const reload = load.reload;
 
   async function showPhone() {
     setPhoneError('');
     try {
-      setPhone((await api<{ phone: string }>(`/api/customers/${customerId}/contact`, { silent: true })).phone);
+      const r = await api<{ phone: string }>(`/api/customers/${customerId}/contact`, { silent: true });
+      setFullPhone({ id: customerId, phone: r.phone });
     } catch (err) {
       setPhoneError(errorText(err));
     }
