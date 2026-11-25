@@ -93,13 +93,19 @@ function Body() {
   const [version, setVersion] = useState(0);
 
   useEffect(() => {
+    // 화면을 떠났거나 다시 받기 시작했으면 지난 응답은 버린다 (#344)
+    let alive = true;
     api<Page<Campaign>>(`/api/campaigns?page=0&size=${LIST_SIZE}`, { silent: true })
       .then((p) => {
+        if (!alive) return;
         setItems(p.items);
         setTotal(p.totalElements);
         setSel((cur) => cur ?? p.items[0]?.id ?? null);
       })
-      .catch((err) => setListError(errorText(err)));
+      .catch((err) => alive && setListError(errorText(err)));
+    return () => {
+      alive = false;
+    };
   }, [version]);
 
   useEffect(() => {

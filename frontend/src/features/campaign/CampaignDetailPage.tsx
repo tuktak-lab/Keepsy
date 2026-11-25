@@ -60,6 +60,7 @@ export default function CampaignDetailPage() {
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [moreBusy, setMoreBusy] = useState(false);
+  const [moreError, setMoreError] = useState('');
   // 연결 매출은 「매출 · 성과 분석」 기능 키라 따로 읽는다. PIN을 취소하면 이 칸만 비운다
   const [revenue, setRevenue] = useState<{ id: number; value: number | null; error?: string } | null>(null);
   const [reload, setReload] = useState(0);
@@ -93,9 +94,13 @@ export default function CampaignDetailPage() {
   async function loadMore() {
     if (!c) return;
     setMoreBusy(true);
+    setMoreError('');
     try {
       const next = await api<Campaign>(`/api/campaigns/${id}?page=${Math.ceil(messages.length / 20)}&size=20`, { silent: true });
       setMessages((cur) => [...cur, ...next.messages.items]);
+    } catch (err) {
+      // 실패를 흘리지 않고 버튼 옆에 사유를 보인다 (#344). 이미 받은 결과는 그대로 둔다
+      setMoreError(errorText(err));
     } finally {
       setMoreBusy(false);
     }
@@ -218,6 +223,11 @@ export default function CampaignDetailPage() {
                       {moreBusy ? '불러오는 중…' : '더 보기'}
                     </button>
                   ) : null}
+                  {moreError && (
+                    <p className="meta" role="alert" style={{ color: '#8A2F3F', marginTop: 6 }}>
+                      {moreError}
+                    </p>
+                  )}
                   <p className="meta" style={{ marginTop: 6 }}>
                     고객 이름을 누르면 고객 상세에서 이 캠페인 뒤의 예약 · 방문 · 결제 기록을 볼 수 있어요.
                   </p>

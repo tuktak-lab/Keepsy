@@ -306,15 +306,21 @@ function SendStep({ id }: { id: number }) {
   const [confirmCancel, setConfirmCancel] = useState(false);
 
   useEffect(() => {
+    // 다른 캠페인으로 바뀌었거나 화면을 떠났으면 지난 응답은 버린다 (#344)
+    let alive = true;
     api<Campaign>(`/api/campaigns/${id}?page=0&size=1`, { silent: true })
       .then((c) => {
+        if (!alive) return;
         setCampaign(c);
         setReviewed(Boolean(c.reviewedAt));
       })
-      .catch((err) => setLoadError(errorText(err)));
+      .catch((err) => alive && setLoadError(errorText(err)));
     api<Preview>(`/api/campaigns/${id}/preview?page=0&size=50`, { silent: true })
-      .then(setPreview)
-      .catch((err) => setPreviewError(errorText(err)));
+      .then((p) => alive && setPreview(p))
+      .catch((err) => alive && setPreviewError(errorText(err)));
+    return () => {
+      alive = false;
+    };
   }, [id]);
 
   if (loadError) return <div className="cp-warn" role="alert">{loadError}</div>;
