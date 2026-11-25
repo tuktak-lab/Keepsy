@@ -1,0 +1,254 @@
+/* CSV 일괄 등록. 색 · 글자 위계는 styles/base.css의 :root 토큰을 쓰고, 카드 · 버튼은 고객 등록 화면과 맞춘다. */
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  width: 100%;
+  padding: 28px 32px 48px;
+  box-sizing: border-box;
+  font-family: 'Noto Sans KR', sans-serif;
+}
+
+.headRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.title {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--ink);
+}
+
+.sub {
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--body);
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 24px 28px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: #fffefd;
+}
+
+.cardHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cardTitle {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+
+.hint {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.code {
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: #f6efeb;
+  font-size: 12.5px;
+  color: var(--ink);
+  word-break: break-all;
+}
+
+.table {
+  display: flex;
+  flex-direction: column;
+}
+
+.row,
+.errRow {
+  display: grid;
+  gap: 4px 16px;
+  align-items: baseline;
+  padding: 10px 0;
+  border-top: 1px solid #f1e4e0;
+  font-size: 13.5px;
+  color: var(--ink);
+}
+
+.row {
+  grid-template-columns: 110px 48px minmax(0, 1fr);
+}
+
+.errRow {
+  grid-template-columns: 64px minmax(0, 1fr);
+}
+
+.must {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--wine);
+}
+
+.muted {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.file {
+  font: inherit;
+  font-size: 14px;
+  color: var(--ink);
+}
+
+.consent {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fdf9f7;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.consent:has(input:checked) {
+  border-color: var(--wine);
+  background: #fbf3f1;
+}
+
+.consent input {
+  width: 18px;
+  height: 18px;
+  margin: 2px 0 0;
+  accent-color: var(--wine);
+  flex: none;
+}
+
+.consent b {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.consentDesc {
+  display: block;
+  margin-top: 2px;
+  font-size: 12.5px;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.error {
+  margin: 0;
+  padding: 12px 16px;
+  border-radius: 14px;
+  background: #f8ecee;
+  font-size: 13.5px;
+  color: #8a2f3f;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.actions .hint {
+  margin-right: auto;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+
+.stat b {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.stat span {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.stat b.bad {
+  color: #8a2f3f;
+}
+
+.primary,
+.secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 44px;
+  padding: 0 24px;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.primary {
+  border: 0;
+  background: var(--wine);
+  color: #fff;
+}
+
+.primary:hover:not(:disabled) {
+  background: var(--wine-dark);
+}
+
+.primary:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.secondary {
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+}
+
+.secondary:hover {
+  background: #f8f2ee;
+  text-decoration: none;
+}
