@@ -84,7 +84,7 @@ public class PasswordResetService {
         }
         Shop shop =
                 shopRepository
-                        .findById(row.getShopId())
+                        .findForUpdateById(row.getShopId())
                         .orElseThrow(PasswordResetService::badToken);
         shop.resetPassword(passwordEncoder.encode(newPassword));
         tokens.invalidateUnused(shop.getId(), now);
