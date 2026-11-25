@@ -26,6 +26,8 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation 'org.springframework.boot:spring-boot-starter-webmvc'
     implementation 'org.flywaydb:flyway-mysql'
+    // CSV 고객 일괄 등록 (FR-CUS-13, 결정 F50): 따옴표 · 줄바꿈 처리를 직접 짜지 않는다. Boot가 버전을 관리하지 않아 직접 적는다
+    implementation 'org.apache.commons:commons-csv:1.14.1'
     compileOnly 'org.projectlombok:lombok'
     runtimeOnly 'com.mysql:mysql-connector-j'
     annotationProcessor 'org.projectlombok:lombok'

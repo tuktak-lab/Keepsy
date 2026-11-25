@@ -18,6 +18,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
+import java.io.IOException;
 import java.util.List;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
@@ -29,8 +30,10 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 /** 고객 API (CONTRACTS 4 · 6장 「고객 (CUS)」 [제안]) */
 @RestController
@@ -44,6 +47,7 @@ class CustomerController {
     private final ShopSession shopSession;
     private final AccessLogger accessLogger;
     private final FeatureGuard featureGuard;
+    private final CustomerImportService importService;
 
     record RegisterRequest(
             @NotBlank(message = "이름을 입력해 주세요") @Size(max = 50, message = "이름은 50자 이하입니다")
@@ -156,6 +160,24 @@ class CustomerController {
                                 r.preferredLanguage(),
                                 r.acquisitionChannel()));
         return new RegisterResponse(customerId);
+    }
+
+    /**
+     * CSV 고객 일괄 등록 (CONTRACTS 6장, F50). multipart {@code file} + {@code consentConfirmed}. 빠지면 서비스가
+     * invalid
+     */
+    @RequireFeature(FeatureKey.CUSTOMER_WRITE)
+    @PostMapping("/api/customers/import")
+    CustomerImportService.Result importCsv(
+            @RequestPart(value = "file", required = false) MultipartFile file,
+            @RequestParam(required = false) Boolean consentConfirmed,
+            HttpSession session)
+            throws IOException {
+        return importService.importCsv(
+                shopSession.shopId(),
+                shopSession.currentStaffId(session),
+                file == null ? null : file.getBytes(),
+                consentConfirmed);
     }
 
     @RequireFeature(FeatureKey.CUSTOMER_VIEW)

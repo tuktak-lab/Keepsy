@@ -45,6 +45,9 @@ public interface VisitReferences {
     /** 방문이 생기거나 바뀌거나 지워진 고객의 예측을 같은 트랜잭션에서 다시 계산한다 (FR-PRD-01) */
     void recalculatePrediction(long shopId, long customerId);
 
+    /** 여러 고객을 한 번에 (CSV 가져오기, FR-CUS-13) */
+    void recalculatePredictions(long shopId, Collection<Long> customerIds);
+
     /** 고객이 받은 발송 성공 광고 메시지. 실패 · 대조군 · 안내 메시지는 빠진다 (FR-ANL-03, 명세서 5장 campaign_message) */
     List<SentAd> sentAds(long shopId, long customerId);
 
