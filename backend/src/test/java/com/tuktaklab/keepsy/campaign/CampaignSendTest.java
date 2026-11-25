@@ -3,6 +3,7 @@ package com.tuktaklab.keepsy.campaign;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -32,6 +33,7 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
+import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -57,6 +59,7 @@ class CampaignSendTest {
     @Autowired CampaignSendService sendService;
     @Autowired VirtualMessageSender sender;
     @Autowired MutableClock clock;
+    @Autowired ScheduledCampaignRunner runner;
 
     /** 야간 제한(F52)이 CI 시각(UTC)에 따라 흔들리지 않게 시계를 고정한다. 기본은 서울 오늘 14:00 */
     @TestConfiguration
@@ -354,6 +357,189 @@ class CampaignSendTest {
         assertThat(campaignRow(campaign)).containsEntry("status", "DRAFT");
     }
 
+    @Test
+    void 이미_보낸_캠페인을_야간에_다시_보내도_conflict() throws Exception {
+        long campaign = campaign(BODY, List.of(agreedCustomer()), List.of(), true);
+        send(campaign).andExpect(status().isOk());
+
+        clock.at(today().atTime(22, 0));
+        send(campaign).andExpect(jsonPath("$.error.code").value("conflict"));
+    }
+
+    // ---------- 예약 발송 (Keepsy #97, F56) ----------
+
+    @Test
+    void 예약하면_예약_발송_대기이고_예약_시각이_되면_스케줄러가_보낸다() throws Exception {
+        long a = agreedCustomer();
+        long control = agreedCustomer();
+        long campaign = campaign(BODY, List.of(a), List.of(control), true);
+
+        schedule(campaign, today().atTime(15, 0)).andExpect(status().isNoContent());
+        assertThat(campaignRow(campaign))
+                .containsEntry("status", "SCHEDULED")
+                .containsEntry("scheduled_at", today().atTime(15, 0));
+
+        runner.run(); // 아직 14:00
+        assertThat(rowCount(campaign)).isZero();
+
+        clock.at(today().atTime(15, 0));
+        runner.run();
+        assertThat((String) row(campaign, a).get("send_status")).isIn("PENDING", "SENT");
+        assertThat(row(campaign, control)).containsEntry("control_group", true);
+        assertThat((String) campaignRow(campaign).get("status")).isIn("SENDING", "SENT");
+    }
+
+    @Test
+    void 예약은_같은_API로_다시_지정하고_지난_시각_검토_없음_발송_뒤는_거부한다() throws Exception {
+        long campaign = campaign(BODY, List.of(agreedCustomer()), List.of(), true);
+        schedule(campaign, today().atTime(15, 0)).andExpect(status().isNoContent());
+        schedule(campaign, today().atTime(16, 30)).andExpect(status().isNoContent());
+        assertThat(campaignRow(campaign)).containsEntry("scheduled_at", today().atTime(16, 30));
+
+        schedule(campaign, today().atTime(14, 0))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("invalid"));
+        mvc.perform(
+                        put("/api/campaigns/{id}/schedule", campaign)
+                                .session(session(true))
+                                .with(csrf())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{}"))
+                .andExpect(status().isBadRequest());
+
+        long unreviewed = campaign(BODY, List.of(agreedCustomer()), List.of(), false);
+        schedule(unreviewed, today().atTime(15, 0))
+                .andExpect(jsonPath("$.error.code").value("review_required"));
+
+        send(campaign).andExpect(status().isOk()); // 예약 발송 대기도 즉시 발송할 수 있다
+        schedule(campaign, today().atTime(17, 0))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("conflict"));
+    }
+
+    @Test
+    void 야간_시각은_보낼_고객_전원이_야간_광고_동의인_광고만_예약할_수_있다() throws Exception {
+        long mixed =
+                campaign(BODY, List.of(nightConsentCustomer(), agreedCustomer()), List.of(), true);
+        schedule(mixed, today().atTime(22, 0))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("night_send_blocked"));
+        assertThat(campaignRow(mixed)).containsEntry("status", "DRAFT");
+
+        long info = infoCampaign(List.of(nightConsentCustomer()));
+        schedule(info, today().atTime(22, 0))
+                .andExpect(jsonPath("$.error.code").value("night_send_blocked"));
+
+        long ok = campaign(BODY, List.of(nightConsentCustomer()), List.of(), true);
+        schedule(ok, today().atTime(22, 0)).andExpect(status().isNoContent());
+    }
+
+    @Test
+    void 야간_예약_광고는_발송_시점에_야간_광고_동의가_없어진_고객만_빼고_보낸다() throws Exception {
+        long keep = nightConsentCustomer();
+        long withdrew = nightConsentCustomer();
+        long campaign = campaign(BODY, List.of(keep, withdrew), List.of(), true);
+        schedule(campaign, today().atTime(22, 0)).andExpect(status().isNoContent());
+        nightConsent(withdrew, false);
+
+        clock.at(today().atTime(22, 0));
+        runner.run();
+
+        assertThat((String) row(campaign, keep).get("send_status")).isIn("PENDING", "SENT");
+        assertThat(row(campaign, withdrew))
+                .containsEntry("send_status", "FAILED")
+                .containsEntry("failure_reason", CampaignSendService.NO_NIGHT_AD_CONSENT);
+    }
+
+    @Test
+    void 발송_시점에_일_발송_한도를_넘으면_기록_없이_취소하고_사유를_남긴다() throws Exception {
+        long campaign =
+                campaign(BODY, List.of(agreedCustomer(), agreedCustomer()), List.of(), true);
+        schedule(campaign, today().atTime(15, 0)).andExpect(status().isNoContent());
+        dailyLimit(1);
+
+        clock.at(today().atTime(15, 0));
+        runner.run();
+
+        assertThat(campaignRow(campaign))
+                .containsEntry("status", "CANCELED")
+                .containsEntry("cancel_reason", "DAILY_LIMIT_EXCEEDED");
+        assertThat(campaignRow(campaign).get("canceled_at")).isNotNull();
+        assertThat(rowCount(campaign)).isZero();
+    }
+
+    @Test
+    void 발송_시점에_광고_표기용_매장_정보가_없으면_기록_없이_취소한다() throws Exception {
+        long campaign = campaign(BODY, List.of(agreedCustomer()), List.of(), true);
+        schedule(campaign, today().atTime(15, 0)).andExpect(status().isNoContent());
+        jdbc.update("UPDATE shop SET phone = NULL WHERE id = ?", shop);
+
+        clock.at(today().atTime(15, 0));
+        runner.run();
+
+        assertThat(campaignRow(campaign))
+                .containsEntry("status", "CANCELED")
+                .containsEntry("cancel_reason", "SHOP_INFO_MISSING");
+        assertThat(rowCount(campaign)).isZero();
+    }
+
+    @Test
+    void 작성_중_예약_발송_대기를_취소하면_USER_CANCELED이고_스케줄러가_보내지_않는다() throws Exception {
+        long draft = campaign(BODY, List.of(agreedCustomer()), List.of(), true);
+        cancel(draft).andExpect(status().isNoContent());
+        assertThat(campaignRow(draft))
+                .containsEntry("status", "CANCELED")
+                .containsEntry("cancel_reason", "USER_CANCELED");
+        cancel(draft).andExpect(status().isConflict());
+
+        long scheduled = campaign(BODY, List.of(agreedCustomer()), List.of(), true);
+        schedule(scheduled, today().atTime(15, 0)).andExpect(status().isNoContent());
+        cancel(scheduled).andExpect(status().isNoContent());
+        clock.at(today().atTime(15, 0));
+        runner.run();
+        assertThat(rowCount(scheduled)).isZero();
+        assertThat(campaignRow(scheduled)).containsEntry("status", "CANCELED");
+
+        long sent = campaign(BODY, List.of(agreedCustomer()), List.of(), true);
+        send(sent).andExpect(status().isOk());
+        cancel(sent).andExpect(jsonPath("$.error.code").value("conflict"));
+
+        long other = campaignIn(data.shop(), BODY, List.of(), true);
+        cancel(other).andExpect(status().isNotFound());
+    }
+
+    private static LocalDate today() {
+        return LocalDate.now(TimeConfig.ZONE);
+    }
+
+    private ResultActions schedule(long campaignId, LocalDateTime seoul) throws Exception {
+        return mvc.perform(
+                put("/api/campaigns/{id}/schedule", campaignId)
+                        .session(session(true))
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(
+                                "{\"scheduledAt\":\""
+                                        + seoul.atZone(TimeConfig.ZONE).toOffsetDateTime()
+                                        + "\"}"));
+    }
+
+    private ResultActions cancel(long campaignId) throws Exception {
+        return mvc.perform(
+                post("/api/campaigns/{id}/cancel", campaignId).session(session(true)).with(csrf()));
+    }
+
+    private void nightConsent(long customerId, boolean agreed) {
+        jdbc.update(
+                "INSERT INTO consent (shop_id, customer_id, item, agreed, recorded_at, staff_id, method)"
+                        + " VALUES (?, ?, 'NIGHT_AD', ?, ?, ?, 'TABLET')",
+                shop,
+                customerId,
+                agreed,
+                LocalDateTime.of(2026, 1, 2, 0, 0),
+                staff);
+    }
+
     private ResultActions send(long campaignId) throws Exception {
         return mvc.perform(
                 post("/api/campaigns/{id}/send", campaignId).session(session(true)).with(csrf()));
@@ -498,6 +684,9 @@ class CampaignSendTest {
     }
 
     private Map<String, Object> campaignRow(long campaignId) {
-        return jdbc.queryForMap("SELECT status, sent_at FROM campaign WHERE id = ?", campaignId);
+        return jdbc.queryForMap(
+                "SELECT status, sent_at, scheduled_at, cancel_reason, canceled_at FROM campaign"
+                        + " WHERE id = ?",
+                campaignId);
     }
 }

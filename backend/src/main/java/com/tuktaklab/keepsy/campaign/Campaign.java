@@ -13,10 +13,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-/**
- * 캠페인 (명세서 5장 campaign). 지금은 만들기(#89) · 검토(#93)가 쓰는 칸만 매핑한다. 예약 · 발송 · 취소 칸은 그 기능에서 더한다. 상태 전이는 조건부
- * UPDATE로 한다 (ARCHITECTURE 7장, F7).
- */
+/** 캠페인 (명세서 5장 campaign). 상태 전이는 조건부 UPDATE로 한다 (ARCHITECTURE 7장, F7). */
 @Entity
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -29,6 +26,13 @@ public class Campaign {
         SENDING,
         SENT,
         CANCELED
+    }
+
+    /** 캠페인 취소 사유 (CONTRACTS 3장, F7 · F56) */
+    public enum CancelReason {
+        USER_CANCELED,
+        DAILY_LIMIT_EXCEEDED,
+        SHOP_INFO_MISSING
     }
 
     @Id
@@ -60,6 +64,14 @@ public class Campaign {
     /** 발송 시작 시각. 즉시 발송 · 예약 시각 도래 때 조건부 UPDATE로 채운다 (F7) */
     private LocalDateTime sentAt;
 
+    /** 예약 발송 시각 (FR-CMP-09, F56) */
+    private LocalDateTime scheduledAt;
+
+    @Enumerated(EnumType.STRING)
+    private CancelReason cancelReason;
+
+    private LocalDateTime canceledAt;
+
     /**
      * 즉시 발송 · 예약 발송 전에 부른다 (FR-CMP-06, CONTRACTS 1장). 동의 재확인 안내 캠페인도 같다 (FR-CMP-13)
      *
@@ -68,6 +80,18 @@ public class Campaign {
     public void requireReviewed() {
         if (reviewedByStaffId == null || reviewedAt == null) {
             throw new ApiException(ErrorCode.REVIEW_REQUIRED);
+        }
+    }
+
+    /**
+     * 발송 · 예약 전에 상태를 먼저 본다. 다른 검사(야간 등)보다 앞에 두어 이미 보낸 캠페인에는 {@code conflict}가 나가게 한다. 동시 요청은 조건부
+     * UPDATE가 막는다 (F7)
+     *
+     * @throws ApiException 작성 중 · 예약 발송 대기가 아니면 {@code conflict}
+     */
+    public void requireNotStarted() {
+        if (status != Status.DRAFT && status != Status.SCHEDULED) {
+            throw new ApiException(ErrorCode.CONFLICT, "이미 발송했거나 취소된 캠페인입니다");
         }
     }
 
