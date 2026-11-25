@@ -7,7 +7,6 @@ import com.tuktaklab.keepsy.common.error.ErrorCode;
 import com.tuktaklab.keepsy.common.error.GlobalExceptionHandler.FieldViolation;
 import com.tuktaklab.keepsy.common.security.FeatureKey;
 import com.tuktaklab.keepsy.common.web.PageResponse;
-import com.tuktaklab.keepsy.customer.port.UnsubscribeNotice;
 import com.tuktaklab.keepsy.customer.query.ConsentHistoryQuery;
 import com.tuktaklab.keepsy.customer.query.CustomerDetailQuery;
 import com.tuktaklab.keepsy.customer.query.CustomerListQuery;
@@ -50,7 +49,8 @@ public class CustomerService {
     private final AccessLogger accessLogger;
     private final PhotoStorage photoStorage;
     private final NamedParameterJdbcTemplate jdbc;
-    private final UnsubscribeNotice unsubscribeNotice;
+    // import 대신 전체 이름: 같은 자리에 import를 더하는 고객 파기(#293)와 줄이 겹치지 않게
+    private final com.tuktaklab.keepsy.customer.port.UnsubscribeNotice unsubscribeNotice;
     private final Clock clock;
 
     /**
