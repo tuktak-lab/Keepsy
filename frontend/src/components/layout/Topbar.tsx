@@ -146,7 +146,13 @@ export function Topbar(props: { crumb?: string }) {
             whiteSpace: 'nowrap',
           }}
         >
-          <span aria-hidden="true">🔓</span>
+          {/* 사람 + 열린 자물쇠 아이콘. PIN 입력 창의 user-lock에서 고리만 연 모양 (Lucide user-lock · lock-open, ISC) */}
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7A4450" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <circle cx="10" cy="7" r="4" />
+            <path d="M10.3 15H7a4 4 0 0 0-4 4v2" />
+            <path d="M15 16V13a2 2 0 0 1 3.9-.6" />
+            <rect width="8" height="5" x="13" y="16" rx=".9" />
+          </svg>
           {session.pinStaff.name} PIN 인증 중
           <button
             type="button"
