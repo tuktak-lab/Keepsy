@@ -18,6 +18,8 @@ a{color:#7A4450;text-decoration:none}
 .layout{display:grid;grid-template-columns:232px minmax(0,1fr);gap:16px;align-items:start}
 @media (max-width:900px){.layout{grid-template-columns:1fr}}
 .left{display:flex;flex-direction:column;gap:0;min-width:0;padding:4px 0}
+/* 처음 화면에서 창 바닥 가까이(캠페인 목록과 같은 간격)까지 채운다. 217px = 카드 시작 위치(상단바 · 제목 아래) + 아래 여백. 두 칸일 때만 */
+@media (min-width:901px){.left{min-height:calc(100vh / 0.85 - 217px)}}
 /* 좌측은 한 카드 안에서 구분선으로만 나눔 */
 .left > section + section{border-top:1px solid #EFE8E2}
 .right{position:sticky;top:96px;padding:20px 24px;min-width:0}
