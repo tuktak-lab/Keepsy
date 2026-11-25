@@ -1,5 +1,7 @@
 package com.tuktaklab.keepsy.visit;
 
+import com.tuktaklab.keepsy.common.audit.AccessLogger;
+import com.tuktaklab.keepsy.common.audit.AccessLogger.Action;
 import com.tuktaklab.keepsy.common.security.FeatureKey;
 import com.tuktaklab.keepsy.common.security.RequireFeature;
 import com.tuktaklab.keepsy.common.security.ShopSession;
@@ -22,6 +24,7 @@ class CustomerPaymentController {
 
     private final VisitAppService service;
     private final ShopSession shopSession;
+    private final AccessLogger accessLogger;
 
     @RequireFeature(FeatureKey.SALES_ANALYTICS)
     @GetMapping("/api/customers/{customerId}/payments")
@@ -29,7 +32,11 @@ class CustomerPaymentController {
             @PathVariable long customerId,
             @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
-        // ponytail: 개인정보 조회 접근 로그(NFR-06)는 기록 컴포넌트(#12)가 생기면 여기서 남긴다
-        return service.customerPayments(shopSession.shopId(), customerId, page, size);
+        PageResponse<VisitAppService.PaymentItem> payments =
+                service.customerPayments(shopSession.shopId(), customerId, page, size);
+        // 그 고객의 개인정보 조회 (NFR-06, CONTRACTS 6장). 다른 매장 · 삭제된 고객은 위에서 404라 남지 않는다
+        accessLogger.record(
+                FeatureKey.SALES_ANALYTICS, AccessLogger.CUSTOMER, customerId, Action.VIEW);
+        return payments;
     }
 }
