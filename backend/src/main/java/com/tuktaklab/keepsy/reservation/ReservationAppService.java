@@ -161,7 +161,7 @@ public class ReservationAppService {
     /** {@code POST /api/reservations/{id}/cancel}. 확정 예약만 (FR-RSV-03) */
     @Transactional
     public void cancel(long shopId, long reservationId) {
-        Reservation reservation = find(shopId, reservationId);
+        Reservation reservation = lock(shopId, reservationId);
         reservation.cancel();
         passOnAttribution(shopId, reservation);
     }
@@ -185,7 +185,7 @@ public class ReservationAppService {
     /** {@code POST /api/reservations/{id}/no-show}. 시작 시각이 지난 확정 예약만 (C8). 고객 없는 예약도 된다 (E3) */
     @Transactional
     public void markNoShow(long shopId, long reservationId) {
-        Reservation reservation = find(shopId, reservationId);
+        Reservation reservation = lock(shopId, reservationId);
         reservation.markNoShow(LocalDateTime.now(clock));
         passOnAttribution(shopId, reservation);
     }
@@ -198,7 +198,7 @@ public class ReservationAppService {
      */
     @Transactional
     public Optional<String> linkCustomer(long shopId, long reservationId, long customerId) {
-        Reservation reservation = find(shopId, reservationId);
+        Reservation reservation = lock(shopId, reservationId);
         CustomerState customer =
                 refs.customer(shopId, customerId)
                         .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND));
@@ -462,6 +462,16 @@ public class ReservationAppService {
     private Reservation find(long shopId, long reservationId) {
         return reservations
                 .findByIdAndShopId(reservationId, shopId)
+                .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND));
+    }
+
+    /**
+     * {@link #find}의 행 잠금판. 상태를 바꾸는 명령은 이것을 트랜잭션의 첫 조회로 써서, 그사이 커밋된 마감 · 고객 삭제를 덮어쓰지 않고 최신 상태 기준으로
+     * 상태 규칙을 다시 검사한다 (#331)
+     */
+    private Reservation lock(long shopId, long reservationId) {
+        return reservations
+                .findForUpdateByIdAndShopId(reservationId, shopId)
                 .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND));
     }
 
