@@ -4,6 +4,7 @@ import { PinGate } from '@/components/common/PinGate';
 import { CountUp } from '@/components/common/CountUp';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Topbar } from '@/components/layout/Topbar';
+import { toast } from '@/components/common/Toast';
 import { ApiError, api, type Page } from '@/lib/api';
 import { CAMPAIGN_STATUS_LABEL, SEND_STATUS_LABEL } from '@/lib/campaignResult';
 import { formatDateTime } from '@/lib/format';
@@ -47,6 +48,7 @@ type Detail = Campaign & {
 const LIST_SIZE = 100;
 const RESULT_SIZE = 100;
 const FAILURES_SHOWN = 5;
+const POLL_MS = 3000;
 const KIND_LABEL: Record<string, string> = { AD: '광고', INFO: '안내' };
 const CANCEL_LABEL: Record<string, string> = { USER_CANCELED: '사용자 취소', DAILY_LIMIT_EXCEEDED: '일 발송 한도 초과' };
 // 상태 칩 [배경, 글자]
@@ -87,16 +89,18 @@ function Body() {
   const [sel, setSel] = useState<number | null>(null);
   const [detail, setDetail] = useState<Detail | null>(null);
   const [detailError, setDetailError] = useState('');
+  // 예약 취소 뒤 목록 · 요약을 다시 받는다
+  const [version, setVersion] = useState(0);
 
   useEffect(() => {
     api<Page<Campaign>>(`/api/campaigns?page=0&size=${LIST_SIZE}`, { silent: true })
       .then((p) => {
         setItems(p.items);
         setTotal(p.totalElements);
-        if (p.items[0]) setSel(p.items[0].id);
+        setSel((cur) => cur ?? p.items[0]?.id ?? null);
       })
       .catch((err) => setListError(errorText(err)));
-  }, []);
+  }, [version]);
 
   useEffect(() => {
     if (sel === null) return;
@@ -107,7 +111,16 @@ function Body() {
     return () => {
       alive = false;
     };
-  }, [sel]);
+  }, [sel, version]);
+
+  // 발송 중이거나 결과 대기가 남아 있으면 가상 발송기 주기(3초)마다 다시 받는다. 다 끝나면 멈춘다
+  const inFlight =
+    Boolean(items?.some((c) => c.status === 'SENDING')) || Boolean(detail?.messages.items.some((m) => m.sendStatus === 'PENDING'));
+  useEffect(() => {
+    if (!inFlight) return;
+    const timer = setTimeout(() => setVersion((v) => v + 1), POLL_MS);
+    return () => clearTimeout(timer);
+  }, [inFlight, version]);
 
   const thisMonth = seoulMonth(new Date());
   const scheduled = items?.filter((c) => c.status === 'SCHEDULED').length ?? 0;
@@ -168,7 +181,7 @@ function Body() {
               <div className="cp-warn" role="alert">{detailError}</div>
             ) : shown ? (
               <div className="kp-slide cp-main-in" key={shown.id} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-                <Summary campaign={shown} />
+                <Summary campaign={shown} onChanged={() => setVersion((v) => v + 1)} />
               </div>
             ) : (
               items && items.length > 0 && <p className="cp-note">불러오는 중…</p>
@@ -182,12 +195,29 @@ function Body() {
 }
 
 /** 선택한 캠페인 요약과 발송 결과 (FR-CMP-10). 고객별 결과는 앞 RESULT_SIZE명까지 센다 */
-function Summary({ campaign: c }: { campaign: Detail }) {
+function Summary({ campaign: c, onChanged }: { campaign: Detail; onChanged: () => void }) {
+  const [confirmCancel, setConfirmCancel] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
   const rows = c.messages.items.filter((m) => !m.controlGroup);
   const count = (s: string) => rows.filter((m) => m.sendStatus === s).length;
   const failures = rows.filter((m) => m.sendStatus === 'FAILED');
   const partial = c.messages.totalElements > c.messages.items.length;
   const started = c.messages.totalElements > 0;
+
+  // 작성 중 · 예약 발송 대기 캠페인 취소 (F7, POST /api/campaigns/{id}/cancel, CAMPAIGN_SEND)
+  async function cancel() {
+    setBusy(true);
+    setError('');
+    try {
+      await api(`/api/campaigns/${c.id}/cancel`, { method: 'POST', silent: true });
+      toast('캠페인을 취소했어요', 'warn');
+      onChanged();
+    } catch (err) {
+      setError(errorText(err));
+      setBusy(false);
+    }
+  }
 
   return (
     <>
@@ -226,7 +256,7 @@ function Summary({ campaign: c }: { campaign: Detail }) {
               <span className="cp-ex">{SEND_STATUS_LABEL.PENDING} <b className="num">{count('PENDING')}</b></span>
             </div>
             {partial && <span className="cp-note">고객 ID 순 앞 {c.messages.items.length}명 기준이에요. 전체는 결과 화면에서 볼 수 있어요.</span>}
-            {count('PENDING') > 0 && <span className="cp-note">가상 발송기가 몇 초 뒤 결과를 바꿔요. 다시 열면 갱신돼요.</span>}
+            {count('PENDING') > 0 && <span className="cp-note">가상 발송기가 몇 초 안에 결과를 정해요. 화면이 알아서 다시 불러와요.</span>}
             {failures.length > 0 && (
               <table className="cp-tbl">
                 <thead>
@@ -253,7 +283,19 @@ function Summary({ campaign: c }: { campaign: Detail }) {
       </div>
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        <AppLink href={`/campaigns/detail?id=${c.id}`} className="cp-btn p">결과 자세히 보기</AppLink>
+        {error && <div className="cp-warn" role="alert" style={{ width: '100%' }}>{error}</div>}
+        {c.status === 'DRAFT' && <AppLink href={`/campaigns/new?id=${c.id}`} className="cp-btn p">이어서 작성</AppLink>}
+        {(c.status === 'DRAFT' || c.status === 'SCHEDULED') &&
+          (confirmCancel ? (
+            <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span className="cp-note">{c.status === 'SCHEDULED' ? '예약 발송을 취소할까요?' : '이 캠페인을 취소할까요?'}</span>
+              <button type="button" className="cp-btn" style={{ color: '#8F2F2F' }} disabled={busy} onClick={cancel}>취소하기</button>
+              <button type="button" className="cp-btn" disabled={busy} onClick={() => setConfirmCancel(false)}>그대로 두기</button>
+            </span>
+          ) : (
+            <button type="button" className="cp-btn" onClick={() => setConfirmCancel(true)}>{c.status === 'SCHEDULED' ? '예약 발송 취소' : '캠페인 취소'}</button>
+          ))}
+        {c.status !== 'DRAFT' && <AppLink href={`/campaigns/detail?id=${c.id}`} className="cp-btn p">결과 자세히 보기</AppLink>}
       </div>
     </>
   );
