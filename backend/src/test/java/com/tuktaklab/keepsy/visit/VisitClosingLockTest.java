@@ -36,6 +36,8 @@ class VisitClosingLockTest {
     @Autowired TransactionTemplate tx;
     @Autowired JdbcTemplate jdbc;
 
+    private static final Callable<?> NOTHING = () -> null;
+
     private TestShopData data;
     private long shop;
     private long staff;
@@ -67,7 +69,7 @@ class VisitClosingLockTest {
         long nail = reserve(staff, DAY.plusDays(30), gel);
         long lashDay = reserve(staff, DAY.plusDays(31), lash);
 
-        Throwable later = whileCustomerLocked(() -> close(nail), () -> close(lashDay));
+        Throwable later = whileCustomerLocked(() -> close(nail), () -> close(lashDay), NOTHING);
 
         assertThat(later).isNull();
         assertThat(lastServiceDate("NAIL")).isEqualTo(DAY.plusDays(30));
@@ -77,11 +79,30 @@ class VisitClosingLockTest {
     }
 
     @Test
+    void 같은_고객_같은_카테고리_다른_날_동시_마감에도_예측이_두_방문_기준이다() throws Exception {
+        long first = reserve(staff, DAY, gel);
+        long second = reserve(staff, DAY.plusDays(30), gel);
+
+        Throwable later = whileCustomerLocked(() -> close(first), () -> close(second), NOTHING);
+
+        // 수정 전: 뒤 마감이 앞 방문 · 첫 예측 행을 못 보고 예측 행을 새로 넣어 uk_customer_prediction 충돌
+        assertThat(later).isNull();
+        assertThat(lastServiceDate("NAIL")).isEqualTo(DAY.plusDays(30));
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT basis_visit_count FROM customer_prediction"
+                                        + " WHERE customer_id = ? AND category = 'NAIL'",
+                                Integer.class,
+                                customer))
+                .isEqualTo(2);
+    }
+
+    @Test
     void 같은_고객_같은_날_동시_마감은_방문_하나에_두_카테고리_예측() throws Exception {
         long nail = reserve(staff, DAY, gel);
         long lashSameDay = reserve(staff2, DAY, lash);
 
-        Throwable later = whileCustomerLocked(() -> close(nail), () -> close(lashSameDay));
+        Throwable later = whileCustomerLocked(() -> close(nail), () -> close(lashSameDay), NOTHING);
 
         assertThat(later).isNull();
         assertThat(count("SELECT count(*) FROM visit WHERE shop_id = ?", shop)).isEqualTo(1);
@@ -94,16 +115,16 @@ class VisitClosingLockTest {
     void 고객_삭제와_마감이_동시에_와도_교착_없이_마감이_거절된다() throws Exception {
         long id = reserve(staff, DAY, gel);
 
-        // 고객 삭제는 고객 잠금 → 예약 정리 순서다 (CustomerService.delete). delete 자체는 접근 기록에 요청 세션이 필요해 예약 정리만
-        // 부른다
+        // 고객 삭제는 고객 잠금 → 예약 정리 순서다 (CustomerService.delete). 고객을 잠근 뒤 마감이 들어오고, 마감이 기다리는 동안 예약을
+        // 정리한다. 수정 전에는 마감이 예약을 쥔 채 고객을 기다려 교착. delete 자체는 접근 기록에 요청 세션이 필요해 예약 정리만 부른다
         Throwable later =
                 whileCustomerLocked(
+                        () -> null,
+                        () -> close(id),
                         () -> {
-                            lockCustomer();
                             reservations.releaseForDeletedCustomer(shop, customer);
                             return null;
-                        },
-                        () -> close(id));
+                        });
 
         assertThat(later)
                 .isInstanceOf(ApiException.class)
@@ -154,24 +175,26 @@ class VisitClosingLockTest {
 
     /**
      * 도우미 트랜잭션에서 {@code first}를 실행해 고객 잠금을 쥔 채로 {@code later}를 다른 스레드에서 시작하고, 그 스레드가 고객 잠금을 기다리기
-     * 시작하면 도우미를 커밋한다.
+     * 시작하면 도우미 안에서 {@code afterWait}를 실행하고 커밋한다.
      *
      * @return {@code later}가 던진 예외 (성공했으면 null)
      */
-    private Throwable whileCustomerLocked(Callable<?> first, Callable<?> later) throws Exception {
+    private Throwable whileCustomerLocked(
+            Callable<?> first, Callable<?> later, Callable<?> afterWait) throws Exception {
         ExecutorService pool = Executors.newSingleThreadExecutor();
         try {
             Future<?> waiting =
                     tx.execute(status -> {
                         try {
                             first.call();
+                            lockCustomer(); // first가 고객을 잠그지 않는 경로여도 쥐고 있게
+                            Future<?> f = pool.submit(later);
+                            awaitCustomerLockWait(f);
+                            afterWait.call();
+                            return f;
                         } catch (Exception e) {
                             throw new IllegalStateException(e);
                         }
-                        lockCustomer(); // first가 고객을 잠그지 않는 경로여도 쥐고 있게
-                        Future<?> f = pool.submit(later);
-                        awaitCustomerLockWait(f);
-                        return f;
                     });
             try {
                 waiting.get();
