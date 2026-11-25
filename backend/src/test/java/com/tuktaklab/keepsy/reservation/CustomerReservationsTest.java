@@ -1,6 +1,8 @@
 package com.tuktaklab.keepsy.reservation;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -23,7 +25,7 @@ import org.springframework.security.web.context.HttpSessionSecurityContextReposi
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
-/** 고객의 예약 목록 (Keepsy #38 완료 조건 · 검증 방법, CONTRACTS 6장). 실제 MySQL에서 돌고, 모의 데이터만 쓴다. */
+/** 고객의 예약 목록 (Keepsy #38 · #342 완료 조건 · 검증 방법, CONTRACTS 6장, 결정 F66). 실제 MySQL에서 돌고, 모의 데이터만 쓴다. */
 @SpringBootTest
 @AutoConfigureMockMvc
 class CustomerReservationsTest {
@@ -78,6 +80,46 @@ class CustomerReservationsTest {
     }
 
     @Test
+    void 예약_메모를_넣고_그_고객_조회로_접근_로그를_남긴다() throws Exception {
+        long withMemo = reserve(customer, DAY, 10, false);
+        long withoutMemo = reserve(customer, DAY.plusDays(1), 10, false);
+        jdbc.update("UPDATE reservation SET memo = '모의 시술 컬러 메모' WHERE id = ?", withMemo);
+
+        list(shop, customer, null)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[0].id").value(withoutMemo))
+                .andExpect(jsonPath("$.items[0].memo").value(nullValue()))
+                .andExpect(jsonPath("$.items[1].memo").value("모의 시술 컬러 메모"));
+
+        assertThat(
+                        jdbc.queryForList(
+                                "SELECT staff_id, action FROM access_log WHERE shop_id = ?"
+                                        + " AND target_type = 'CUSTOMER' AND target_id = ?",
+                                shop,
+                                customer))
+                .singleElement()
+                .satisfies(row -> {
+                    assertThat(row).containsEntry("staff_id", staff);
+                    assertThat(row).containsEntry("action", "VIEW");
+                });
+    }
+
+    @Test
+    void 기간_조회에는_예약_메모를_넣지_않는다() throws Exception {
+        long id = reserve(customer, DAY, 10, false);
+        jdbc.update("UPDATE reservation SET memo = '모의 메모' WHERE id = ?", id);
+
+        mvc.perform(
+                        get("/api/reservations")
+                                .session(session(shop))
+                                .param("from", DAY.toString())
+                                .param("to", DAY.toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.reservations[0].id").value(id))
+                .andExpect(jsonPath("$.reservations[0].memo").doesNotExist());
+    }
+
+    @Test
     void 페이징한다() throws Exception {
         reserve(customer, DAY, 10, false);
         reserve(customer, DAY.plusDays(1), 10, false);
@@ -106,6 +148,15 @@ class CustomerReservationsTest {
 
         jdbc.update("UPDATE customer SET status = 'DELETED' WHERE id = ?", customer);
         list(shop, customer, null).andExpect(status().isNotFound());
+
+        // 보여 준 것이 없으므로 접근 로그도 없다
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT COUNT(*) FROM access_log WHERE target_id = ?"
+                                        + " AND target_type = 'CUSTOMER'",
+                                Integer.class,
+                                customer))
+                .isZero();
     }
 
     @Test
