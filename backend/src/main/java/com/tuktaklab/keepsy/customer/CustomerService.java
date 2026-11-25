@@ -13,7 +13,6 @@ import com.tuktaklab.keepsy.customer.query.CustomerDetailQuery;
 import com.tuktaklab.keepsy.customer.query.CustomerListQuery;
 import com.tuktaklab.keepsy.customer.query.HistoryQuery;
 import com.tuktaklab.keepsy.customer.query.RetentionExpiredQuery;
-import java.io.IOException;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -27,22 +26,19 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /** 고객 등록 · 목록 · 상세 · 동의 조회 · 동의 받기와 철회 (FR-CUS-01 · 02 · 03 · 09, E3, C12) */
-@Slf4j
 @Service
 @RequiredArgsConstructor
 public class CustomerService {
 
     private final CustomerRepository customerRepository;
+    private final PhotoFileService photoFiles;
     private final ConsentRepository consentRepository;
     private final CustomerListQuery listQuery;
     private final ConsentHistoryQuery consentHistoryQuery;
@@ -322,35 +318,8 @@ public class CustomerService {
             customer.changeCautions(customer.getServiceCaution(), null);
         }
         if (item == Consent.Item.PHOTO) {
-            deletePhotos(customer.getShopId(), customer.getId());
+            photoFiles.deleteCustomerPhotos(customer.getShopId(), customer.getId());
         }
-    }
-
-    /** 고객의 모든 방문 사진 행을 지우고, 파일은 커밋 뒤에 지운다 (FR-CUS-09, F16). 롤백되면 파일이 남아야 한다 */
-    private void deletePhotos(long shopId, long customerId) {
-        String where =
-                " FROM photo WHERE shop_id = :shopId"
-                        + " AND visit_id IN (SELECT id FROM visit WHERE customer_id = :customerId)";
-        Map<String, Object> p = Map.of("shopId", shopId, "customerId", customerId);
-        List<String> keys = jdbc.queryForList("SELECT storage_key" + where, p, String.class);
-        jdbc.update("DELETE" + where, p);
-        if (keys.isEmpty()) {
-            return;
-        }
-        TransactionSynchronizationManager.registerSynchronization(
-                new TransactionSynchronization() {
-                    @Override
-                    public void afterCommit() {
-                        for (String key : keys) {
-                            try {
-                                photoStorage.delete(key);
-                            } catch (IOException e) {
-                                // DB는 이미 맞으니 기록만 남긴다
-                                log.warn("사진 파일 삭제 실패 customerId={}", customerId, e);
-                            }
-                        }
-                    }
-                });
     }
 
     private static ApiException invalid(String field, String reason) {
@@ -625,7 +594,7 @@ public class CustomerService {
                 "DELETE FROM consent WHERE shop_id = :shopId AND customer_id = :customerId"
                         + " ORDER BY id DESC",
                 p);
-        deletePhotos(shopId, customerId);
+        photoFiles.deleteCustomerPhotos(shopId, customerId);
         jdbc.update(
                 "UPDATE customer SET reservation_restrict_reason = NULL"
                         + " WHERE id = :customerId AND shop_id = :shopId",
