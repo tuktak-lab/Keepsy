@@ -302,7 +302,8 @@ class CampaignSendTest {
                         UsernamePasswordAuthenticationToken.authenticated(shop, null, List.of())));
         shopSession.setCurrentStaffId(session, staff);
         if (pin) {
-            shopSession.setPin(session, staff, LocalDateTime.now().plusMinutes(5));
+            // PIN 만료는 권한 검사와 같은 테스트 시계로 계산한다 (실제 시각으로 넣으면 고정한 시각보다 이를 때 만료로 보인다)
+            shopSession.setPin(session, staff, LocalDateTime.now(clock).plusMinutes(5));
         }
         return session;
     }
