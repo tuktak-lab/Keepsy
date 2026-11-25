@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useLoad } from '@/hooks/useLoad';
 import { toast } from '@/components/common/Toast';
 import { api, type Page } from '@/lib/api';
 import { formatDateTime } from '@/lib/format';
@@ -8,37 +9,29 @@ import { AreaError, errorText } from './common';
 // 상담 메모 (FR-CUS-06). 작성은 CUSTOMER_WRITE(작성자 · 시각은 서버가 기록), 수정 · 삭제는 CUSTOMER_EDIT(기본 PIN).
 
 export function MemoTab(props: { customerId: number }) {
-  const [notes, setNotes] = useState<ConsultNote[] | null>(null);
   const [draft, setDraft] = useState('');
   const [editing, setEditing] = useState<number | null>(null);
   const [editText, setEditText] = useState('');
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
+  const [actionError, setActionError] = useState('');
 
-  const load = useCallback(async () => {
-    try {
-      setNotes((await api<Page<ConsultNote>>(`/api/customers/${props.customerId}/consult-notes?size=100`, { silent: true })).items);
-    } catch (err) {
-      setError(errorText(err));
-    }
-  }, [props.customerId]);
-
-  useEffect(() => {
-    api<Page<ConsultNote>>(`/api/customers/${props.customerId}/consult-notes?size=100`, { silent: true })
-      .then((r) => setNotes(r.items))
-      .catch((err) => setError(errorText(err)));
-  }, [props.customerId]);
+  const list = useLoad(String(props.customerId), () =>
+    api<Page<ConsultNote>>(`/api/customers/${props.customerId}/consult-notes?size=100`, { silent: true }),
+  );
+  const notes = list.data?.items ?? null;
+  const error = actionError || (list.error ? errorText(list.error) : '');
+  const load = list.reload;
 
   async function run(action: () => Promise<unknown>, done: string) {
     setBusy(true);
-    setError('');
+    setActionError('');
     try {
       await action();
       toast(done);
       await load();
       return true;
     } catch (err) {
-      setError(errorText(err));
+      setActionError(errorText(err));
       return false;
     } finally {
       setBusy(false);

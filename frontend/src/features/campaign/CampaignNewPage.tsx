@@ -64,7 +64,8 @@ const fieldReasons = (err: unknown): Record<string, string> =>
 function Body() {
   const params = useSearchParams();
   const id = Number(params.get('id'));
-  return Number.isInteger(id) && id > 0 ? <SendStep id={id} /> : <SetupStep presetIds={parseIds(params.get('customerIds'))} presetCategory={params.get('category')} />;
+  // 캠페인이 바뀌면 2단계를 새로 만든다: 지난 캠페인의 미리보기 · 검토 체크가 남지 않게 (#344)
+  return Number.isInteger(id) && id > 0 ? <SendStep key={id} id={id} /> : <SetupStep presetIds={parseIds(params.get('customerIds'))} presetCategory={params.get('category')} />;
 }
 
 /** 1단계: 대상 · 템플릿 · 대조군을 정해 캠페인을 만든다 (FR-CMP-01 · 02 · 03 · 18) */
@@ -306,15 +307,21 @@ function SendStep({ id }: { id: number }) {
   const [confirmCancel, setConfirmCancel] = useState(false);
 
   useEffect(() => {
+    // 다른 캠페인으로 바뀌었거나 화면을 떠났으면 지난 응답은 버린다 (#344)
+    let alive = true;
     api<Campaign>(`/api/campaigns/${id}?page=0&size=1`, { silent: true })
       .then((c) => {
+        if (!alive) return;
         setCampaign(c);
         setReviewed(Boolean(c.reviewedAt));
       })
-      .catch((err) => setLoadError(errorText(err)));
+      .catch((err) => alive && setLoadError(errorText(err)));
     api<Preview>(`/api/campaigns/${id}/preview?page=0&size=50`, { silent: true })
-      .then(setPreview)
-      .catch((err) => setPreviewError(errorText(err)));
+      .then((p) => alive && setPreview(p))
+      .catch((err) => alive && setPreviewError(errorText(err)));
+    return () => {
+      alive = false;
+    };
   }, [id]);
 
   if (loadError) return <div className="cp-warn" role="alert">{loadError}</div>;
