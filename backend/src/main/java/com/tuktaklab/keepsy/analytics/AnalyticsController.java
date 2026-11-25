@@ -8,6 +8,7 @@ import com.tuktaklab.keepsy.common.security.ShopSession;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.LocalDate;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -30,7 +31,12 @@ class AnalyticsController {
     private final Clock clock;
 
     record SummaryResponse(
-            LocalDate from, LocalDate to, long revenue, long visitCount, long newCustomerCount) {}
+            LocalDate from,
+            LocalDate to,
+            long revenue,
+            long visitCount,
+            long newCustomerCount,
+            List<ShopSummaryQuery.CycleRevisit> cycleRevisits) {}
 
     record AccuracyResponse(
             LocalDate from,
@@ -39,17 +45,23 @@ class AnalyticsController {
             long hitCount,
             BigDecimal averageErrorDays) {}
 
-    /** 주기 내 재방문율은 스냅샷 스키마 결정 뒤에 더한다 (F24) */
+    /** 주기 내 재방문은 결과가 정해진(이탈 신호 기간이 끝난) 예측만 센다 (F58) */
     @GetMapping("/summary")
     SummaryResponse summary(
             @RequestParam SummaryPeriod period,
             @RequestParam(required = false) LocalDate from,
             @RequestParam(required = false) LocalDate to) {
-        SummaryPeriod.Range range = period.range(LocalDate.now(clock), from, to);
-        ShopSummaryQuery.Summary s =
-                summaryQuery.find(shopSession.shopId(), range.from(), range.to());
+        LocalDate today = LocalDate.now(clock);
+        SummaryPeriod.Range range = period.range(today, from, to);
+        long shopId = shopSession.shopId();
+        ShopSummaryQuery.Summary s = summaryQuery.find(shopId, range.from(), range.to());
         return new SummaryResponse(
-                range.from(), range.to(), s.revenue(), s.visitCount(), s.newCustomerCount());
+                range.from(),
+                range.to(),
+                s.revenue(),
+                s.visitCount(),
+                s.newCustomerCount(),
+                summaryQuery.cycleRevisits(shopId, range.from(), range.to(), today));
     }
 
     /** 끝난 예측만 평가한다 (E9, F29). 기간 값은 매장 기본 지표와 같다 (FR-ANL-06) */

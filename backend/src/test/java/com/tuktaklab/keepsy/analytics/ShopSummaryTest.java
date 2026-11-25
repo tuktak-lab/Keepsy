@@ -5,6 +5,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.tuktaklab.keepsy.common.security.ShopSession;
+import com.tuktaklab.keepsy.common.time.TimeConfig;
 import com.tuktaklab.keepsy.reservation.NewReservation;
 import com.tuktaklab.keepsy.reservation.ReservationAppService;
 import com.tuktaklab.keepsy.support.TestShopData;
@@ -149,6 +150,79 @@ class ShopSummaryTest {
                 .andExpect(jsonPath("$.revenue").value(35_000))
                 .andExpect(jsonPath("$.visitCount").value(4))
                 .andExpect(jsonPath("$.newCustomerCount").value(3));
+    }
+
+    /**
+     * 주기 내 재방문 (FR-ANL-05, F58). 이탈 신호 기간 끝날 = 종료일 + 이탈 신호 기간이 10월이고 오늘보다 이전인 스냅샷만 센다. 재방문 = 실제 다음
+     * 방문일 ≤ 끝날
+     */
+    @Test
+    void 주기_내_재방문은_이탈_신호_기간이_기간_안에_끝난_예측을_카테고리별로_센다() throws Exception {
+        long n = data.customer(shop, false, null);
+        snapshot(shop, n, "NAIL", "2026-10-01", 10, "2026-10-11"); // 끝날 10/11 당일 → 재방문
+        snapshot(shop, n, "NAIL", "2026-10-01", 10, "2026-10-12"); // 하루 늦음
+        snapshot(shop, n, "NAIL", "2026-10-01", 10, null); // 안 옴
+        snapshot(shop, n, "NAIL", "2026-09-01", 5, "2026-09-03"); // 끝날 9/6 → 기간 밖
+        snapshot(shop, n, "NAIL", "2026-10-01", null, "2026-10-02"); // 이탈 신호 기간 없음 → 뺌
+        snapshot(shop, n, "LASH", "2026-10-20", 5, "2026-09-28"); // 끝날 10/25, 예측보다 이른 방문도 재방문
+        snapshot(shop, n, "LASH", "2026-10-28", 10, null); // 끝날 11/7 → 기간 밖
+        long deleted = data.customer(shop, false, null);
+        jdbc.update("UPDATE customer SET status = 'DELETED' WHERE id = ?", deleted);
+        snapshot(shop, deleted, "NAIL", "2026-10-01", 10, "2026-10-02"); // 삭제된 고객도 센다
+        long other = data.shop();
+        snapshot(other, data.customer(other, false, null), "NAIL", "2026-10-01", 10, "2026-10-02");
+
+        mvc.perform(
+                        get("/api/analytics/summary")
+                                .param("period", "CUSTOM")
+                                .param("from", "2026-10-01")
+                                .param("to", "2026-10-31")
+                                .session(session(true)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.cycleRevisits.length()").value(5))
+                .andExpect(jsonPath("$.cycleRevisits[0].category").value("NAIL"))
+                .andExpect(jsonPath("$.cycleRevisits[0].endedCount").value(4))
+                .andExpect(jsonPath("$.cycleRevisits[0].revisitedCount").value(2))
+                .andExpect(jsonPath("$.cycleRevisits[1].category").value("LASH"))
+                .andExpect(jsonPath("$.cycleRevisits[1].endedCount").value(1))
+                .andExpect(jsonPath("$.cycleRevisits[1].revisitedCount").value(1))
+                .andExpect(jsonPath("$.cycleRevisits[2].category").value("WAXING"))
+                .andExpect(jsonPath("$.cycleRevisits[2].endedCount").value(0))
+                .andExpect(jsonPath("$.cycleRevisits[4].category").value("ETC"));
+
+        // 끝날이 오늘인 예측은 아직 결과가 정해지지 않아 뺀다
+        LocalDate today = LocalDate.now(TimeConfig.ZONE);
+        snapshot(shop, n, "WAXING", today.minusDays(10).toString(), 10, null);
+        snapshot(shop, n, "WAXING", today.minusDays(11).toString(), 10, null);
+        mvc.perform(
+                        get("/api/analytics/summary")
+                                .param("period", "CUSTOM")
+                                .param("from", today.minusDays(1).toString())
+                                .param("to", today.toString())
+                                .session(session(true)))
+                .andExpect(jsonPath("$.cycleRevisits[2].endedCount").value(1))
+                .andExpect(jsonPath("$.cycleRevisits[2].revisitedCount").value(0));
+    }
+
+    private void snapshot(
+            long shopId,
+            long customer,
+            String category,
+            String endDate,
+            Integer churnSignalDays,
+            String actualVisitDate) {
+        jdbc.update(
+                "INSERT INTO prediction_snapshot (shop_id, customer_id, category, created_at,"
+                        + " start_date, end_date, basis_visit_count, churn_signal_days,"
+                        + " actual_visit_date) VALUES (?, ?, ?, NOW(), DATE_SUB(?, INTERVAL 6 DAY),"
+                        + " ?, 2, ?, ?)",
+                shopId,
+                customer,
+                category,
+                endDate,
+                endDate,
+                churnSignalDays,
+                actualVisitDate);
     }
 
     @Test
