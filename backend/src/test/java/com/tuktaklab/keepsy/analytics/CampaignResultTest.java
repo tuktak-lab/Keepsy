@@ -238,6 +238,109 @@ class CampaignResultTest {
                 .andExpect(status().isOk());
     }
 
+    @Test
+    void 캠페인_성과_목록은_캠페인별로_퍼널_매출과_같고_합계는_고객_방문을_한_번만_센다() throws Exception {
+        // 기간 밖(전날 밤) · 취소 · 미발송 · 동의 재확인 안내 캠페인은 빠진다 (F65). 다른 매장 캠페인은 같은 날 발송이어도 빠진다 (NFR-03)
+        long template = template(shop);
+        campaign(shop, "NAIL", template, "AD", "SENT", LocalDateTime.of(2026, 9, 30, 23, 59, 59));
+        campaign(shop, "NAIL", template, "AD", "CANCELED", LocalDateTime.of(2026, 10, 1, 9, 0));
+        campaign(shop, "NAIL", template, "AD", "DRAFT", null);
+        campaign(shop, null, template, "INFO", "SENT", LocalDateTime.of(2026, 10, 1, 9, 0));
+
+        mvc.perform(
+                        get("/api/analytics/campaigns")
+                                .param("period", "CUSTOM")
+                                .param("from", "2026-10-01")
+                                .param("to", "2026-10-01")
+                                .session(session(true)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.from").value("2026-10-01"))
+                .andExpect(jsonPath("$.to").value("2026-10-01"))
+                .andExpect(jsonPath("$.page").value(0))
+                .andExpect(jsonPath("$.size").value(20))
+                .andExpect(jsonPath("$.totalElements").value(2))
+                // 발송 시각이 같으면 ID가 큰 Y 먼저
+                .andExpect(jsonPath("$.items[0].id").value(campaignY))
+                .andExpect(jsonPath("$.items[0].category").value("WAXING"))
+                .andExpect(jsonPath("$.items[0].sentAt").value("2026-10-01T10:00:00+09:00"))
+                .andExpect(jsonPath("$.items[0].sentCount").value(1))
+                .andExpect(jsonPath("$.items[0].reachedCount").value(1))
+                .andExpect(jsonPath("$.items[0].rebookedCount").value(1))
+                .andExpect(jsonPath("$.items[0].revisitedCount").value(1))
+                .andExpect(jsonPath("$.items[0].revenue").value(50_000))
+                // X는 퍼널 · 매출 API와 같은 값 (위 테스트)
+                .andExpect(jsonPath("$.items[1].id").value(campaignX))
+                .andExpect(jsonPath("$.items[1].sentCount").value(8))
+                .andExpect(jsonPath("$.items[1].reachedCount").value(6))
+                .andExpect(jsonPath("$.items[1].rebookedCount").value(3))
+                .andExpect(jsonPath("$.items[1].revisitedCount").value(2))
+                .andExpect(jsonPath("$.items[1].revenue").value(100_000))
+                // 합계: H는 X · Y 둘 다 받았지만 한 번만. 방문 vH도 한 번만 (50,000 + 50,000, 150,000 아님)
+                .andExpect(jsonPath("$.total.campaignCount").value(2))
+                .andExpect(jsonPath("$.total.sentCount").value(8))
+                .andExpect(jsonPath("$.total.reachedCount").value(6))
+                .andExpect(jsonPath("$.total.rebookedCount").value(3))
+                .andExpect(jsonPath("$.total.revisitedCount").value(2))
+                .andExpect(jsonPath("$.total.revenue").value(100_000));
+    }
+
+    @Test
+    void 캠페인_성과_합계는_페이지와_관계없이_기간_전체로_계산한다() throws Exception {
+        MockHttpSession s = session(true);
+        mvc.perform(
+                        get("/api/analytics/campaigns")
+                                .param("period", "CUSTOM")
+                                .param("from", "2026-10-01")
+                                .param("to", "2026-10-01")
+                                .param("page", "1")
+                                .param("size", "1")
+                                .session(s))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items.length()").value(1))
+                .andExpect(jsonPath("$.items[0].id").value(campaignX))
+                .andExpect(jsonPath("$.totalElements").value(2))
+                .andExpect(jsonPath("$.total.campaignCount").value(2))
+                .andExpect(jsonPath("$.total.revenue").value(100_000));
+        // 기간 안 캠페인이 없으면 빈 목록과 0 합계
+        mvc.perform(
+                        get("/api/analytics/campaigns")
+                                .param("period", "CUSTOM")
+                                .param("from", "2026-10-02")
+                                .param("to", "2026-10-31")
+                                .session(s))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items.length()").value(0))
+                .andExpect(jsonPath("$.totalElements").value(0))
+                .andExpect(jsonPath("$.total.campaignCount").value(0))
+                .andExpect(jsonPath("$.total.revenue").value(0));
+    }
+
+    @Test
+    void 캠페인_성과_목록은_매출_분석_권한과_기간_규칙을_따른다() throws Exception {
+        mvc.perform(
+                        get("/api/analytics/campaigns")
+                                .param("period", "THIS_MONTH")
+                                .session(session(false)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("pin_required"));
+        MockHttpSession s = session(true);
+        mvc.perform(
+                        get("/api/analytics/campaigns")
+                                .param("period", "CUSTOM")
+                                .param("from", "2026-10-02")
+                                .param("to", "2026-10-01")
+                                .session(s))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("invalid"));
+        mvc.perform(
+                        get("/api/analytics/campaigns")
+                                .param("period", "THIS_MONTH")
+                                .param("size", "101")
+                                .session(s))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("invalid"));
+    }
+
     /** 캠페인 조회 · 매출 분석은 기본 PIN 잠금이라 PIN 인증을 함께 채운다 (명세서 2장) */
     private MockHttpSession session(boolean pin) {
         MockHttpSession session = new MockHttpSession();
@@ -268,13 +371,26 @@ class CampaignResultTest {
     }
 
     private long campaign(long shopId, String category, long template) {
+        return campaign(
+                shopId, category, template, "AD", "SENT", LocalDateTime.of(2026, 10, 1, 10, 0));
+    }
+
+    private long campaign(
+            long shopId,
+            String category,
+            long template,
+            String kind,
+            String status,
+            LocalDateTime sentAt) {
         return insert(
                 "INSERT INTO campaign (shop_id, name, category, template_id, message_kind, status,"
-                        + " sent_at) VALUES (?, '모의 캠페인', ?, ?, 'AD', 'SENT', ?)",
+                        + " sent_at) VALUES (?, '모의 캠페인', ?, ?, ?, ?, ?)",
                 shopId,
                 category,
                 template,
-                LocalDateTime.of(2026, 10, 1, 10, 0));
+                kind,
+                status,
+                sentAt);
     }
 
     private long message(
