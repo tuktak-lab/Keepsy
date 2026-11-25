@@ -156,7 +156,8 @@ export default function CustomerDetailPage() {
                 ))}
               </div>
 
-              <div className="kp-fade" key={tab} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+              {/* 고객이 바뀌면 탭을 새로 만든다: 쓰던 메모 · 펼친 페이지가 다른 고객에게 남지 않게 (#344) */}
+              <div className="kp-fade" key={`${tab}-${customerId}`} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
                 {tab === 'summary' && <SummaryTab customerId={customerId} detail={detail} consents={consents} reload={reload} />}
                 {tab === 'history' && <HistoryTab customerId={customerId} photoAgreed={photoAgreed} />}
                 {tab === 'memo' && <MemoTab customerId={customerId} />}

@@ -64,7 +64,8 @@ const fieldReasons = (err: unknown): Record<string, string> =>
 function Body() {
   const params = useSearchParams();
   const id = Number(params.get('id'));
-  return Number.isInteger(id) && id > 0 ? <SendStep id={id} /> : <SetupStep presetIds={parseIds(params.get('customerIds'))} presetCategory={params.get('category')} />;
+  // 캠페인이 바뀌면 2단계를 새로 만든다: 지난 캠페인의 미리보기 · 검토 체크가 남지 않게 (#344)
+  return Number.isInteger(id) && id > 0 ? <SendStep key={id} id={id} /> : <SetupStep presetIds={parseIds(params.get('customerIds'))} presetCategory={params.get('category')} />;
 }
 
 /** 1단계: 대상 · 템플릿 · 대조군을 정해 캠페인을 만든다 (FR-CMP-01 · 02 · 03 · 18) */
