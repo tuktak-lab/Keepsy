@@ -4,6 +4,7 @@ import com.tuktaklab.keepsy.account.ShopSettingsService;
 import com.tuktaklab.keepsy.campaign.CampaignService;
 import com.tuktaklab.keepsy.prediction.PredictionAppService;
 import com.tuktaklab.keepsy.reservation.ReservationAppService;
+import com.tuktaklab.keepsy.visit.VisitAppService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -16,6 +17,7 @@ class CustomerDeletionReferencesAdapter implements CustomerDeletionReferences {
     private final PredictionAppService predictions;
     private final CampaignService campaigns;
     private final ShopSettingsService shopSettings;
+    private final VisitAppService visits;
 
     @Override
     public int confirmedReservationCount(long shopId, long customerId) {
@@ -27,6 +29,7 @@ class CustomerDeletionReferencesAdapter implements CustomerDeletionReferences {
         reservations.releaseForDeletedCustomer(shopId, customerId);
         predictions.deleteForCustomer(shopId, customerId);
         campaigns.eraseRecipient(shopId, customerId);
+        visits.eraseNotesForDeletedCustomer(shopId, customerId);
     }
 
     @Override

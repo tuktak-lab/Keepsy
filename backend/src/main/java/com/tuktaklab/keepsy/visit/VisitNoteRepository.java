@@ -9,4 +9,10 @@ public interface VisitNoteRepository extends JpaRepository<VisitNote, Long> {
     @Modifying
     @Query("delete from VisitNote n where n.shopId = :shopId and n.visitId = :visitId")
     void deleteVisitNotes(long shopId, long visitId);
+
+    @Modifying
+    @Query(
+            "delete from VisitNote n where n.shopId = :shopId and n.visitId in"
+                    + " (select v.id from Visit v where v.shopId = :shopId and v.customerId = :customerId)")
+    void deleteCustomerVisitNotes(long shopId, long customerId);
 }
