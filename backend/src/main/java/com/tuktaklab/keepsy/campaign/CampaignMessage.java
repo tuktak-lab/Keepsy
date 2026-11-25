@@ -56,6 +56,9 @@ public class CampaignMessage {
     /** 발송 결과 시각. SENT면 발송 성공 시각 (귀속 · 재발송 제한 기준) */
     private LocalDateTime resultAt;
 
+    /** 이 시각 이후 발송. null이면 바로. 야간에 접수된 수신 거부 처리 안내만 쓴다 (FR-CMP-07 · 11, F48) */
+    private LocalDateTime sendAfter;
+
     static CampaignMessage pending(MessageSender.Outgoing m, MessageType type) {
         CampaignMessage row = new CampaignMessage();
         row.shopId = m.shopId();
@@ -67,6 +70,7 @@ public class CampaignMessage {
         row.messageType = type;
         row.body = m.message().text();
         row.sendStatus = SendStatus.PENDING;
+        row.sendAfter = m.sendAfter();
         return row;
     }
 }

@@ -11,8 +11,15 @@ import org.springframework.data.repository.query.Param;
 
 interface CampaignMessageRepository extends JpaRepository<CampaignMessage, Long> {
 
-    /** 결과를 기다리는 발송 기록, 먼저 만든 순 (idx_campaign_message_status) */
-    List<CampaignMessage> findTop500BySendStatusOrderByIdAsc(SendStatus sendStatus);
+    /**
+     * 지금 보낼 PENDING 발송 기록, 먼저 만든 순 (idx_campaign_message_status). 발송 예정 시각이 남은 행(야간 수신 거부 안내)은 빼고,
+     * 그 시각이 지나면 넣는다 (F48). {@code PageRequest.of(0, 500)}으로 한 번에 처리할 수를 정한다
+     */
+    @Query(
+            "SELECT m FROM CampaignMessage m"
+                    + " WHERE m.sendStatus = com.tuktaklab.keepsy.campaign.SendStatus.PENDING"
+                    + " AND (m.sendAfter IS NULL OR m.sendAfter <= :now) ORDER BY m.id")
+    List<CampaignMessage> findDuePending(@Param("now") LocalDateTime now, Pageable pageable);
 
     /** 한 번호의 발송 기록, 받은 시각 최신순 (가상 수신함 FR-CMP-16, idx_campaign_message_shop_phone) */
     Page<CampaignMessage> findByShopIdAndRecipientPhoneAndSendStatusOrderByResultAtDescIdDesc(

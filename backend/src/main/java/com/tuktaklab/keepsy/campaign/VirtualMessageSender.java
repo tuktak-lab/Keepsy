@@ -10,6 +10,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.random.RandomGenerator;
 import java.util.regex.Pattern;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -57,15 +58,14 @@ class VirtualMessageSender implements MessageSender {
 
     /**
      * PENDING 발송 기록의 결과를 정한다 (FR-CMP-10). 서버가 재시작해도 남은 PENDING을 이어서 처리한다 (F7 복구). 행마다 PENDING일 때만
-     * 바꾼다.
+     * 바꾼다. 발송 예정 시각이 남은 행(야간 수신 거부 안내)은 그 시각이 지난 뒤에 보낸다 (F48).
      */
     @Scheduled(initialDelay = 3, fixedDelay = 3, timeUnit = TimeUnit.SECONDS)
     @Transactional
     public void deliverPending() {
         LocalDateTime now = LocalDateTime.now(clock);
         Map<Long, Integer> failurePercent = new HashMap<>();
-        for (CampaignMessage m :
-                repository.findTop500BySendStatusOrderByIdAsc(SendStatus.PENDING)) {
+        for (CampaignMessage m : repository.findDuePending(now, PageRequest.of(0, 500))) {
             int percent =
                     failurePercent.computeIfAbsent(
                             m.getShopId(), shopId -> settings.of(shopId).failurePercent());
