@@ -1,6 +1,10 @@
+'use client';
+
 import { useLayoutEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { AppLink } from '@/components/common/AppLink';
 import logoImg from '@/assets/images/keepsy-logo-thin.png';
+import { activeMenu } from '@/lib/shellNav';
 
 // Next.js는 이미지 import를 { src, width, height } 객체로 준다 (Vite는 URL 문자열).
 const logo = logoImg.src;
@@ -28,17 +32,15 @@ const NAV: [string, string, string, string][] = [
 const ITEM = 54; // 메뉴 한 칸 높이
 const GAP = 8;
 
-// 화면을 옮기면 사이드바가 새로 그려지므로, 직전 활성 메뉴 위치를 기억했다가
-// 그 자리에서 새 메뉴로 표시(배경 + 왼쪽 선)를 부드럽게 옮깁니다.
-let lastIdx: number | null = null;
-
-export function Sidebar(props: { active?: string; glass?: boolean }) {
-  const active = props.active || 'dashboard';
+// 사이드바는 공통 셸(app/(shop)/layout.tsx)에서 한 번만 그려지고 화면을 옮겨도 유지된다.
+// 활성 메뉴는 경로에서 정하고, 표시(배경 + 왼쪽 선)는 이전 위치에서 새 메뉴로 부드럽게 옮긴다.
+export function Sidebar() {
+  const active = activeMenu(usePathname());
   const idx = Math.max(
     0,
     NAV.findIndex(([id]) => id === active),
   );
-  const [markIdx, setMarkIdx] = useState(lastIdx ?? idx);
+  const [markIdx, setMarkIdx] = useState(idx);
   const [moving, setMoving] = useState(false);
 
   useLayoutEffect(() => {
@@ -48,10 +50,8 @@ export function Sidebar(props: { active?: string; glass?: boolean }) {
         setMoving(true);
         setMarkIdx(idx);
       });
-      lastIdx = idx;
       return () => cancelAnimationFrame(r);
     }
-    lastIdx = idx;
   }, [idx, markIdx]);
 
   return (

@@ -2,8 +2,6 @@ import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { AppLink } from '@/components/common/AppLink';
 import { toast } from '@/components/common/Toast';
-import { Sidebar } from '@/components/layout/Sidebar';
-import { Topbar } from '@/components/layout/Topbar';
 import { useStyleSheet } from '@/hooks/useStyleSheet';
 import { ApiError, api } from '@/lib/api';
 import { CHANNEL_LABEL, DOW_LABEL, dayIndex, endMs, formatMinutes, seoulParts, toneOf, type Channel, type ReservationStatus } from '@/lib/calendar';
@@ -140,186 +138,180 @@ export default function ReservationDetailPage() {
   }
 
   return (
-    <div className="shell">
-      <div style={{ flex: '0 0 232px' }}>
-        <Sidebar active="schedule" />
-      </div>
-      <main style={{ flex: '999 1 640px', minWidth: '0', display: 'flex', flexDirection: 'column' }}>
-        <Topbar crumb="파트너 센터 / 예약 · 일정 / 예약 상세" />
-        <div className="wrap">
-          <header className="head">
-            <div>
-              <h1 className="h1 serif">예약 상세</h1>
-              <p className="sub">
-                <AppLink href={backHref} className="p-link">
-                  ‹ 예약 캘린더로
-                </AppLink>
-              </p>
-            </div>
-          </header>
+    <>
+      <div className="wrap">
+        <header className="head">
+          <div>
+            <h1 className="h1 serif">예약 상세</h1>
+            <p className="sub">
+              <AppLink href={backHref} className="p-link">
+                ‹ 예약 캘린더로
+              </AppLink>
+            </p>
+          </div>
+        </header>
 
-          <section className="card detail-card" aria-label="예약 상세">
-            {!validId || current?.error === 'notfound' ? (
-              <p className="meta">찾을 수 없는 예약이에요. 예약 캘린더에서 다시 골라 주세요.</p>
-            ) : current?.error === 'error' ? (
-              <p className="meta">
-                예약을 불러오지 못했어요.{' '}
-                <button type="button" className="btn btn-sm" onClick={() => setReload((n) => n + 1)}>
-                  다시 시도
-                </button>
-              </p>
-            ) : !detail || !at ? (
-              <p className="meta">불러오는 중…</p>
-            ) : (
-              <div className="detail">
-                <div className="d-top">
-                  <span className={'st-chip s-' + chipClass}>{chipLabel}</span>
-                  <span className="meta num">예약 번호 {detail.id}</span>
-                </div>
+        <section className="card detail-card" aria-label="예약 상세">
+          {!validId || current?.error === 'notfound' ? (
+            <p className="meta">찾을 수 없는 예약이에요. 예약 캘린더에서 다시 골라 주세요.</p>
+          ) : current?.error === 'error' ? (
+            <p className="meta">
+              예약을 불러오지 못했어요.{' '}
+              <button type="button" className="btn btn-sm" onClick={() => setReload((n) => n + 1)}>
+                다시 시도
+              </button>
+            </p>
+          ) : !detail || !at ? (
+            <p className="meta">불러오는 중…</p>
+          ) : (
+            <div className="detail">
+              <div className="d-top">
+                <span className={'st-chip s-' + chipClass}>{chipLabel}</span>
+                <span className="meta num">예약 번호 {detail.id}</span>
+              </div>
 
-                <div className="d-name">
-                  {detail.customer ? (
-                    <b>
-                      {detail.customer.name ? (
-                        <AppLink href={`/customers/detail?id=${detail.customer.id}`}>{detail.customer.name}</AppLink>
-                      ) : (
-                        '이름 없음'
-                      )}
-                    </b>
-                  ) : (
-                    <b>고객 정보 없음</b>
-                  )}
-                </div>
-
-                {detail.customer?.serviceCaution || detail.customer?.healthCaution ? (
-                  <div className="box warn" role="note" aria-label="고객 주의사항">
-                    {detail.customer.serviceCaution ? (
-                      <>
-                        <span className="lbl">시술 주의사항</span>
-                        <p>{detail.customer.serviceCaution}</p>
-                      </>
-                    ) : null}
-                    {detail.customer.healthCaution ? (
-                      <>
-                        <span className="lbl" style={{ marginTop: detail.customer.serviceCaution ? 8 : 0 }}>
-                          건강 주의사항
-                        </span>
-                        <p>{detail.customer.healthCaution}</p>
-                      </>
-                    ) : null}
-                  </div>
-                ) : null}
-
-                <dl className="d-dl">
-                  <dt>일시</dt>
-                  <dd className="strong num">
-                    {at.date.slice(0, 4)}년 {Number(at.date.slice(5, 7))}월 {Number(at.date.slice(8, 10))}일 ({DOW_LABEL[dayIndex(at.date)]}){' '}
-                    {formatMinutes(at.minutes)} – {formatMinutes(at.minutes + detail.minutes)} ({detail.minutes}분)
-                  </dd>
-                  <dt>담당 스탭</dt>
-                  <dd>{detail.staff.name}</dd>
-                  <dt>예약 경로</dt>
-                  <dd>{route}</dd>
-                  <dt>예정 시술</dt>
-                  <dd>
-                    {detail.services.map((s) => (
-                      <div key={s.serviceMenuId}>
-                        {s.name} <span className="num meta">{formatWon(s.price)}</span>
-                      </div>
-                    ))}
-                  </dd>
-                  <dt>예상 금액</dt>
-                  <dd className="strong num">{detail.consultFirst ? '상담 후 결정' : formatWon(total)}</dd>
-                  {detail.memo ? (
-                    <>
-                      <dt>메모</dt>
-                      <dd style={{ whiteSpace: 'pre-line' }}>{detail.memo}</dd>
-                    </>
-                  ) : null}
-                  {detail.visitId !== null ? (
-                    <>
-                      <dt>방문 기록</dt>
-                      <dd>시술 마감까지 끝났어요.</dd>
-                    </>
-                  ) : null}
-                </dl>
-
-                {notes.length ? (
-                  <div className="box">
-                    <ul>
-                      {notes.map((n) => (
-                        <li key={n}>{n}</li>
-                      ))}
-                    </ul>
-                  </div>
-                ) : null}
-
-                {error ? (
-                  <span className="err" role="alert">
-                    {error}
-                  </span>
-                ) : null}
-
-                {confirmed ? (
-                  confirming ? (
-                    <div className="confirm" role="alertdialog" aria-label={`${ACTION_TEXT[confirming].button} 확인`}>
-                      <p>{confirmText(confirming, hasCustomer)}</p>
-                      <div className="confirm-actions">
-                        <button type="button" className="btn btn-sm" disabled={busy} onClick={() => setConfirming(null)}>
-                          돌아가기
-                        </button>
-                        <button type="button" className="btn btn-sm btn-danger" disabled={busy} onClick={() => void changeStatus(confirming)}>
-                          {busy ? '처리 중…' : ACTION_TEXT[confirming].button}
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="d-acts">
-                      <AppLink href={`/reservations/closing?id=${id}`} className="btn btn-p btn-w">
-                        시술 마감
-                      </AppLink>
-                      <div className="act-2">
-                        <button type="button" className="btn btn-w" onClick={() => setEditing(true)} disabled={staff.length === 0}>
-                          일정 변경
-                        </button>
-                        {!hasCustomer ? (
-                          <button type="button" className="btn btn-w" onClick={() => { setLinkError(''); setLinking(true); }}>
-                            고객 연결
-                          </button>
-                        ) : null}
-                      </div>
-                      <div className="sub-acts">
-                        <button type="button" className="lk danger" onClick={() => setConfirming('cancel')}>
-                          {ACTION_TEXT.cancel.button}
-                        </button>
-                        <button
-                          type="button"
-                          className="lk danger"
-                          disabled={!canNoShow}
-                          title={canNoShow ? undefined : NO_SHOW_TOO_EARLY}
-                          onClick={() => setConfirming('no-show')}
-                          style={canNoShow ? undefined : { opacity: 0.5, cursor: 'not-allowed' }}
-                        >
-                          {ACTION_TEXT['no-show'].button}
-                        </button>
-                      </div>
-                    </div>
-                  )
+              <div className="d-name">
+                {detail.customer ? (
+                  <b>
+                    {detail.customer.name ? (
+                      <AppLink href={`/customers/detail?id=${detail.customer.id}`}>{detail.customer.name}</AppLink>
+                    ) : (
+                      '이름 없음'
+                    )}
+                  </b>
                 ) : (
-                  <div className="d-acts">
-                    {detail.status === 'COMPLETED' ? (
-                      <AppLink href={`/reservations/closing?id=${id}`} className="btn btn-w">
-                        추가 결제 · 메모
-                      </AppLink>
-                    ) : null}
-                    <p className="meta">완료 · 취소 · 노쇼한 예약은 일정을 바꿀 수 없어요.</p>
-                  </div>
+                  <b>고객 정보 없음</b>
                 )}
               </div>
-            )}
-          </section>
-        </div>
-      </main>
+
+              {detail.customer?.serviceCaution || detail.customer?.healthCaution ? (
+                <div className="box warn" role="note" aria-label="고객 주의사항">
+                  {detail.customer.serviceCaution ? (
+                    <>
+                      <span className="lbl">시술 주의사항</span>
+                      <p>{detail.customer.serviceCaution}</p>
+                    </>
+                  ) : null}
+                  {detail.customer.healthCaution ? (
+                    <>
+                      <span className="lbl" style={{ marginTop: detail.customer.serviceCaution ? 8 : 0 }}>
+                        건강 주의사항
+                      </span>
+                      <p>{detail.customer.healthCaution}</p>
+                    </>
+                  ) : null}
+                </div>
+              ) : null}
+
+              <dl className="d-dl">
+                <dt>일시</dt>
+                <dd className="strong num">
+                  {at.date.slice(0, 4)}년 {Number(at.date.slice(5, 7))}월 {Number(at.date.slice(8, 10))}일 ({DOW_LABEL[dayIndex(at.date)]}){' '}
+                  {formatMinutes(at.minutes)} – {formatMinutes(at.minutes + detail.minutes)} ({detail.minutes}분)
+                </dd>
+                <dt>담당 스탭</dt>
+                <dd>{detail.staff.name}</dd>
+                <dt>예약 경로</dt>
+                <dd>{route}</dd>
+                <dt>예정 시술</dt>
+                <dd>
+                  {detail.services.map((s) => (
+                    <div key={s.serviceMenuId}>
+                      {s.name} <span className="num meta">{formatWon(s.price)}</span>
+                    </div>
+                  ))}
+                </dd>
+                <dt>예상 금액</dt>
+                <dd className="strong num">{detail.consultFirst ? '상담 후 결정' : formatWon(total)}</dd>
+                {detail.memo ? (
+                  <>
+                    <dt>메모</dt>
+                    <dd style={{ whiteSpace: 'pre-line' }}>{detail.memo}</dd>
+                  </>
+                ) : null}
+                {detail.visitId !== null ? (
+                  <>
+                    <dt>방문 기록</dt>
+                    <dd>시술 마감까지 끝났어요.</dd>
+                  </>
+                ) : null}
+              </dl>
+
+              {notes.length ? (
+                <div className="box">
+                  <ul>
+                    {notes.map((n) => (
+                      <li key={n}>{n}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+
+              {error ? (
+                <span className="err" role="alert">
+                  {error}
+                </span>
+              ) : null}
+
+              {confirmed ? (
+                confirming ? (
+                  <div className="confirm" role="alertdialog" aria-label={`${ACTION_TEXT[confirming].button} 확인`}>
+                    <p>{confirmText(confirming, hasCustomer)}</p>
+                    <div className="confirm-actions">
+                      <button type="button" className="btn btn-sm" disabled={busy} onClick={() => setConfirming(null)}>
+                        돌아가기
+                      </button>
+                      <button type="button" className="btn btn-sm btn-danger" disabled={busy} onClick={() => void changeStatus(confirming)}>
+                        {busy ? '처리 중…' : ACTION_TEXT[confirming].button}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="d-acts">
+                    <AppLink href={`/reservations/closing?id=${id}`} className="btn btn-p btn-w">
+                      시술 마감
+                    </AppLink>
+                    <div className="act-2">
+                      <button type="button" className="btn btn-w" onClick={() => setEditing(true)} disabled={staff.length === 0}>
+                        일정 변경
+                      </button>
+                      {!hasCustomer ? (
+                        <button type="button" className="btn btn-w" onClick={() => { setLinkError(''); setLinking(true); }}>
+                          고객 연결
+                        </button>
+                      ) : null}
+                    </div>
+                    <div className="sub-acts">
+                      <button type="button" className="lk danger" onClick={() => setConfirming('cancel')}>
+                        {ACTION_TEXT.cancel.button}
+                      </button>
+                      <button
+                        type="button"
+                        className="lk danger"
+                        disabled={!canNoShow}
+                        title={canNoShow ? undefined : NO_SHOW_TOO_EARLY}
+                        onClick={() => setConfirming('no-show')}
+                        style={canNoShow ? undefined : { opacity: 0.5, cursor: 'not-allowed' }}
+                      >
+                        {ACTION_TEXT['no-show'].button}
+                      </button>
+                    </div>
+                  </div>
+                )
+              ) : (
+                <div className="d-acts">
+                  {detail.status === 'COMPLETED' ? (
+                    <AppLink href={`/reservations/closing?id=${id}`} className="btn btn-w">
+                      추가 결제 · 메모
+                    </AppLink>
+                  ) : null}
+                  <p className="meta">완료 · 취소 · 노쇼한 예약은 일정을 바꿀 수 없어요.</p>
+                </div>
+              )}
+            </div>
+          )}
+        </section>
+      </div>
 
       {editing && detail ? (
         <ReservationForm key={detail.id} editId={detail.id} initialDate={at?.date ?? ''} staff={staff} onClose={closeEditing} onSaved={afterEdit} onStale={refresh} />
@@ -349,6 +341,6 @@ export default function ReservationDetailPage() {
           </div>
         </div>
       ) : null}
-    </div>
+    </>
   );
 }

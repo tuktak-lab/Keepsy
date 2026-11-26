@@ -2,8 +2,6 @@ import { useEffect, useState } from 'react';
 import { AppLink } from '@/components/common/AppLink';
 import { CountUp } from '@/components/common/CountUp';
 import { toast } from '@/components/common/Toast';
-import { Sidebar } from '@/components/layout/Sidebar';
-import { Topbar } from '@/components/layout/Topbar';
 import { useStyleSheet } from '@/hooks/useStyleSheet';
 import { ApiError, api, type Page } from '@/lib/api';
 import { HANDLING, NEXT_ACTION_LABEL, STATUS_TABS, nextMark, type HandlingMark, type InsightStatus } from '@/lib/insights';
@@ -106,150 +104,144 @@ export default function AiInsightsPage() {
   }
 
   return (
-    <div className="ai-shell">
-      <div style={{ flex: '0 0 232px' }}>
-        <Sidebar active="insights" />
-      </div>
-      <main style={{ flex: '999 1 640px', minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-        <Topbar crumb="Customer Intelligence / 재방문 관리" />
-        <div className="wrap">
-          <header className="head">
-            <div>
-              <h1 className="h1">재방문 관리</h1>
-              <p className="sub">왜 관리가 필요한지 이해하고, 고객에게 맞는 다음 행동을 결정하세요.</p>
-            </div>
-            <AppLink href="/campaigns" className="btn">캠페인 관리</AppLink>
-          </header>
-
-          <section className="card summary" aria-label="관리 대상 요약">
-            <div className="sum-item">
-              <span className="meta">관리 대상</span>
-              <b className="num">{total === null ? '-' : <CountUp value={total} format={(n) => n + '명'} />}</b>
-            </div>
-            {STATUS_TABS.map((t) => (
-              <div className="sum-item" key={t.status}>
-                <span className="meta">{t.label}</span>
-                <b className="num">{counts ? <CountUp value={counts[t.status]} format={(n) => n + '명'} /> : '-'}</b>
-              </div>
-            ))}
-          </section>
-
-          <div className="col" style={{ gap: 12, minWidth: 0 }}>
-            <div className="toolbar">
-              <div className="tabs" role="tablist" aria-label="관리 대상">
-                {STATUS_TABS.map((t) => (
-                  <button type="button" role="tab" aria-selected={tab === t.status} onClick={() => setTab(t.status)} key={t.status}>
-                    {t.label} <span className="num">{counts ? counts[t.status] : ''}</span>
-                  </button>
-                ))}
-              </div>
-              <button type="button" className="rule-toggle" aria-expanded={showRule} onClick={() => setShowRule(!showRule)}>
-                우선순위 규칙 {showRule ? '닫기' : '보기'}
-              </button>
-            </div>
-
-            {showRule && (
-              <section className="card rules">
-                <ol>
-                  <li>경과 비율 높은 순 — (오늘 − 예측 종료일) ÷ 이탈 신호 기간</li>
-                  <li>마케팅 수신 동의 고객 먼저</li>
-                  <li>최근 6개월 결제 합계 높은 순</li>
-                </ol>
-                <p className="meta">다음 예약이 있는 고객과 「관리 종료」로 표시한 고객은 이 목록에서 빠져요. 수신 동의가 없는 고객에게는 캠페인을 보낼 수 없어요.</p>
-              </section>
-            )}
-
-            <section className="card list" aria-label="관리 대상 고객">
-              <div className="irow ihead" aria-hidden="true">
-                <span></span>
-                <span>고객 · 관리 상태</span>
-                <span>예상 방문 기간</span>
-                <span>마지막 시술 · 경과</span>
-                <span>다음 액션</span>
-                <span>처리 표시</span>
-              </div>
-              {!cur ? (
-                <p className="meta list-foot">불러오는 중…</p>
-              ) : cur.error ? (
-                <p className="meta list-foot">불러오지 못했어요. {cur.error}</p>
-              ) : cur.rows.length === 0 ? (
-                <p className="meta list-foot">이 상태의 관리 대상이 없어요.</p>
-              ) : (
-                <div className="kp-fade" key={tab}>
-                  {cur.rows.map((r, i) => {
-                    const t = STATUS_TABS.find((x) => x.status === r.status);
-                    const key = `${r.customerId}-${r.category}`;
-                    return (
-                      <article className="irow" key={key}>
-                        <div className="thumb">
-                          <span>{CATEGORY_LABEL[r.category]}</span>
-                        </div>
-                        <div className="c-name">
-                          <span className="nm">
-                            <span className="rank num">{i + 1}</span>
-                            <AppLink href={`/customers/detail?id=${r.customerId}`} style={{ color: '#221D1B' }}>
-                              <strong>{r.name}</strong>
-                            </AppLink>
-                            {t ? <span className={'chip ' + t.cls}>{t.label}</span> : null}
-                          </span>
-                          <span className="meta">{r.marketingConsent ? '수신 동의' : '수신 미동의'}</span>
-                        </div>
-                        <div className="cell">
-                          <span className="lbl-m">예상 방문 기간</span>
-                          <b className="num">
-                            {md(r.startDate)} ~ {md(r.endDate)}
-                          </b>
-                          <span className="meta">{CATEGORY_LABEL[r.category]}</span>
-                        </div>
-                        <div className="cell">
-                          <span className="lbl-m">마지막 시술 · 경과</span>
-                          <b className="num">{md(r.lastServiceDate)}</b>
-                          <span className="meta num">{r.elapsedDays}일 경과</span>
-                        </div>
-                        <div className="cell">
-                          <span className="lbl-m">다음 액션</span>
-                          {r.nextAction && r.nextAction !== 'REQUEST_CONSENT' ? (
-                            <AppLink href="/campaigns" className="btn btn-p btn-sm">
-                              {NEXT_ACTION_LABEL[r.nextAction] ?? r.nextAction} 캠페인
-                            </AppLink>
-                          ) : (
-                            <span className="meta">{r.nextAction ? NEXT_ACTION_LABEL.REQUEST_CONSENT : '없음 (수신 거부)'}</span>
-                          )}
-                        </div>
-                        <div className="acts">
-                          {HANDLING.map(([m, label]) => (
-                            <button
-                              key={m}
-                              type="button"
-                              className="btn btn-sm"
-                              aria-pressed={r.handlingMark === m}
-                              disabled={busyKey === key}
-                              style={r.handlingMark === m ? { background: '#7A4450', borderColor: '#7A4450', color: '#fff' } : undefined}
-                              onClick={() => void mark(r, m)}
-                            >
-                              {label}
-                            </button>
-                          ))}
-                        </div>
-                      </article>
-                    );
-                  })}
-                </div>
-              )}
-              {cur && !cur.error && cur.rows.length > 0 ? (
-                <p className="meta list-foot">
-                  {cur.total}명 중 우선순위 상위 {cur.rows.length}명 표시 · 연락함 · 보류는 중복 연락을 막는 표시이고, 다음 방문이 생기면 자동으로 풀려요.
-                  {cur.rows.length < cur.total ? (
-                    <button type="button" className="btn btn-sm" style={{ marginLeft: 8 }} disabled={moreTab === tab} onClick={() => void loadMore()}>
-                      {moreTab === tab ? '불러오는 중…' : '더 보기'}
-                    </button>
-                  ) : null}
-                </p>
-              ) : null}
-            </section>
+    <>
+      <div className="wrap">
+        <header className="head">
+          <div>
+            <h1 className="h1">재방문 관리</h1>
+            <p className="sub">왜 관리가 필요한지 이해하고, 고객에게 맞는 다음 행동을 결정하세요.</p>
           </div>
+          <AppLink href="/campaigns" className="btn">캠페인 관리</AppLink>
+        </header>
+
+        <section className="card summary" aria-label="관리 대상 요약">
+          <div className="sum-item">
+            <span className="meta">관리 대상</span>
+            <b className="num">{total === null ? '-' : <CountUp value={total} format={(n) => n + '명'} />}</b>
+          </div>
+          {STATUS_TABS.map((t) => (
+            <div className="sum-item" key={t.status}>
+              <span className="meta">{t.label}</span>
+              <b className="num">{counts ? <CountUp value={counts[t.status]} format={(n) => n + '명'} /> : '-'}</b>
+            </div>
+          ))}
+        </section>
+
+        <div className="col" style={{ gap: 12, minWidth: 0 }}>
+          <div className="toolbar">
+            <div className="tabs" role="tablist" aria-label="관리 대상">
+              {STATUS_TABS.map((t) => (
+                <button type="button" role="tab" aria-selected={tab === t.status} onClick={() => setTab(t.status)} key={t.status}>
+                  {t.label} <span className="num">{counts ? counts[t.status] : ''}</span>
+                </button>
+              ))}
+            </div>
+            <button type="button" className="rule-toggle" aria-expanded={showRule} onClick={() => setShowRule(!showRule)}>
+              우선순위 규칙 {showRule ? '닫기' : '보기'}
+            </button>
+          </div>
+
+          {showRule && (
+            <section className="card rules">
+              <ol>
+                <li>경과 비율 높은 순 — (오늘 − 예측 종료일) ÷ 이탈 신호 기간</li>
+                <li>마케팅 수신 동의 고객 먼저</li>
+                <li>최근 6개월 결제 합계 높은 순</li>
+              </ol>
+              <p className="meta">다음 예약이 있는 고객과 「관리 종료」로 표시한 고객은 이 목록에서 빠져요. 수신 동의가 없는 고객에게는 캠페인을 보낼 수 없어요.</p>
+            </section>
+          )}
+
+          <section className="card list" aria-label="관리 대상 고객">
+            <div className="irow ihead" aria-hidden="true">
+              <span></span>
+              <span>고객 · 관리 상태</span>
+              <span>예상 방문 기간</span>
+              <span>마지막 시술 · 경과</span>
+              <span>다음 액션</span>
+              <span>처리 표시</span>
+            </div>
+            {!cur ? (
+              <p className="meta list-foot">불러오는 중…</p>
+            ) : cur.error ? (
+              <p className="meta list-foot">불러오지 못했어요. {cur.error}</p>
+            ) : cur.rows.length === 0 ? (
+              <p className="meta list-foot">이 상태의 관리 대상이 없어요.</p>
+            ) : (
+              <div className="kp-fade" key={tab}>
+                {cur.rows.map((r, i) => {
+                  const t = STATUS_TABS.find((x) => x.status === r.status);
+                  const key = `${r.customerId}-${r.category}`;
+                  return (
+                    <article className="irow" key={key}>
+                      <div className="thumb">
+                        <span>{CATEGORY_LABEL[r.category]}</span>
+                      </div>
+                      <div className="c-name">
+                        <span className="nm">
+                          <span className="rank num">{i + 1}</span>
+                          <AppLink href={`/customers/detail?id=${r.customerId}`} style={{ color: '#221D1B' }}>
+                            <strong>{r.name}</strong>
+                          </AppLink>
+                          {t ? <span className={'chip ' + t.cls}>{t.label}</span> : null}
+                        </span>
+                        <span className="meta">{r.marketingConsent ? '수신 동의' : '수신 미동의'}</span>
+                      </div>
+                      <div className="cell">
+                        <span className="lbl-m">예상 방문 기간</span>
+                        <b className="num">
+                          {md(r.startDate)} ~ {md(r.endDate)}
+                        </b>
+                        <span className="meta">{CATEGORY_LABEL[r.category]}</span>
+                      </div>
+                      <div className="cell">
+                        <span className="lbl-m">마지막 시술 · 경과</span>
+                        <b className="num">{md(r.lastServiceDate)}</b>
+                        <span className="meta num">{r.elapsedDays}일 경과</span>
+                      </div>
+                      <div className="cell">
+                        <span className="lbl-m">다음 액션</span>
+                        {r.nextAction && r.nextAction !== 'REQUEST_CONSENT' ? (
+                          <AppLink href="/campaigns" className="btn btn-p btn-sm">
+                            {NEXT_ACTION_LABEL[r.nextAction] ?? r.nextAction} 캠페인
+                          </AppLink>
+                        ) : (
+                          <span className="meta">{r.nextAction ? NEXT_ACTION_LABEL.REQUEST_CONSENT : '없음 (수신 거부)'}</span>
+                        )}
+                      </div>
+                      <div className="acts">
+                        {HANDLING.map(([m, label]) => (
+                          <button
+                            key={m}
+                            type="button"
+                            className="btn btn-sm"
+                            aria-pressed={r.handlingMark === m}
+                            disabled={busyKey === key}
+                            style={r.handlingMark === m ? { background: '#7A4450', borderColor: '#7A4450', color: '#fff' } : undefined}
+                            onClick={() => void mark(r, m)}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+            {cur && !cur.error && cur.rows.length > 0 ? (
+              <p className="meta list-foot">
+                {cur.total}명 중 우선순위 상위 {cur.rows.length}명 표시 · 연락함 · 보류는 중복 연락을 막는 표시이고, 다음 방문이 생기면 자동으로 풀려요.
+                {cur.rows.length < cur.total ? (
+                  <button type="button" className="btn btn-sm" style={{ marginLeft: 8 }} disabled={moreTab === tab} onClick={() => void loadMore()}>
+                    {moreTab === tab ? '불러오는 중…' : '더 보기'}
+                  </button>
+                ) : null}
+              </p>
+            ) : null}
+          </section>
         </div>
-      </main>
-    </div>
+      </div>
+    </>
   );
 }

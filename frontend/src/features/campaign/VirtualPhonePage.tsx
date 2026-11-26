@@ -1,7 +1,5 @@
 import { useState, type FormEvent } from "react";
 import { AppLink } from "@/components/common/AppLink";
-import { Sidebar } from "@/components/layout/Sidebar";
-import { Topbar } from "@/components/layout/Topbar";
 import { toast } from "@/components/common/Toast";
 import { api, ApiError, type Page } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
@@ -97,245 +95,232 @@ export default function VirtualPhonePage() {
   }
 
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", minHeight: "1020px" }}>
-      <div style={{ flex: "0 0 232px" }}>
-        <Sidebar active="campaigns" />
-      </div>
-      <main
-        style={{
-          flex: "999 1 640px",
-          minWidth: "0",
-          display: "flex",
-          flexDirection: "column",
-        }}
-      >
-        <Topbar crumb="Campaign / 가상 휴대폰" />
-        <div className={styles.wrap}>
-          <div className={styles.head}>
-            <div>
-              <h1 className={styles.title}>가상 휴대폰</h1>
-              <p className={styles.sub}>
-                고객 번호가 받은 메시지를 확인해요. 실제 문자는 오가지 않아요.
-              </p>
-            </div>
-            <AppLink href="/campaigns" className={styles.secondary}>
-              캠페인으로
-            </AppLink>
+    <>
+      <div className={styles.wrap}>
+        <div className={styles.head}>
+          <div>
+            <h1 className={styles.title}>가상 휴대폰</h1>
+            <p className={styles.sub}>
+              고객 번호가 받은 메시지를 확인해요. 실제 문자는 오가지 않아요.
+            </p>
           </div>
+          <AppLink href="/campaigns" className={styles.secondary}>
+            캠페인으로
+          </AppLink>
+        </div>
 
-          <div className={styles.layout}>
-            <section className={styles.card} aria-label="번호 선택">
-              <h2 className={styles.cardTitle}>번호 열기</h2>
-              <form className={styles.field} onSubmit={open} noValidate>
-                <label className={styles.label} htmlFor="vp-phone">
-                  고객 번호
-                </label>
-                <div className={styles.inputRow}>
-                  <input
-                    id="vp-phone"
-                    className={styles.input}
-                    inputMode="numeric"
-                    autoComplete="off"
-                    placeholder="010-0000-0000"
-                    value={input}
-                    aria-invalid={inputError ? "true" : undefined}
-                    aria-describedby={inputError ? "vp-phone-error" : undefined}
-                    onChange={(e) => setInput(e.target.value)}
-                  />
-                  <button
-                    type="submit"
-                    className={styles.primary}
-                    disabled={loading}
-                  >
-                    열기
-                  </button>
-                </div>
-                {inputError && (
-                  <span id="vp-phone-error" className={styles.fieldError}>
-                    {inputError}
-                  </span>
-                )}
-              </form>
-              <p className={styles.hint}>
-                받은 메시지를 최신순으로 보여 줘요.
-                <br />
-                [수신거부]를 누르면 마케팅 수신이 철회되고, 처리 안내가 이
-                번호로 자동 발송돼요. 야간(21시~8시)에는 다음 날 8시에 발송돼요.
-              </p>
-            </section>
+        <div className={styles.layout}>
+          <section className={styles.card} aria-label="번호 선택">
+            <h2 className={styles.cardTitle}>번호 열기</h2>
+            <form className={styles.field} onSubmit={open} noValidate>
+              <label className={styles.label} htmlFor="vp-phone">
+                고객 번호
+              </label>
+              <div className={styles.inputRow}>
+                <input
+                  id="vp-phone"
+                  className={styles.input}
+                  inputMode="numeric"
+                  autoComplete="off"
+                  placeholder="010-0000-0000"
+                  value={input}
+                  aria-invalid={inputError ? "true" : undefined}
+                  aria-describedby={inputError ? "vp-phone-error" : undefined}
+                  onChange={(e) => setInput(e.target.value)}
+                />
+                <button
+                  type="submit"
+                  className={styles.primary}
+                  disabled={loading}
+                >
+                  열기
+                </button>
+              </div>
+              {inputError && (
+                <span id="vp-phone-error" className={styles.fieldError}>
+                  {inputError}
+                </span>
+              )}
+            </form>
+            <p className={styles.hint}>
+              받은 메시지를 최신순으로 보여 줘요.
+              <br />
+              [수신거부]를 누르면 마케팅 수신이 철회되고, 처리 안내가 이
+              번호로 자동 발송돼요. 야간(21시~8시)에는 다음 날 8시에 발송돼요.
+            </p>
+          </section>
 
-            <section className={styles.phone} aria-label="가상 휴대폰 화면">
-              <div className={styles.device}>
-                <div className={styles.bezel}>
-                  <div className={styles.screen}>
-                    <div className={styles.statusBar} aria-hidden="true">
-                      {/* 정적 빌드 시각과 연 시각이 달라도 된다 */}
-                      <span className="num" suppressHydrationWarning>
-                        {clock}
-                      </span>
-                      <span className={styles.island}></span>
-                      <span className={styles.statusIcons}>
-                        <svg
+          <section className={styles.phone} aria-label="가상 휴대폰 화면">
+            <div className={styles.device}>
+              <div className={styles.bezel}>
+                <div className={styles.screen}>
+                  <div className={styles.statusBar} aria-hidden="true">
+                    {/* 정적 빌드 시각과 연 시각이 달라도 된다 */}
+                    <span className="num" suppressHydrationWarning>
+                      {clock}
+                    </span>
+                    <span className={styles.island}></span>
+                    <span className={styles.statusIcons}>
+                      <svg
+                        width="17"
+                        height="11"
+                        viewBox="0 0 17 11"
+                        fill="currentColor"
+                      >
+                        <rect x="0" y="7" width="3" height="4" rx="1" />
+                        <rect x="4.5" y="5" width="3" height="6" rx="1" />
+                        <rect x="9" y="2.5" width="3" height="8.5" rx="1" />
+                        <rect x="13.5" y="0" width="3" height="11" rx="1" />
+                      </svg>
+                      <svg
+                        width="15"
+                        height="11"
+                        viewBox="0 0 15 11"
+                        fill="currentColor"
+                      >
+                        <path d="M7.5 2.2c2.1 0 4 .8 5.5 2.1l1.2-1.3A9.6 9.6 0 0 0 7.5.4 9.6 9.6 0 0 0 .8 3l1.2 1.3a7.8 7.8 0 0 1 5.5-2.1Zm0 3.3c1.2 0 2.3.4 3.2 1.2l1.2-1.3a6.4 6.4 0 0 0-8.8 0l1.2 1.3c.9-.8 2-1.2 3.2-1.2Zm0 3.2c-.4 0-.8.2-1.1.4L7.5 10.4l1.1-1.3c-.3-.2-.7-.4-1.1-.4Z" />
+                      </svg>
+                      <svg
+                        width="26"
+                        height="12"
+                        viewBox="0 0 26 12"
+                        fill="none"
+                      >
+                        <rect
+                          x="0.5"
+                          y="0.5"
+                          width="22"
+                          height="11"
+                          rx="3.5"
+                          stroke="currentColor"
+                          opacity="0.4"
+                        />
+                        <rect
+                          x="2"
+                          y="2"
                           width="17"
-                          height="11"
-                          viewBox="0 0 17 11"
+                          height="8"
+                          rx="2"
                           fill="currentColor"
-                        >
-                          <rect x="0" y="7" width="3" height="4" rx="1" />
-                          <rect x="4.5" y="5" width="3" height="6" rx="1" />
-                          <rect x="9" y="2.5" width="3" height="8.5" rx="1" />
-                          <rect x="13.5" y="0" width="3" height="11" rx="1" />
-                        </svg>
-                        <svg
-                          width="15"
-                          height="11"
-                          viewBox="0 0 15 11"
+                        />
+                        <rect
+                          x="24"
+                          y="4"
+                          width="1.5"
+                          height="4"
+                          rx="0.75"
                           fill="currentColor"
-                        >
-                          <path d="M7.5 2.2c2.1 0 4 .8 5.5 2.1l1.2-1.3A9.6 9.6 0 0 0 7.5.4 9.6 9.6 0 0 0 .8 3l1.2 1.3a7.8 7.8 0 0 1 5.5-2.1Zm0 3.3c1.2 0 2.3.4 3.2 1.2l1.2-1.3a6.4 6.4 0 0 0-8.8 0l1.2 1.3c.9-.8 2-1.2 3.2-1.2Zm0 3.2c-.4 0-.8.2-1.1.4L7.5 10.4l1.1-1.3c-.3-.2-.7-.4-1.1-.4Z" />
-                        </svg>
-                        <svg
-                          width="26"
-                          height="12"
-                          viewBox="0 0 26 12"
-                          fill="none"
-                        >
-                          <rect
-                            x="0.5"
-                            y="0.5"
-                            width="22"
-                            height="11"
-                            rx="3.5"
-                            stroke="currentColor"
-                            opacity="0.4"
-                          />
-                          <rect
-                            x="2"
-                            y="2"
-                            width="17"
-                            height="8"
-                            rx="2"
-                            fill="currentColor"
-                          />
-                          <rect
-                            x="24"
-                            y="4"
-                            width="1.5"
-                            height="4"
-                            rx="0.75"
-                            fill="currentColor"
-                            opacity="0.4"
-                          />
-                        </svg>
-                      </span>
-                    </div>
-                    <div className={styles.screenHead}>
-                      <strong className="num">
-                        {phone ?? "번호를 열어 주세요"}
-                      </strong>
-                      {phone && <span>받은 메시지 {total}건</span>}
-                    </div>
+                          opacity="0.4"
+                        />
+                      </svg>
+                    </span>
+                  </div>
+                  <div className={styles.screenHead}>
+                    <strong className="num">
+                      {phone ?? "번호를 열어 주세요"}
+                    </strong>
+                    {phone && <span>받은 메시지 {total}건</span>}
+                  </div>
 
-                    <div className={styles.messages}>
-                      {error && (
-                        <p className={styles.error} role="alert">
-                          {error}
-                        </p>
-                      )}
-                      {loading && items === null && (
-                        <p className={styles.empty}>불러오는 중…</p>
-                      )}
-                      {!phone && !loading && !error && (
-                        <p className={styles.empty}>
-                          왼쪽에서 번호를 입력하면 받은 메시지가 보여요.
-                        </p>
-                      )}
-                      {items?.length === 0 && (
-                        <p className={styles.empty}>받은 메시지가 없어요.</p>
-                      )}
-                      {items?.map((m) => (
-                        <article
-                          className={styles.bubble}
-                          key={m.id}
-                          data-kind={m.kind}
+                  <div className={styles.messages}>
+                    {error && (
+                      <p className={styles.error} role="alert">
+                        {error}
+                      </p>
+                    )}
+                    {loading && items === null && (
+                      <p className={styles.empty}>불러오는 중…</p>
+                    )}
+                    {!phone && !loading && !error && (
+                      <p className={styles.empty}>
+                        왼쪽에서 번호를 입력하면 받은 메시지가 보여요.
+                      </p>
+                    )}
+                    {items?.length === 0 && (
+                      <p className={styles.empty}>받은 메시지가 없어요.</p>
+                    )}
+                    {items?.map((m) => (
+                      <article
+                        className={styles.bubble}
+                        key={m.id}
+                        data-kind={m.kind}
+                      >
+                        <span className={styles.bubbleMeta}>
+                          <b>{MESSAGE_KIND_LABEL[m.kind] ?? m.kind}</b> ·{" "}
+                          {m.messageType}
+                        </span>
+                        <p>{m.body}</p>
+                        <time className="num" dateTime={m.receivedAt}>
+                          {formatDateTime(m.receivedAt)}
+                        </time>
+                      </article>
+                    ))}
+                    {items && items.length < total && (
+                      <button
+                        type="button"
+                        className={styles.more}
+                        disabled={loading}
+                        onClick={() =>
+                          phone && load(phone, items.length + SIZE)
+                        }
+                      >
+                        더 보기
+                      </button>
+                    )}
+                  </div>
+
+                  <div className={styles.screenFoot}>
+                    {phone &&
+                      (confirm ? (
+                        <div
+                          className={styles.confirm}
+                          role="alertdialog"
+                          aria-label="수신 거부 확인"
                         >
-                          <span className={styles.bubbleMeta}>
-                            <b>{MESSAGE_KIND_LABEL[m.kind] ?? m.kind}</b> ·{" "}
-                            {m.messageType}
+                          <span>
+                            이 번호의 마케팅 수신을 거부할까요?
+                            <br />
+                            처리 안내가 이 번호로 발송돼요.
                           </span>
-                          <p>{m.body}</p>
-                          <time className="num" dateTime={m.receivedAt}>
-                            {formatDateTime(m.receivedAt)}
-                          </time>
-                        </article>
-                      ))}
-                      {items && items.length < total && (
+                          <span className={styles.confirmActions}>
+                            <button
+                              type="button"
+                              className={styles.danger}
+                              disabled={busy}
+                              onClick={unsubscribe}
+                            >
+                              수신거부
+                            </button>
+                            <button
+                              type="button"
+                              className={styles.secondary}
+                              disabled={busy}
+                              onClick={() => setConfirm(false)}
+                            >
+                              취소
+                            </button>
+                          </span>
+                        </div>
+                      ) : (
                         <button
                           type="button"
-                          className={styles.more}
-                          disabled={loading}
-                          onClick={() =>
-                            phone && load(phone, items.length + SIZE)
-                          }
+                          className={styles.unsubscribe}
+                          onClick={() => setConfirm(true)}
                         >
-                          더 보기
+                          수신거부
                         </button>
-                      )}
-                    </div>
-
-                    <div className={styles.screenFoot}>
-                      {phone &&
-                        (confirm ? (
-                          <div
-                            className={styles.confirm}
-                            role="alertdialog"
-                            aria-label="수신 거부 확인"
-                          >
-                            <span>
-                              이 번호의 마케팅 수신을 거부할까요?
-                              <br />
-                              처리 안내가 이 번호로 발송돼요.
-                            </span>
-                            <span className={styles.confirmActions}>
-                              <button
-                                type="button"
-                                className={styles.danger}
-                                disabled={busy}
-                                onClick={unsubscribe}
-                              >
-                                수신거부
-                              </button>
-                              <button
-                                type="button"
-                                className={styles.secondary}
-                                disabled={busy}
-                                onClick={() => setConfirm(false)}
-                              >
-                                취소
-                              </button>
-                            </span>
-                          </div>
-                        ) : (
-                          <button
-                            type="button"
-                            className={styles.unsubscribe}
-                            onClick={() => setConfirm(true)}
-                          >
-                            수신거부
-                          </button>
-                        ))}
-                      <span
-                        className={styles.homeBar}
-                        aria-hidden="true"
-                      ></span>
-                    </div>
+                      ))}
+                    <span
+                      className={styles.homeBar}
+                      aria-hidden="true"
+                    ></span>
                   </div>
                 </div>
               </div>
-            </section>
-          </div>
+            </div>
+          </section>
         </div>
-      </main>
-    </div>
+      </div>
+    </>
   );
 }

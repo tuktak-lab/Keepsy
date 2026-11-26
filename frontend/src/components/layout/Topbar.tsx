@@ -1,8 +1,10 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { useShellTitleValue } from '@/components/layout/ShellTitle';
 import { isSearchShortcut, KEYWORDS_URL, matchFeature, type FeatureEntry } from '@/lib/featureSearch';
+import { crumbOf } from '@/lib/shellNav';
 import { lockPin, logout, useSession, useWorkerRequired } from '@/lib/session';
 
 // 모든 화면 공통 상단 (docs ARCHITECTURE 4장 「모든 화면에 공통」)
@@ -15,8 +17,9 @@ function isTyping(target: EventTarget | null): boolean {
   return target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName);
 }
 
-export function Topbar(props: { crumb?: string }) {
-  const crumb = props.crumb ?? 'Customer Intelligence / Overview';
+export function Topbar() {
+  const pathname = usePathname();
+  const crumb = crumbOf(pathname, useShellTitleValue());
   const router = useRouter();
   const session = useSession();
   useWorkerRequired(session);
@@ -24,6 +27,15 @@ export function Topbar(props: { crumb?: string }) {
   const [miss, setMiss] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [seenPath, setSeenPath] = useState(pathname);
+
+  // 상단바는 화면을 옮겨도 유지되므로, 경로가 바뀌면 검색어 · 검색 실패 표시 · 열린 메뉴를 처음으로 돌린다
+  if (seenPath !== pathname) {
+    setSeenPath(pathname);
+    setQ('');
+    setMiss(false);
+    setMenuOpen(false);
+  }
   const [keywords, setKeywords] = useState<FeatureEntry[]>([]);
   const searchInput = useRef<HTMLInputElement>(null);
 

@@ -1,7 +1,5 @@
 import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import { AppLink } from '@/components/common/AppLink';
-import { Sidebar } from '@/components/layout/Sidebar';
-import { Topbar } from '@/components/layout/Topbar';
 import styleText from './SchedulePage.css?inline';
 import { ReservationForm } from './ReservationForm';
 import { useStyleSheet } from '@/hooks/useStyleSheet';
@@ -249,252 +247,246 @@ export default function SchedulePage() {
   };
 
   return (
-    <div className="shell">
-      <div style={{ flex: '0 0 232px' }}>
-        <Sidebar active="schedule" />
-      </div>
-      <main style={{ flex: '999 1 640px', minWidth: '0', display: 'flex', flexDirection: 'column' }}>
-        <Topbar crumb="파트너 센터 / 예약 · 일정" />
-        <div className="wrap">
-          <header className="head">
-            <div>
-              <h1 className="h1 serif">예약 · 일정 관리</h1>
-              <p className="sub">날짜를 고르면 그 날짜의 예약을 볼 수 있어요. 일간은 스탭별, 주간은 요일별이에요. 예약을 누르면 상세를 볼 수 있어요.</p>
-            </div>
-            <button type="button" className="btn btn-p" onClick={() => setCreating(true)} disabled={staff.length === 0}>
-              + 예약 등록
-            </button>
-          </header>
+    <>
+      <div className="wrap">
+        <header className="head">
+          <div>
+            <h1 className="h1 serif">예약 · 일정 관리</h1>
+            <p className="sub">날짜를 고르면 그 날짜의 예약을 볼 수 있어요. 일간은 스탭별, 주간은 요일별이에요. 예약을 누르면 상세를 볼 수 있어요.</p>
+          </div>
+          <button type="button" className="btn btn-p" onClick={() => setCreating(true)} disabled={staff.length === 0}>
+            + 예약 등록
+          </button>
+        </header>
 
-          {anchor ? (
-            <div className="layout">
-              {/* ── 좌측: 미니 달력 · 날짜 요약 · 스탭 ── */}
-              <aside className="left card">
-                <section className="mini">
-                  <div className="mini-h">
-                    <b className="serif">
-                      {miniMonth.y}년 {miniMonth.m + 1}월
-                    </b>
-                    <div>
-                      <button type="button" className="ib" aria-label="이전 달" onClick={() => shiftMini(-1)}>
-                        ‹
-                      </button>
-                      <button type="button" className="ib" aria-label="다음 달" onClick={() => shiftMini(1)}>
-                        ›
-                      </button>
-                    </div>
-                  </div>
-                  <div className="mini-g">
-                    {DOW_LABEL.map((d) => (
-                      <span key={d} className="mini-w">
-                        {d}
-                      </span>
-                    ))}
-                    {monthCells(miniMonth.y, miniMonth.m).map((c) => (
-                      <button
-                        key={c.date}
-                        type="button"
-                        className={'mini-d num' + (c.inMonth ? '' : ' out') + (c.date === today ? ' today' : '') + (c.date === anchor ? ' on' : '')}
-                        aria-label={monthDay(c.date)}
-                        aria-pressed={c.date === anchor}
-                        onClick={() => goTo(c.date)}
-                      >
-                        {c.day}
-                      </button>
-                    ))}
-                  </div>
-                </section>
-
-                <section className="daysum">
-                  <span className="meta">선택한 날짜</span>
-                  <b className="ds-date">
-                    {monthDay(anchor)} ({DOW_LABEL[dates.indexOf(anchor)]}){anchor === today ? <em>오늘</em> : null}
+        {anchor ? (
+          <div className="layout">
+            {/* ── 좌측: 미니 달력 · 날짜 요약 · 스탭 ── */}
+            <aside className="left card">
+              <section className="mini">
+                <div className="mini-h">
+                  <b className="serif">
+                    {miniMonth.y}년 {miniMonth.m + 1}월
                   </b>
-                  {data ? (
-                    dayBlocks.length ? (
-                      <>
-                        <p className="ds-n">
-                          예약 <b className="num">{dayBlocks.length}</b>건
-                        </p>
-                        <ul className="ds-list">
-                          {STATES.map(([tone, text]) => (
-                            <li key={tone}>
-                              <span className={'sw s-' + tone}></span>
-                              {text}
-                              <b className="num">{countOf(tone)}</b>
-                            </li>
-                          ))}
-                        </ul>
-                      </>
-                    ) : (
-                      <p className="meta">예약이 없는 날이에요.</p>
-                    )
-                  ) : (
-                    <p className="meta">{loadFailed ? '불러오지 못했어요.' : '불러오는 중…'}</p>
-                  )}
-                </section>
-
-                <section className="staffbox">
-                  <span className="lbl">담당 스탭</span>
-                  <div className="staff" role="group" aria-label="담당 스탭">
-                    <button type="button" aria-pressed={staffId === null} onClick={() => setStaffId(null)}>
-                      전체
-                    </button>
-                    {staff.map((s) => (
-                      <button key={s.id} type="button" aria-pressed={staffId === s.id} onClick={() => setStaffId(s.id)}>
-                        {s.name}
-                      </button>
-                    ))}
-                  </div>
-                </section>
-              </aside>
-
-              {/* ── 중앙: 주간 · 일간 캘린더 ── */}
-              <section className="card center">
-                <div className="c-head">
-                  <div className="c-nav">
-                    <button type="button" className="btn btn-sm" onClick={() => goTo(today)}>
-                      오늘
-                    </button>
-                    <button type="button" className="ib" aria-label={isDay ? '이전 날' : '이전 주'} onClick={() => goTo(addDays(anchor, isDay ? -1 : -7))}>
+                  <div>
+                    <button type="button" className="ib" aria-label="이전 달" onClick={() => shiftMini(-1)}>
                       ‹
                     </button>
-                    <button type="button" className="ib" aria-label={isDay ? '다음 날' : '다음 주'} onClick={() => goTo(addDays(anchor, isDay ? 1 : 7))}>
+                    <button type="button" className="ib" aria-label="다음 달" onClick={() => shiftMini(1)}>
                       ›
                     </button>
-                    <b className="c-title serif num">{title}</b>
-                  </div>
-                  <div className="seg" role="group" aria-label="보기 단위">
-                    <span className="seg-ind" style={{ transform: `translateX(${isDay ? 0 : 100}%)` }} aria-hidden="true"></span>
-                    <button type="button" aria-pressed={isDay} onClick={() => changeView('day')}>
-                      일
-                    </button>
-                    <button type="button" aria-pressed={!isDay} onClick={() => changeView('week')}>
-                      주
-                    </button>
                   </div>
                 </div>
-                <div className="legend">
-                  {STATES.map(([tone, text]) => (
-                    <span key={tone}>
-                      <i className={'sw s-' + tone}></i>
-                      {text}
+                <div className="mini-g">
+                  {DOW_LABEL.map((d) => (
+                    <span key={d} className="mini-w">
+                      {d}
                     </span>
                   ))}
-                  <span>
-                    <i className="sw nocust"></i>고객 없는 예약
-                  </span>
-                  <span>
-                    <i className="sw off"></i>영업시간 밖 · 휴무
-                  </span>
+                  {monthCells(miniMonth.y, miniMonth.m).map((c) => (
+                    <button
+                      key={c.date}
+                      type="button"
+                      className={'mini-d num' + (c.inMonth ? '' : ' out') + (c.date === today ? ' today' : '') + (c.date === anchor ? ' on' : '')}
+                      aria-label={monthDay(c.date)}
+                      aria-pressed={c.date === anchor}
+                      onClick={() => goTo(c.date)}
+                    >
+                      {c.day}
+                    </button>
+                  ))}
                 </div>
-
-                <div className="grid-scroll">
-                  <div className="grid" style={{ minWidth: isDay ? 0 : 640 }}>
-                    <div className="g-head">
-                      <div className="axis-sp"></div>
-                      {isDay
-                        ? staffCols.map((s, i) => (
-                            <div key={s.id} className="col-h static">
-                              <b>{s.name}</b>
-                              <span className="num">{blocks.filter((b) => b.col === i).length}건</span>
-                            </div>
-                          ))
-                        : dates.map((d, i) => (
-                            <button
-                              key={d}
-                              type="button"
-                              className={'col-h' + (d === today ? ' today' : '') + (d === anchor ? ' on' : '')}
-                              onClick={() => goTo(d)}
-                              onDoubleClick={() => changeView('day', d)}
-                              title="누르면 선택, 두 번 누르면 일간 보기"
-                              aria-label={`${monthDay(d)} (${DOW_LABEL[i]})`}
-                            >
-                              <span className="ch-w">{DOW_LABEL[i]}</span>
-                              <span className="ch-d num">{dayOfMonth(d)}</span>
-                            </button>
-                          ))}
-                    </div>
-                    <div className="g-body">
-                      <div className="axis" style={{ height: gridHeight }}>
-                        {axisHours.map((h) => (
-                          <span key={h} className="num" style={{ top: (h - axis.start) * HH }}>
-                            {(h < 10 ? '0' : '') + h}:00
-                          </span>
-                        ))}
-                      </div>
-                      <div className="lanes" style={{ height: gridHeight }}>
-                        {axisHours.map((h) => (
-                          <div key={h} className="hl" style={{ top: (h - axis.start) * HH }}></div>
-                        ))}
-                        {colDefs.map((c, i) => (
-                          <div key={c.key} className={'col' + (c.date === today ? ' today' : '')} style={{ left: `${i * gW}%`, width: `${gW}%` }}></div>
-                        ))}
-                        {/* 선택할 수 없는 시간: 영업시간 밖, 정기 휴무 요일, 매장 · 스탭 휴무일 (FR-RSV-02). 일간은 스탭 열마다 그 스탭의 휴무일도 반영 */}
-                        {colDefs.flatMap((c, i) => {
-                          const off = data ? dayOffOn(data.dayOffs, c.date, c.staffId) : null;
-                          const ranges: [number, number][] = off !== null ? [[axis.start * 60, axis.end * 60]] : closedRanges(hours, c.dow, axis);
-                          return ranges.map(([a, b], k) => (
-                            <div
-                              key={`${c.key}-${k}`}
-                              className="off"
-                              title={off !== null ? `휴무${off ? ' · ' + off : ''}` : '영업시간 밖'}
-                              style={{ top: topOf(a), height: topOf(b) - topOf(a), left: `${i * gW}%`, width: `${gW}%` }}
-                            >
-                              {off !== null && k === 0 ? <span>휴무{off ? ` · ${off}` : ''}</span> : null}
-                            </div>
-                          ));
-                        })}
-                        {blocks.map((b) => {
-                          const p = pos.get(b.id);
-                          if (!p || p.hidden) return null;
-                          // 두 예약이 겹치면: 먼저 온 예약은 칸 전체, 나중 예약은 오른쪽으로 비켜 겹쳐 표시
-                          if (!isDay && p.n === 2) return p.lane === 0 ? block(b, b.col * gW, gW) : block(b, b.col * gW + gW * 0.4, gW * 0.6, true);
-                          const w = gW / p.n;
-                          return block(b, b.col * gW + p.lane * w, w);
-                        })}
-                        {more.map((m, i) => {
-                          const w = gW / m.n;
-                          return (
-                            <div
-                              key={i}
-                              className="blk-more"
-                              title={`같은 시간에 예약이 ${m.count}건 더 있어요. 담당 스탭을 고르면 나눠서 볼 수 있어요.`}
-                              style={{
-                                top: topOf(m.start) + 2,
-                                height: Math.max(((m.end - m.start) / 60) * HH - 4, 24),
-                                left: `calc(${m.group * gW + m.lane * w}% + 3px)`,
-                                width: `calc(${w}% - 6px)`,
-                              }}
-                            >
-                              +{m.count}건
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                    {!data && !loadFailed ? <p className="empty-note">불러오는 중…</p> : null}
-                    {loadFailed ? (
-                      <p className="empty-note">
-                        예약을 불러오지 못했어요.{' '}
-                        <button type="button" className="btn btn-sm" onClick={retry}>
-                          다시 시도
-                        </button>
-                      </p>
-                    ) : null}
-                    {data && isDay && staffCols.length === 0 ? <p className="empty-note">등록된 스탭이 없어요.</p> : null}
-                    {data && (!isDay || staffCols.length > 0) && blocks.length === 0 ? (
-                      <p className="empty-note">{isDay ? '이 날에는 예약이 없어요.' : '이 기간에는 예약이 없어요.'}</p>
-                    ) : null}
-                  </div>
-                </div>
-                <p className="meta foot">같은 스탭의 예약 시간은 겹치지 않도록 제한됩니다. 취소 · 노쇼 예약은 시간을 차지하지 않아 표시하지 않아요.</p>
               </section>
-            </div>
-          ) : null}
-        </div>
-      </main>
+
+              <section className="daysum">
+                <span className="meta">선택한 날짜</span>
+                <b className="ds-date">
+                  {monthDay(anchor)} ({DOW_LABEL[dates.indexOf(anchor)]}){anchor === today ? <em>오늘</em> : null}
+                </b>
+                {data ? (
+                  dayBlocks.length ? (
+                    <>
+                      <p className="ds-n">
+                        예약 <b className="num">{dayBlocks.length}</b>건
+                      </p>
+                      <ul className="ds-list">
+                        {STATES.map(([tone, text]) => (
+                          <li key={tone}>
+                            <span className={'sw s-' + tone}></span>
+                            {text}
+                            <b className="num">{countOf(tone)}</b>
+                          </li>
+                        ))}
+                      </ul>
+                    </>
+                  ) : (
+                    <p className="meta">예약이 없는 날이에요.</p>
+                  )
+                ) : (
+                  <p className="meta">{loadFailed ? '불러오지 못했어요.' : '불러오는 중…'}</p>
+                )}
+              </section>
+
+              <section className="staffbox">
+                <span className="lbl">담당 스탭</span>
+                <div className="staff" role="group" aria-label="담당 스탭">
+                  <button type="button" aria-pressed={staffId === null} onClick={() => setStaffId(null)}>
+                    전체
+                  </button>
+                  {staff.map((s) => (
+                    <button key={s.id} type="button" aria-pressed={staffId === s.id} onClick={() => setStaffId(s.id)}>
+                      {s.name}
+                    </button>
+                  ))}
+                </div>
+              </section>
+            </aside>
+
+            {/* ── 중앙: 주간 · 일간 캘린더 ── */}
+            <section className="card center">
+              <div className="c-head">
+                <div className="c-nav">
+                  <button type="button" className="btn btn-sm" onClick={() => goTo(today)}>
+                    오늘
+                  </button>
+                  <button type="button" className="ib" aria-label={isDay ? '이전 날' : '이전 주'} onClick={() => goTo(addDays(anchor, isDay ? -1 : -7))}>
+                    ‹
+                  </button>
+                  <button type="button" className="ib" aria-label={isDay ? '다음 날' : '다음 주'} onClick={() => goTo(addDays(anchor, isDay ? 1 : 7))}>
+                    ›
+                  </button>
+                  <b className="c-title serif num">{title}</b>
+                </div>
+                <div className="seg" role="group" aria-label="보기 단위">
+                  <span className="seg-ind" style={{ transform: `translateX(${isDay ? 0 : 100}%)` }} aria-hidden="true"></span>
+                  <button type="button" aria-pressed={isDay} onClick={() => changeView('day')}>
+                    일
+                  </button>
+                  <button type="button" aria-pressed={!isDay} onClick={() => changeView('week')}>
+                    주
+                  </button>
+                </div>
+              </div>
+              <div className="legend">
+                {STATES.map(([tone, text]) => (
+                  <span key={tone}>
+                    <i className={'sw s-' + tone}></i>
+                    {text}
+                  </span>
+                ))}
+                <span>
+                  <i className="sw nocust"></i>고객 없는 예약
+                </span>
+                <span>
+                  <i className="sw off"></i>영업시간 밖 · 휴무
+                </span>
+              </div>
+
+              <div className="grid-scroll">
+                <div className="grid" style={{ minWidth: isDay ? 0 : 640 }}>
+                  <div className="g-head">
+                    <div className="axis-sp"></div>
+                    {isDay
+                      ? staffCols.map((s, i) => (
+                          <div key={s.id} className="col-h static">
+                            <b>{s.name}</b>
+                            <span className="num">{blocks.filter((b) => b.col === i).length}건</span>
+                          </div>
+                        ))
+                      : dates.map((d, i) => (
+                          <button
+                            key={d}
+                            type="button"
+                            className={'col-h' + (d === today ? ' today' : '') + (d === anchor ? ' on' : '')}
+                            onClick={() => goTo(d)}
+                            onDoubleClick={() => changeView('day', d)}
+                            title="누르면 선택, 두 번 누르면 일간 보기"
+                            aria-label={`${monthDay(d)} (${DOW_LABEL[i]})`}
+                          >
+                            <span className="ch-w">{DOW_LABEL[i]}</span>
+                            <span className="ch-d num">{dayOfMonth(d)}</span>
+                          </button>
+                        ))}
+                  </div>
+                  <div className="g-body">
+                    <div className="axis" style={{ height: gridHeight }}>
+                      {axisHours.map((h) => (
+                        <span key={h} className="num" style={{ top: (h - axis.start) * HH }}>
+                          {(h < 10 ? '0' : '') + h}:00
+                        </span>
+                      ))}
+                    </div>
+                    <div className="lanes" style={{ height: gridHeight }}>
+                      {axisHours.map((h) => (
+                        <div key={h} className="hl" style={{ top: (h - axis.start) * HH }}></div>
+                      ))}
+                      {colDefs.map((c, i) => (
+                        <div key={c.key} className={'col' + (c.date === today ? ' today' : '')} style={{ left: `${i * gW}%`, width: `${gW}%` }}></div>
+                      ))}
+                      {/* 선택할 수 없는 시간: 영업시간 밖, 정기 휴무 요일, 매장 · 스탭 휴무일 (FR-RSV-02). 일간은 스탭 열마다 그 스탭의 휴무일도 반영 */}
+                      {colDefs.flatMap((c, i) => {
+                        const off = data ? dayOffOn(data.dayOffs, c.date, c.staffId) : null;
+                        const ranges: [number, number][] = off !== null ? [[axis.start * 60, axis.end * 60]] : closedRanges(hours, c.dow, axis);
+                        return ranges.map(([a, b], k) => (
+                          <div
+                            key={`${c.key}-${k}`}
+                            className="off"
+                            title={off !== null ? `휴무${off ? ' · ' + off : ''}` : '영업시간 밖'}
+                            style={{ top: topOf(a), height: topOf(b) - topOf(a), left: `${i * gW}%`, width: `${gW}%` }}
+                          >
+                            {off !== null && k === 0 ? <span>휴무{off ? ` · ${off}` : ''}</span> : null}
+                          </div>
+                        ));
+                      })}
+                      {blocks.map((b) => {
+                        const p = pos.get(b.id);
+                        if (!p || p.hidden) return null;
+                        // 두 예약이 겹치면: 먼저 온 예약은 칸 전체, 나중 예약은 오른쪽으로 비켜 겹쳐 표시
+                        if (!isDay && p.n === 2) return p.lane === 0 ? block(b, b.col * gW, gW) : block(b, b.col * gW + gW * 0.4, gW * 0.6, true);
+                        const w = gW / p.n;
+                        return block(b, b.col * gW + p.lane * w, w);
+                      })}
+                      {more.map((m, i) => {
+                        const w = gW / m.n;
+                        return (
+                          <div
+                            key={i}
+                            className="blk-more"
+                            title={`같은 시간에 예약이 ${m.count}건 더 있어요. 담당 스탭을 고르면 나눠서 볼 수 있어요.`}
+                            style={{
+                              top: topOf(m.start) + 2,
+                              height: Math.max(((m.end - m.start) / 60) * HH - 4, 24),
+                              left: `calc(${m.group * gW + m.lane * w}% + 3px)`,
+                              width: `calc(${w}% - 6px)`,
+                            }}
+                          >
+                            +{m.count}건
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  {!data && !loadFailed ? <p className="empty-note">불러오는 중…</p> : null}
+                  {loadFailed ? (
+                    <p className="empty-note">
+                      예약을 불러오지 못했어요.{' '}
+                      <button type="button" className="btn btn-sm" onClick={retry}>
+                        다시 시도
+                      </button>
+                    </p>
+                  ) : null}
+                  {data && isDay && staffCols.length === 0 ? <p className="empty-note">등록된 스탭이 없어요.</p> : null}
+                  {data && (!isDay || staffCols.length > 0) && blocks.length === 0 ? (
+                    <p className="empty-note">{isDay ? '이 날에는 예약이 없어요.' : '이 기간에는 예약이 없어요.'}</p>
+                  ) : null}
+                </div>
+              </div>
+              <p className="meta foot">같은 스탭의 예약 시간은 겹치지 않도록 제한됩니다. 취소 · 노쇼 예약은 시간을 차지하지 않아 표시하지 않아요.</p>
+            </section>
+          </div>
+        ) : null}
+      </div>
       {creating ? <ReservationForm editId={null} initialDate={anchor} staff={staff} onClose={closeForm} onSaved={saved} onStale={stale} /> : null}
-    </div>
+    </>
   );
 }

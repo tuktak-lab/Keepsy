@@ -1,8 +1,6 @@
 import { Fragment, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { AppLink } from '@/components/common/AppLink';
-import { Sidebar } from '@/components/layout/Sidebar';
-import { Topbar } from '@/components/layout/Topbar';
 import { useStyleSheet } from '@/hooks/useStyleSheet';
 import { ApiError, api, type Page } from '@/lib/api';
 import { CAMPAIGN_STATUS_LABEL, SEND_STATUS_LABEL, rateText } from '@/lib/campaignResult';
@@ -107,137 +105,131 @@ export default function CampaignDetailPage() {
   }
 
   return (
-    <div className="shell">
-      <div style={{ flex: '0 0 232px' }}>
-        <Sidebar active="campaigns" />
-      </div>
-      <main style={{ flex: '999 1 640px', minWidth: '0', display: 'flex', flexDirection: 'column' }}>
-        <Topbar crumb="파트너 센터 / 캠페인 / 결과" />
-        <div className="wrap">
-          <header className="head">
-            <div>
-              <h1 className="h1 serif">{c?.name ?? '캠페인 결과'}</h1>
-              <p className="sub">
-                <AppLink href="/campaigns" className="p-link">
-                  ‹ 캠페인 목록으로
-                </AppLink>
-              </p>
-            </div>
-          </header>
+    <>
+      <div className="wrap">
+        <header className="head">
+          <div>
+            <h1 className="h1 serif">{c?.name ?? '캠페인 결과'}</h1>
+            <p className="sub">
+              <AppLink href="/campaigns" className="p-link">
+                ‹ 캠페인 목록으로
+              </AppLink>
+            </p>
+          </div>
+        </header>
 
-          <section className="card detail-card" aria-label="캠페인 결과">
-            {!validId || current?.error === 'notfound' ? (
-              <p className="meta">찾을 수 없는 캠페인이에요. 캠페인 목록에서 다시 골라 주세요.</p>
-            ) : current?.error ? (
-              <p className="meta">
-                불러오지 못했어요. {current.error}{' '}
-                <button type="button" className="btn btn-sm" onClick={() => setReload((n) => n + 1)}>
-                  다시 시도
-                </button>
-              </p>
-            ) : !c || !current?.funnel || !current.control ? (
-              <p className="meta">불러오는 중…</p>
-            ) : (
-              <div className="detail">
-                <dl className="d-dl">
-                  <dt>상태</dt>
-                  <dd className="strong">{CAMPAIGN_STATUS_LABEL[c.status] ?? c.status}</dd>
-                  <dt>카테고리</dt>
-                  <dd>{c.category ? CATEGORY_LABEL[c.category] : '동의 재확인 안내'}</dd>
-                  <dt>발송</dt>
-                  <dd className="num">{c.sentAt ? formatDateTime(c.sentAt) : c.scheduledAt ? `${formatDateTime(c.scheduledAt)} 예약` : '아직 발송 전'}</dd>
-                  <dt>대상</dt>
-                  <dd className="num">
-                    {c.targetCount}명 (대조군 {c.controlCount}명 · {c.controlPercent}%)
-                  </dd>
-                  <dt>검토</dt>
-                  <dd>{c.reviewedBy?.name ?? '검토 전'}</dd>
-                </dl>
+        <section className="card detail-card" aria-label="캠페인 결과">
+          {!validId || current?.error === 'notfound' ? (
+            <p className="meta">찾을 수 없는 캠페인이에요. 캠페인 목록에서 다시 골라 주세요.</p>
+          ) : current?.error ? (
+            <p className="meta">
+              불러오지 못했어요. {current.error}{' '}
+              <button type="button" className="btn btn-sm" onClick={() => setReload((n) => n + 1)}>
+                다시 시도
+              </button>
+            </p>
+          ) : !c || !current?.funnel || !current.control ? (
+            <p className="meta">불러오는 중…</p>
+          ) : (
+            <div className="detail">
+              <dl className="d-dl">
+                <dt>상태</dt>
+                <dd className="strong">{CAMPAIGN_STATUS_LABEL[c.status] ?? c.status}</dd>
+                <dt>카테고리</dt>
+                <dd>{c.category ? CATEGORY_LABEL[c.category] : '동의 재확인 안내'}</dd>
+                <dt>발송</dt>
+                <dd className="num">{c.sentAt ? formatDateTime(c.sentAt) : c.scheduledAt ? `${formatDateTime(c.scheduledAt)} 예약` : '아직 발송 전'}</dd>
+                <dt>대상</dt>
+                <dd className="num">
+                  {c.targetCount}명 (대조군 {c.controlCount}명 · {c.controlPercent}%)
+                </dd>
+                <dt>검토</dt>
+                <dd>{c.reviewedBy?.name ?? '검토 전'}</dd>
+              </dl>
 
-                <div className="box" role="note">
-                  <p>아래 결과는 모의 데이터로 생성한 결과값이에요. 실제 발송 · 예약 결과가 아니에요.</p>
-                </div>
-
-                <Funnel f={current.funnel} />
-                <ControlComparison k={current.control} />
-
-                <div>
-                  <span className="lbl">연결 매출</span>
-                  {!rev ? (
-                    <p className="meta">불러오는 중…</p>
-                  ) : rev.value === null ? (
-                    <p className="meta">매출은 「매출 · 성과 분석」 권한(PIN)이 있어야 볼 수 있어요. {rev.error}</p>
-                  ) : (
-                    <p className="num" style={{ fontSize: 20, fontWeight: 600 }}>
-                      {formatWon(rev.value)}
-                    </p>
-                  )}
-                  <p className="meta">이 캠페인이 귀속된 방문의 결제 합계예요. 같은 방문이 다른 캠페인에도 귀속되면 그쪽에도 전액 들어가요.</p>
-                </div>
-
-                <div>
-                  <span className="lbl">
-                    고객별 발송 결과 <span className="meta num">({c.messages.totalElements}명)</span>
-                  </span>
-                  {messages.length === 0 ? (
-                    <p className="meta">발송을 시작하기 전이라 결과가 없어요.</p>
-                  ) : (
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13.5 }}>
-                      <thead>
-                        <tr className="meta" style={{ textAlign: 'left' }}>
-                          <th style={{ padding: '6px 4px', fontWeight: 500 }}>고객</th>
-                          <th style={{ padding: '6px 4px', fontWeight: 500 }}>수신 번호</th>
-                          <th style={{ padding: '6px 4px', fontWeight: 500 }}>결과</th>
-                          <th style={{ padding: '6px 4px', fontWeight: 500 }}>시각</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {messages.map((m) => (
-                          <tr key={m.customerId} style={{ borderTop: '1px solid #EFE8E2' }}>
-                            <td style={{ padding: '8px 4px' }}>
-                              {m.customerDeleted ? (
-                                <span className="meta">삭제된 고객</span>
-                              ) : (
-                                <AppLink href={`/customers/detail?id=${m.customerId}`} className="p-link">
-                                  {m.customerName ?? '이름 없음'}
-                                </AppLink>
-                              )}
-                            </td>
-                            <td className="num" style={{ padding: '8px 4px' }}>
-                              {m.phone ?? '-'}
-                            </td>
-                            <td style={{ padding: '8px 4px' }}>
-                              {m.controlGroup ? '대조군 (발송 안 함)' : (SEND_STATUS_LABEL[m.sendStatus ?? ''] ?? '-')}
-                              {m.failureReason ? <span className="meta"> · {m.failureReason}</span> : null}
-                            </td>
-                            <td className="num meta" style={{ padding: '8px 4px' }}>
-                              {m.resultAt ? formatDateTime(m.resultAt) : '-'}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  )}
-                  {messages.length < c.messages.totalElements ? (
-                    <button type="button" className="btn btn-sm" style={{ marginTop: 8 }} disabled={moreBusy} onClick={() => void loadMore()}>
-                      {moreBusy ? '불러오는 중…' : '더 보기'}
-                    </button>
-                  ) : null}
-                  {moreError && (
-                    <p className="meta" role="alert" style={{ color: '#8A2F3F', marginTop: 6 }}>
-                      {moreError}
-                    </p>
-                  )}
-                  <p className="meta" style={{ marginTop: 6 }}>
-                    고객 이름을 누르면 고객 상세에서 이 캠페인 뒤의 예약 · 방문 · 결제 기록을 볼 수 있어요.
-                  </p>
-                </div>
+              <div className="box" role="note">
+                <p>아래 결과는 모의 데이터로 생성한 결과값이에요. 실제 발송 · 예약 결과가 아니에요.</p>
               </div>
-            )}
-          </section>
-        </div>
-      </main>
-    </div>
+
+              <Funnel f={current.funnel} />
+              <ControlComparison k={current.control} />
+
+              <div>
+                <span className="lbl">연결 매출</span>
+                {!rev ? (
+                  <p className="meta">불러오는 중…</p>
+                ) : rev.value === null ? (
+                  <p className="meta">매출은 「매출 · 성과 분석」 권한(PIN)이 있어야 볼 수 있어요. {rev.error}</p>
+                ) : (
+                  <p className="num" style={{ fontSize: 20, fontWeight: 600 }}>
+                    {formatWon(rev.value)}
+                  </p>
+                )}
+                <p className="meta">이 캠페인이 귀속된 방문의 결제 합계예요. 같은 방문이 다른 캠페인에도 귀속되면 그쪽에도 전액 들어가요.</p>
+              </div>
+
+              <div>
+                <span className="lbl">
+                  고객별 발송 결과 <span className="meta num">({c.messages.totalElements}명)</span>
+                </span>
+                {messages.length === 0 ? (
+                  <p className="meta">발송을 시작하기 전이라 결과가 없어요.</p>
+                ) : (
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13.5 }}>
+                    <thead>
+                      <tr className="meta" style={{ textAlign: 'left' }}>
+                        <th style={{ padding: '6px 4px', fontWeight: 500 }}>고객</th>
+                        <th style={{ padding: '6px 4px', fontWeight: 500 }}>수신 번호</th>
+                        <th style={{ padding: '6px 4px', fontWeight: 500 }}>결과</th>
+                        <th style={{ padding: '6px 4px', fontWeight: 500 }}>시각</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {messages.map((m) => (
+                        <tr key={m.customerId} style={{ borderTop: '1px solid #EFE8E2' }}>
+                          <td style={{ padding: '8px 4px' }}>
+                            {m.customerDeleted ? (
+                              <span className="meta">삭제된 고객</span>
+                            ) : (
+                              <AppLink href={`/customers/detail?id=${m.customerId}`} className="p-link">
+                                {m.customerName ?? '이름 없음'}
+                              </AppLink>
+                            )}
+                          </td>
+                          <td className="num" style={{ padding: '8px 4px' }}>
+                            {m.phone ?? '-'}
+                          </td>
+                          <td style={{ padding: '8px 4px' }}>
+                            {m.controlGroup ? '대조군 (발송 안 함)' : (SEND_STATUS_LABEL[m.sendStatus ?? ''] ?? '-')}
+                            {m.failureReason ? <span className="meta"> · {m.failureReason}</span> : null}
+                          </td>
+                          <td className="num meta" style={{ padding: '8px 4px' }}>
+                            {m.resultAt ? formatDateTime(m.resultAt) : '-'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+                {messages.length < c.messages.totalElements ? (
+                  <button type="button" className="btn btn-sm" style={{ marginTop: 8 }} disabled={moreBusy} onClick={() => void loadMore()}>
+                    {moreBusy ? '불러오는 중…' : '더 보기'}
+                  </button>
+                ) : null}
+                {moreError && (
+                  <p className="meta" role="alert" style={{ color: '#8A2F3F', marginTop: 6 }}>
+                    {moreError}
+                  </p>
+                )}
+                <p className="meta" style={{ marginTop: 6 }}>
+                  고객 이름을 누르면 고객 상세에서 이 캠페인 뒤의 예약 · 방문 · 결제 기록을 볼 수 있어요.
+                </p>
+              </div>
+            </div>
+          )}
+        </section>
+      </div>
+    </>
   );
 }
 
