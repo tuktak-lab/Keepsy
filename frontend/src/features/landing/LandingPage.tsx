@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import logoImg from '@/assets/images/keepsy-logo-thin.png';
 import styles from './LandingPage.module.css';
@@ -78,6 +78,14 @@ const FEATURES: Feature[] = [
   },
 ];
 
+// 히어로 왼쪽 미리보기: 기능 탭(고객 목록)과 겹치지 않게, 대시보드 상단 요약(KPI 카드)과 같은 항목을 카드로 보여 준다
+const TODAY = [
+  { head: '전체 고객', value: '128', note: '삭제된 고객 제외' },
+  { head: '오늘 예약', value: '6', note: '확정 5 · 상담 후 진행 1' },
+  { head: '마감 안 된 예약', value: '2', note: '시작 시각 지남 · 마감 필요' },
+  { head: '주기 도래 고객', value: '4', note: '예약 없음 · 우선순위 순' },
+];
+
 // 아이콘은 24×24 선 아이콘 경로 (Sidebar.tsx와 같은 방식)
 const PROBLEMS = [
   {
@@ -129,7 +137,7 @@ function Logo() {
   return <img className={styles.logo} src={logoImg.src} alt="Keepsy" />;
 }
 
-function Screen({ title, rows }: { title: string; rows: Row[] }) {
+function Screen({ title, rows, children }: { title: string; rows?: Row[]; children?: ReactNode }) {
   return (
     <div className={styles.screen} aria-hidden="true">
       <div className={styles.screenBar}>
@@ -138,18 +146,20 @@ function Screen({ title, rows }: { title: string; rows: Row[] }) {
         <i />
         <span>{title}</span>
       </div>
-      <ul className={styles.screenRows}>
-        {rows.map((r) => (
-          <li key={r.name}>
-            <span className={styles.avatar}>{r.name.replace(/^[\d:]+\s/, '').charAt(0)}</span>
-            <span className={styles.rowText}>
-              <b>{r.name}</b>
-              <small>{r.meta}</small>
-            </span>
-            {r.tag && <em className={styles.tag}>{r.tag}</em>}
-          </li>
-        ))}
-      </ul>
+      {children ?? (
+        <ul className={styles.screenRows}>
+          {rows?.map((r) => (
+            <li key={r.name}>
+              <span className={styles.avatar}>{r.name.replace(/^[\d:]+\s/, '').charAt(0)}</span>
+              <span className={styles.rowText}>
+                <b>{r.name}</b>
+                <small>{r.meta}</small>
+              </span>
+              {r.tag && <em className={styles.tag}>{r.tag}</em>}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
@@ -196,7 +206,17 @@ export default function LandingPage() {
             </Link>
           </div>
           <div className={styles.heroPreview}>
-            <Screen title={FEATURES[0].screen} rows={FEATURES[0].rows} />
+            <Screen title="오늘 한눈에">
+              <div className={styles.kpis}>
+                {TODAY.map((k) => (
+                  <div key={k.head} className={styles.kpi}>
+                    <span>{k.head}</span>
+                    <b>{k.value}</b>
+                    <small>{k.note}</small>
+                  </div>
+                ))}
+              </div>
+            </Screen>
             <Screen title={FEATURES[3].screen} rows={FEATURES[3].rows} />
           </div>
         </section>
