@@ -161,6 +161,13 @@ public class CampaignSendService {
                 || campaign.getScheduledAt().isAfter(now)) {
             return;
         }
+        // 야간 여부는 예약 시각이 아니라 처리 시각으로 본다 (F67). 처리가 밀려 야간에 나가도 야간 광고 동의 없는 고객에게 보내지 않는다
+        boolean night = NightSendPolicy.isNight(now);
+        if (night && campaign.getMessageKind() != TemplatePurpose.MessageKind.AD) {
+            // 동의 재확인 안내는 야간 예외가 없다 (FR-CMP-13). 다음 날로 미루지 않는다 (F7)
+            cancelScheduled(campaign, Campaign.CancelReason.NIGHT_TIME, now);
+            return;
+        }
         ShopContact shop = shopSettings.contact(shopId);
         AdSender adSender;
         try {
@@ -169,8 +176,7 @@ public class CampaignSendService {
             cancelScheduled(campaign, Campaign.CancelReason.SHOP_INFO_MISSING, now);
             return;
         }
-        // 야간 여부는 처리 시각이 아니라 예약 시각으로 본다. 야간 예약 광고는 야간 광고 동의가 없어진 고객만 뺀다
-        boolean night = NightSendPolicy.isNight(campaign.getScheduledAt());
+        // 야간 광고는 즉시 발송(F52 ② 전원 동의 아니면 전체 차단)과 달리 야간 광고 동의 없는 고객만 FAILED로 뺀다 (F67)
         Plan plan = plan(campaign, shop.name(), adSender, now, night);
         if (!withinDailyLimit(shopId, now, plan, limit)) {
             // 다음 날로 미루거나 다시 시도하지 않는다 (F7)
@@ -206,7 +212,7 @@ public class CampaignSendService {
     /**
      * @param shopName {매장명} 치환 (F46)
      * @param adSender 광고 캠페인이면 광고 표기용 매장 정보, 안내면 null
-     * @param skipNoNightAdConsent 야간 예약 광고: 야간 광고 동의가 없는 고객을 빼고 보낸다 (F56)
+     * @param skipNoNightAdConsent 처리 시각이 야간인 예약 광고: 야간 광고 동의가 없는 고객을 빼고 보낸다 (F67)
      */
     private Plan plan(
             Campaign campaign,
