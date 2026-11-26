@@ -452,6 +452,38 @@ class CampaignSendTest {
     }
 
     @Test
+    void 낮에_예약한_광고가_야간에_처리되면_야간_광고_동의가_없는_고객만_빼고_보낸다() throws Exception {
+        // F67, Keepsy #373: 야간 여부는 예약 시각이 아니라 처리 시각으로 본다. 즉시 발송과 달리 고객별로 거른다
+        long night = nightConsentCustomer();
+        long dayOnly = agreedCustomer();
+        long campaign = campaign(BODY, List.of(night, dayOnly), List.of(), true);
+        schedule(campaign, today().atTime(20, 59)).andExpect(status().isNoContent());
+
+        clock.at(today().atTime(21, 0));
+        runner.run();
+
+        assertThat((String) row(campaign, night).get("send_status")).isIn("PENDING", "SENT");
+        assertThat(row(campaign, dayOnly))
+                .containsEntry("send_status", "FAILED")
+                .containsEntry("failure_reason", CampaignSendService.NO_NIGHT_AD_CONSENT);
+    }
+
+    @Test
+    void 낮에_예약한_동의_재확인_안내가_야간에_처리되면_기록_없이_NIGHT_TIME으로_취소한다() throws Exception {
+        long campaign = infoCampaign(List.of(agreedCustomer()));
+        schedule(campaign, today().atTime(20, 59)).andExpect(status().isNoContent());
+
+        clock.at(today().atTime(21, 0));
+        runner.run();
+
+        assertThat(campaignRow(campaign))
+                .containsEntry("status", "CANCELED")
+                .containsEntry("cancel_reason", "NIGHT_TIME");
+        assertThat(campaignRow(campaign).get("canceled_at")).isNotNull();
+        assertThat(rowCount(campaign)).isZero();
+    }
+
+    @Test
     void 발송_시점에_일_발송_한도를_넘으면_기록_없이_취소하고_사유를_남긴다() throws Exception {
         long campaign =
                 campaign(BODY, List.of(agreedCustomer(), agreedCustomer()), List.of(), true);

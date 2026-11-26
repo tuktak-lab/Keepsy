@@ -28,11 +28,13 @@ public class Campaign {
         CANCELED
     }
 
-    /** 캠페인 취소 사유 (CONTRACTS 3장, F7 · F56) */
+    /** 캠페인 취소 사유 (CONTRACTS 3장, F7 · F56 · F67) */
     public enum CancelReason {
         USER_CANCELED,
         DAILY_LIMIT_EXCEEDED,
-        SHOP_INFO_MISSING
+        SHOP_INFO_MISSING,
+        /** 동의 재확인 안내 캠페인의 예약 발송 처리 시각이 야간 (F67) */
+        NIGHT_TIME
     }
 
     @Id
