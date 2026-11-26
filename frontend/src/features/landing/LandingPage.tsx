@@ -281,14 +281,6 @@ export default function LandingPage() {
             ))}
           </div>
         </section>
-
-        <section className={styles.final}>
-          <h2>오늘 다시 올 고객, Keepsy가 먼저 알려 드려요</h2>
-          <p>고객 · 예약 · 캠페인 · 인사이트를 한 곳에서 관리해 보세요.</p>
-          <Link href="/login" className={styles.primaryLight}>
-            로그인하고 시작하기
-          </Link>
-        </section>
       </main>
 
       <footer className={styles.footer}>
