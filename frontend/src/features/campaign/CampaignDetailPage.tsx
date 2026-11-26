@@ -109,7 +109,7 @@ export default function CampaignDetailPage() {
       <div className="wrap">
         <header className="head">
           <div>
-            <h1 className="h1 serif">{c?.name ?? '캠페인 결과'}</h1>
+            <h1 className="h1">{c?.name ?? '캠페인 결과'}</h1>
             <p className="sub">
               <AppLink href="/campaigns" className="p-link">
                 ‹ 캠페인 목록으로
