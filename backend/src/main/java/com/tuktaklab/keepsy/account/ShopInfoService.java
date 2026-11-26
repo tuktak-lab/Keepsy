@@ -32,15 +32,32 @@ public class ShopInfoService {
             String senderNumber,
             String unsubscribeNumber,
             List<OpeningHours> openingHours,
-            int retentionYears) {}
+            int retentionYears,
+            List<String> industries) {}
 
-    /** 매장 정보 수정 입력. 보관 기간은 매장 설정값에서 바꾸므로 없다 (F40) */
+    /**
+     * 매장 정보 수정 입력. 보관 기간은 매장 설정값에서 바꾸므로 없다 (F40).
+     *
+     * @param industries 켜 둘 업종. null이면 바꾸지 않는다 (CONTRACTS 6절 {@code PUT /api/shop})
+     */
     public record ShopInfoChange(
             String name,
             String phone,
             String senderNumber,
             String unsubscribeNumber,
-            List<OpeningHours> openingHours) {}
+            List<OpeningHours> openingHours,
+            List<String> industries) {
+
+        /** 업종은 바꾸지 않는다 */
+        public ShopInfoChange(
+                String name,
+                String phone,
+                String senderNumber,
+                String unsubscribeNumber,
+                List<OpeningHours> openingHours) {
+            this(name, phone, senderNumber, unsubscribeNumber, openingHours, null);
+        }
+    }
 
     /**
      * @throws com.tuktaklab.keepsy.common.error.ApiException 매장이 없으면 {@code not_found}
@@ -54,7 +71,8 @@ public class ShopInfoService {
                 shop.getSenderNumber(),
                 shop.getUnsubscribeNumber(),
                 shop.openingHours(),
-                shop.getRetentionYears());
+                shop.getRetentionYears(),
+                shop.industries());
     }
 
     /**
@@ -73,6 +91,9 @@ public class ShopInfoService {
                 in.senderNumber(),
                 in.unsubscribeNumber(),
                 in.openingHours());
+        if (in.industries() != null) {
+            shop.changeIndustries(in.industries());
+        }
         // ponytail: 예약 등록은 매장 행을 잠그지 않고 영업시간을 읽어, 이 저장과 동시에 들어온 예약은 목록에서 빠질 수 있다. 원장이 영업시간을
         // 바꾸는 일은 드물어 미루고, 문제가 되면 매장 행 잠금(F14 방식)을 양쪽에 건다
         return reservations.shopConfirmedFrom(shopId, LocalDateTime.now(clock)).stream()

@@ -1,5 +1,6 @@
 package com.tuktaklab.keepsy.account;
 
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -13,6 +14,7 @@ import com.tuktaklab.keepsy.common.error.ErrorCode;
 import com.tuktaklab.keepsy.common.error.GlobalExceptionHandler;
 import com.tuktaklab.keepsy.common.security.SecurityConfig;
 import com.tuktaklab.keepsy.common.security.ShopSession;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -34,15 +36,26 @@ class ShopControllerTest {
     @MockitoBean ShopInfoService infoService;
 
     private static String body(String email, String password, String pin) {
+        return body(email, password, pin, "[\"NAIL\",\"LASH\"]");
+    }
+
+    private static String body(String email, String password, String pin, String industriesJson) {
         return """
-        {"email":"%s","password":"%s","shopName":"테스트 네일","ownerName":"원장","ownerPin":"%s"}
+        {"email":"%s","password":"%s","shopName":"테스트 네일","ownerName":"원장","ownerPin":"%s",\
+        "industries":%s}
         """
-                .formatted(email, password, pin);
+                .formatted(email, password, pin, industriesJson);
     }
 
     @Test
     void 로그인_없이_가입하면_201과_매장_ID() throws Exception {
-        when(signupService.signUp("owner@example.com", "password1", "테스트 네일", "원장", "1234"))
+        when(signupService.signUp(
+                        "owner@example.com",
+                        "password1",
+                        "테스트 네일",
+                        "원장",
+                        "1234",
+                        List.of("NAIL", "LASH")))
                 .thenReturn(5L);
 
         mvc.perform(
@@ -52,6 +65,26 @@ class ShopControllerTest {
                                 .content(body("owner@example.com", "password1", "1234")))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.shopId").value(5));
+    }
+
+    @Test
+    void 업종이_비었거나_빠지면_invalid_400과_칸별_사유() throws Exception {
+        String noIndustries =
+                """
+                {"email":"owner@example.com","password":"password1","shopName":"테스트 네일","ownerName":"원장","ownerPin":"1234"}
+                """;
+        for (String content :
+                List.of(noIndustries, body("owner@example.com", "password1", "1234", "[]"))) {
+            mvc.perform(
+                            post("/api/shops")
+                                    .with(csrf())
+                                    .contentType(MediaType.APPLICATION_JSON)
+                                    .content(content))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.error.code").value("invalid"))
+                    .andExpect(jsonPath("$.error.details[0].field").value("industries"));
+        }
+        verifyNoInteractions(signupService);
     }
 
     @Test
@@ -81,7 +114,8 @@ class ShopControllerTest {
 
     @Test
     void 이미_가입한_이메일이면_duplicate_409() throws Exception {
-        when(signupService.signUp(anyString(), anyString(), anyString(), anyString(), anyString()))
+        when(signupService.signUp(
+                        anyString(), anyString(), anyString(), anyString(), anyString(), anyList()))
                 .thenThrow(new ApiException(ErrorCode.DUPLICATE, "이미 가입한 이메일입니다"));
 
         mvc.perform(

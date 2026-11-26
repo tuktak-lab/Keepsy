@@ -11,6 +11,7 @@ import com.tuktaklab.keepsy.common.time.TimeConfig;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
@@ -47,7 +48,8 @@ class ShopController {
             String senderNumber,
             String unsubscribeNumber,
             List<OpeningHoursResponse> openingHours,
-            int retentionYears) {}
+            int retentionYears,
+            List<String> industries) {}
 
     /** 매장 정보 · 영업시간 (FR-SET-01). 근무자. 매장 설정 화면과 예약 화면이 함께 쓴다 (F20) */
     @RequireWorker
@@ -64,7 +66,8 @@ class ShopController {
                                 new OpeningHoursResponse(
                                         h.dayOfWeek(), hhmm(h.open()), hhmm(h.close())))
                         .toList(),
-                info.retentionYears());
+                info.retentionYears(),
+                info.industries());
     }
 
     private static String hhmm(LocalTime time) {
@@ -88,7 +91,9 @@ class ShopController {
             @Pattern(regexp = SHOP_NUMBER, message = SHOP_NUMBER_MESSAGE) String senderNumber,
             @Pattern(regexp = SHOP_NUMBER, message = SHOP_NUMBER_MESSAGE) String unsubscribeNumber,
             @NotNull(message = "요일별 영업시간을 보내 주세요")
-                    List<@NotNull @Valid OpeningHoursRequest> openingHours) {}
+                    List<@NotNull @Valid OpeningHoursRequest> openingHours,
+            // 켜 둘 업종. 빼면 바꾸지 않는다. 비었거나 중복 · 5개 밖의 값은 Shop이 invalid로 거절한다
+            List<String> industries) {}
 
     record PushedReservation(long id, OffsetDateTime startAt, String customerName) {}
 
@@ -106,7 +111,8 @@ class ShopController {
                         req.unsubscribeNumber(),
                         req.openingHours().stream()
                                 .map(h -> new OpeningHours(h.dayOfWeek(), h.open(), h.close()))
-                                .toList());
+                                .toList(),
+                        req.industries());
         return new UpdateResponse(
                 infoService.update(shopSession.shopId(), in).stream()
                         .map(r ->
@@ -130,7 +136,9 @@ class ShopController {
                     String ownerName,
             @NotNull(message = "원장 PIN을 입력해 주세요")
                     @Pattern(regexp = "\\d{4,6}", message = "PIN은 숫자 4~6자리입니다")
-                    String ownerPin) {}
+                    String ownerPin,
+            // 켜 둘 매장 업종. 중복 · 5개 밖의 값은 Shop이 invalid로 거절한다
+            @NotEmpty(message = "매장 업종을 하나 이상 선택해 주세요") List<String> industries) {}
 
     record SignUpResponse(long shopId) {}
 
@@ -143,7 +151,8 @@ class ShopController {
                         request.password(),
                         request.shopName(),
                         request.ownerName(),
-                        request.ownerPin());
+                        request.ownerPin(),
+                        request.industries());
         return new SignUpResponse(shopId);
     }
 }
