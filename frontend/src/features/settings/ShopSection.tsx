@@ -3,11 +3,12 @@ import { toast } from '@/components/common/Toast';
 import { ApiError, api } from '@/lib/api';
 import type { OpeningHour } from '@/lib/calendar';
 import { detailsText } from '@/lib/reservationForm';
-import { DAY_LABEL, DEFAULT_CLOSE, DEFAULT_OPEN, toRows, toShopRequest, validateShop, type ShopValues } from '@/lib/settings';
+import { CATEGORIES, CATEGORY_LABEL } from '@/lib/menus';
+import { DAY_LABEL, DEFAULT_CLOSE, DEFAULT_OPEN, toRows, toShopRequest, toggleIndustry, validateShop, type ShopValues } from '@/lib/settings';
 import { PushedReservations, type PushedReservation } from './PushedReservations';
 
 // 매장 정보 · 영업시간 (FR-SET-01). GET · PUT /api/shop (docs CONTRACTS 6장 「매장 설정 (SET)」). 변경은 원장 PIN이 필요하다 (api.ts가 PIN 창을 띄움).
-// 휴무일은 다음 PR, 시술 메뉴 · 스탭은 그다음 PR에서 이 화면에 더한다.
+// 매장 업종 켜기 · 끄기(CONTRACTS 3절 「매장 업종」)도 이 저장에 같이 보낸다. 켜 둔 업종은 `onIndustries`로 알려 시술 메뉴 · 기본 주기 구역이 그것만 보여 준다.
 
 type ShopResponse = {
   name: string;
@@ -15,6 +16,7 @@ type ShopResponse = {
   senderNumber: string | null;
   unsubscribeNumber: string | null;
   openingHours: OpeningHour[];
+  industries: string[];
 };
 
 const toValues = (s: ShopResponse): ShopValues => ({
@@ -23,9 +25,11 @@ const toValues = (s: ShopResponse): ShopValues => ({
   senderNumber: s.senderNumber ?? '',
   unsubscribeNumber: s.unsubscribeNumber ?? '',
   hours: toRows(s.openingHours),
+  industries: s.industries,
 });
 
-export function ShopSection() {
+/** @param onIndustries 켜 둔 업종을 불러오거나 저장했을 때 알린다. 불러오지 못하면 null (모르는 값) */
+export function ShopSection({ onIndustries }: { onIndustries?: (list: string[] | null) => void }) {
   const [saved, setSaved] = useState<ShopValues | null>(null); // 서버에 있는 값
   const [values, setValues] = useState<ShopValues | null>(null); // 화면에서 고치는 값
   const [loadFailed, setLoadFailed] = useState(false);
@@ -42,12 +46,17 @@ export function ShopSection() {
         const v = toValues(shop);
         setSaved(v);
         setValues(v);
+        onIndustries?.(v.industries);
       })
-      .catch(() => !cancelled && setLoadFailed(true));
+      .catch(() => {
+        if (cancelled) return;
+        setLoadFailed(true);
+        onIndustries?.(null);
+      });
     return () => {
       cancelled = true;
     };
-  }, [reload]);
+  }, [reload, onIndustries]);
 
   if (loadFailed && !values) {
     return (
@@ -94,6 +103,7 @@ export function ShopSection() {
     try {
       const res = await api<{ pushedReservations: PushedReservation[] }>('/api/shop', { method: 'PUT', body: toShopRequest(values), silent: true });
       setSaved(values);
+      onIndustries?.(values.industries);
       setPushed(res?.pushedReservations ?? []);
       toast('매장 정보를 저장했어요');
     } catch (err) {
@@ -133,6 +143,29 @@ export function ShopSection() {
         </div>
       </div>
       <p className="st-meta">연락처 · 발신번호 · 수신 거부 번호는 광고 메시지 표기에 쓰여요. 비워 둘 수 있어요.</p>
+
+      <div>
+        <div className="st-lbl" id="shop-industries-label">
+          매장 업종
+        </div>
+        <div className="st-chips" role="group" aria-labelledby="shop-industries-label">
+          {CATEGORIES.map((c) => {
+            const on = values.industries.includes(c);
+            return (
+              <label className="st-chk" key={c}>
+                <input
+                  type="checkbox"
+                  checked={on}
+                  disabled={on && values.industries.length === 1}
+                  onChange={() => edit({ industries: toggleIndustry(CATEGORIES, values.industries, c) })}
+                />
+                {CATEGORY_LABEL[c]}
+              </label>
+            );
+          })}
+        </div>
+      </div>
+      <p className="st-meta">켜 둔 업종만 아래 「시술 메뉴 · 기본 주기」에 보여요. 꺼도 기존 메뉴와 고객 기록은 그대로이고, 다시 켜면 돌아와요. 하나는 켜 두어야 해요.</p>
 
       <div>
         <div className="st-lbl">요일별 영업시간 (30분 단위)</div>

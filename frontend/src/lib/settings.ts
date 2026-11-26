@@ -22,7 +22,19 @@ export function toRows(hours: OpeningHour[]): HoursRow[] {
   });
 }
 
-export type ShopValues = { name: string; phone: string; senderNumber: string; unsubscribeNumber: string; hours: HoursRow[] };
+/** `industries`는 켜 둔 매장 업종(시술 카테고리 5개 중, CONTRACTS 3절 「매장 업종」). 순서는 3절 순서 */
+export type ShopValues = { name: string; phone: string; senderNumber: string; unsubscribeNumber: string; hours: HoursRow[]; industries: string[] };
+
+/**
+ * 업종 하나를 켜거나 끈 새 목록. 순서는 `order`(3절 순서)로 맞추고, 마지막 하나는 끌 수 없어 그대로 돌려준다 (1개 이상).
+ * 끈 업종은 시술 메뉴 · 기본 주기 화면에서 숨기기만 하고 데이터는 그대로 둔다.
+ */
+export function toggleIndustry(order: readonly string[], current: string[], value: string): string[] {
+  const on = current.includes(value);
+  if (on && current.length === 1) return current;
+  const next = on ? current.filter((x) => x !== value) : [...current, value];
+  return order.filter((x) => next.includes(x));
+}
 
 /** 국내 전화번호: 0으로 시작하는 번호 · 15xx/16xx/18xx 대표번호, 하이픈은 있어도 없어도 된다. 비어 있는 값은 따로 통과시킨다 (서버와 같은 규칙) */
 export const PHONE_FORMAT = /^(0\d{1,2}-?\d{3,4}-?\d{4}|1[568]\d{2}-?\d{4})$/;
@@ -37,6 +49,7 @@ export function validateShop(v: ShopValues): string | null {
   const name = v.name.trim();
   if (!name) return '매장명을 입력해 주세요';
   if (name.length > 100) return '매장명은 100자 이하입니다';
+  if (v.industries.length === 0) return '매장 업종을 하나 이상 켜 주세요';
   for (const [label, value] of [
     ['매장 연락처', v.phone],
     ['발신번호', v.senderNumber],
@@ -63,6 +76,7 @@ export function toShopRequest(v: ShopValues) {
     senderNumber: num(v.senderNumber),
     unsubscribeNumber: num(v.unsubscribeNumber),
     openingHours: v.hours.map((h) => ({ dayOfWeek: h.dayOfWeek, open: h.off ? null : h.open, close: h.off ? null : h.close })),
+    industries: v.industries,
   };
 }
 

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { PinGate } from '@/components/common/PinGate';
 import { useStyleSheet } from '@/hooks/useStyleSheet';
 import { FeatureLockSection, OwnerPinSection } from './AccessSection';
@@ -16,6 +17,8 @@ import styleText from './SettingsPage.css?inline';
 
 export default function SettingsPage() {
   useStyleSheet('SettingsPage', styleText);
+  // 켜 둔 매장 업종: 「매장 정보」가 알려 주고 「시술 메뉴 · 기본 주기」가 그것만 보여 준다. undefined 불러오는 중, null 모름(모두 보여 줌)
+  const [industries, setIndustries] = useState<string[] | null | undefined>(undefined);
 
   return (
     <>
@@ -37,8 +40,8 @@ export default function SettingsPage() {
           </nav>
           <div className="st-note">설정 화면은 원장 PIN으로만 열려요. 이 화면의 모든 변경은 항상 원장 PIN이 필요해요.</div>
 
-          <ShopSection />
-          <MenuSection />
+          <ShopSection onIndustries={setIndustries} />
+          <MenuSection industries={industries} />
           <DayOffSection />
           <SettingsSections />
           <StaffSection />

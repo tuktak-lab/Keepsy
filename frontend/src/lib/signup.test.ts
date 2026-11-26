@@ -50,12 +50,13 @@ test('validateStep: 사업자 정보 규칙', () => {
   assert.ok(validateStep(1, { ...ok, address: '   ' }).address);
 });
 
-test('validateStep: 업종은 보기 6개 중 하나 이상, 중복 선택 가능', () => {
-  assert.equal(INDUSTRIES.length, 6);
+test('validateStep: 업종은 시술 카테고리 5개 중 하나 이상, 중복 선택 가능', () => {
+  assert.deepEqual(INDUSTRIES.map(([value]) => value), ['NAIL', 'LASH', 'WAXING', 'SEMI_PERMANENT', 'ETC']);
   assert.equal(validateStep(2, { ...ok, industries: [] }).industries, '매장 업종을 하나 이상 선택해 주세요');
-  assert.ok(validateStep(2, { ...ok, industries: ['HAIR_SALON'] }).industries);
+  assert.ok(validateStep(2, { ...ok, industries: ['HAIR'] }).industries); // 옛 보기: 서버가 거절한다
+  assert.ok(validateStep(2, { ...ok, industries: ['SKIN_CARE'] }).industries);
   assert.ok(validateStep(2, { ...ok, industries: ['NAIL', 'NAIL'] }).industries);
-  assert.deepEqual(validateStep(2, { ...ok, industries: ['SKIN_CARE'] }), {});
+  assert.deepEqual(validateStep(2, { ...ok, industries: ['SEMI_PERMANENT'] }), {});
   assert.deepEqual(validateStep(2, { ...ok, industries: ['NAIL', 'LASH', 'WAXING'] }), {});
 });
 
@@ -75,5 +76,5 @@ test('toSignUpRequest: 확인용 칸은 빼고 글자 칸은 다듬는다', () =
 });
 
 test('toSignUpRequest: 고른 업종은 보기 순서로 정렬해 보낸다', () => {
-  assert.deepEqual(toSignUpRequest({ ...ok, industries: ['LASH', 'NAIL', 'HAIR'] }).industries, ['NAIL', 'HAIR', 'LASH']);
+  assert.deepEqual(toSignUpRequest({ ...ok, industries: ['ETC', 'NAIL', 'SEMI_PERMANENT', 'LASH'] }).industries, ['NAIL', 'LASH', 'SEMI_PERMANENT', 'ETC']);
 });

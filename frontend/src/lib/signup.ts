@@ -28,12 +28,13 @@ export const STEPS: { title: string; fields: SignUpField[] }[] = [
   { title: '업종 설정', fields: ['industries'] },
 ];
 
+// 매장 업종은 시술 카테고리 5개와 같은 값이다 (CONTRACTS 3절 「매장 업종」). lib/menus.ts의 CATEGORIES와 같은 순서 · 이름이고,
+// 순수 함수 파일끼리는 런타임 import를 쓰지 않아 여기에 같은 목록을 둔다 (PHONE_FORMAT과 같은 사정)
 export const INDUSTRIES: [string, string][] = [
   ['NAIL', '네일'],
-  ['HAIR', '헤어'],
-  ['WAXING', '왁싱'],
-  ['SKIN_CARE', '피부관리'],
   ['LASH', '속눈썹'],
+  ['WAXING', '왁싱'],
+  ['SEMI_PERMANENT', '반영구'],
   ['ETC', '기타'],
 ];
 
