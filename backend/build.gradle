@@ -43,7 +43,7 @@ dependencies {
 
 tasks.named('test') {
     useJUnitPlatform {
-        excludeTags 'seed'
+        excludeTags 'seed', 'perf'
     }
 }
 
@@ -56,6 +56,24 @@ tasks.register('seedDemo', Test) {
     classpath = sourceSets.test.runtimeClasspath
     useJUnitPlatform {
         includeTags 'seed'
+    }
+    systemProperty 'keepsy.seed.target', 'demo'
+    systemProperties providers.gradlePropertiesPrefixedBy('seed.').get()
+    testLogging {
+        showStandardStreams = true
+    }
+    outputs.upToDateWhen { false }
+}
+
+// 주요 쿼리 EXPLAIN ANALYZE 측정 (Keepsy #350). seedDemo로 적재한 데모 DB에서 대상 API를 불러 build/perf/explain-report.md에 남긴다.
+// 예: ./gradlew perfExplain -Pseed.scale=perf -Pseed.random=42 -Pseed.until=2026-12-11 (seed.* 는 보고서에 적을 시드 조건)
+tasks.register('perfExplain', Test) {
+    description = '데모 DB에서 주요 쿼리의 SQL · 실행 횟수 · 응답 시간 · EXPLAIN ANALYZE를 보고서로 남긴다'
+    group = 'verification'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform {
+        includeTags 'perf'
     }
     systemProperty 'keepsy.seed.target', 'demo'
     systemProperties providers.gradlePropertiesPrefixedBy('seed.').get()
