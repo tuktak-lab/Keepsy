@@ -78,6 +78,14 @@ const FEATURES: Feature[] = [
   },
 ];
 
+// 히어로 왼쪽 미리보기: 기능 탭(고객 목록)과 겹치지 않게 대시보드 요약을 보여 준다
+const TODAY: Row[] = [
+  { name: '오늘 예약', meta: '확정 5 · 대기 1', tag: '6건' },
+  { name: '이탈 신호', meta: '평소 주기보다 2주 이상 미방문', tag: '4명' },
+  { name: '재방문 안내', meta: '내일 10:00 예약 발송', tag: '8명' },
+  { name: '이번 달 신규', meta: '지난달보다 2명 늘었어요', tag: '9명' },
+];
+
 // 아이콘은 24×24 선 아이콘 경로 (Sidebar.tsx와 같은 방식)
 const PROBLEMS = [
   {
@@ -196,7 +204,7 @@ export default function LandingPage() {
             </Link>
           </div>
           <div className={styles.heroPreview}>
-            <Screen title={FEATURES[0].screen} rows={FEATURES[0].rows} />
+            <Screen title="오늘 한눈에" rows={TODAY} />
             <Screen title={FEATURES[3].screen} rows={FEATURES[3].rows} />
           </div>
         </section>
