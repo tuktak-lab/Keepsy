@@ -50,7 +50,7 @@ const RESULT_SIZE = 100;
 const FAILURES_SHOWN = 5;
 const POLL_MS = 3000;
 const KIND_LABEL: Record<string, string> = { AD: '광고', INFO: '안내' };
-const CANCEL_LABEL: Record<string, string> = { USER_CANCELED: '사용자 취소', DAILY_LIMIT_EXCEEDED: '일 발송 한도 초과' };
+const CANCEL_LABEL: Record<string, string> = { USER_CANCELED: '사용자 취소', DAILY_LIMIT_EXCEEDED: '일 발송 한도 초과', NIGHT_TIME: '야간 시간대라서 취소됨' };
 // 상태 칩 [배경, 글자]
 const STATUS_CHIP: Record<string, [string, string]> = {
   DRAFT: ['#F5EBD3', '#6B4509'],
