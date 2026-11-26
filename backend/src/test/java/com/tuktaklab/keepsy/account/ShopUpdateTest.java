@@ -178,6 +178,46 @@ class ShopUpdateTest {
                 .isEqualTo("모의 매장");
     }
 
+    /** 영업시간 본문에 업종(JSON 배열 문자열)을 끼운다 */
+    private static String withIndustries(String industriesJson) {
+        String base = body("17:00", false, null);
+        return base.substring(0, base.length() - 1) + ",\"industries\":" + industriesJson + "}";
+    }
+
+    private String industries() {
+        return jdbc.queryForObject("SELECT industries FROM shop WHERE id = ?", String.class, shop);
+    }
+
+    @Test
+    void 업종을_보내면_그_목록으로_바꾸고_계약_순서로_저장한다() throws Exception {
+        update(withIndustries("[\"ETC\",\"NAIL\",\"LASH\"]")).andExpect(status().isOk());
+
+        assertThat(industries()).isEqualTo("NAIL,LASH,ETC");
+    }
+
+    @Test
+    void 업종을_빼면_바꾸지_않는다() throws Exception {
+        jdbc.update("UPDATE shop SET industries = 'WAXING' WHERE id = ?", shop);
+
+        update(body("17:00", false, null)).andExpect(status().isOk());
+
+        assertThat(industries()).isEqualTo("WAXING");
+    }
+
+    @Test
+    void 업종이_비었거나_중복이거나_5개_밖의_값이면_invalid이고_영업시간도_그대로() throws Exception {
+        for (String bad : List.of("[]", "[\"NAIL\",\"NAIL\"]", "[\"HAIR\"]")) {
+            update(withIndustries(bad))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.error.code").value("invalid"))
+                    .andExpect(jsonPath("$.error.details[0].field").value("industries"));
+        }
+
+        assertThat(industries()).isEqualTo("NAIL,LASH,WAXING,SEMI_PERMANENT,ETC");
+        assertThat(jdbc.queryForObject("SELECT name FROM shop WHERE id = ?", String.class, shop))
+                .isEqualTo("모의 매장");
+    }
+
     @Test
     void 원장_PIN_인증이_없으면_owner_pin_required() throws Exception {
         mvc.perform(

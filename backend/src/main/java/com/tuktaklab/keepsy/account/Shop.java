@@ -145,6 +145,31 @@ public class Shop {
     public static final List<String> CATEGORIES =
             List.of("NAIL", "LASH", "WAXING", "SEMI_PERMANENT", "ETC");
 
+    /** 켜 둔 매장 업종, 쉼표로 이음 (FR-SET-01, CONTRACTS 3절 「매장 업종」). 값은 {@link #CATEGORIES}와 같다 */
+    private String industries;
+
+    /** 켜 둔 매장 업종, {@link #CATEGORIES} 순서 */
+    public List<String> industries() {
+        List<String> on = Arrays.asList(industries.split(","));
+        return CATEGORIES.stream().filter(on::contains).toList();
+    }
+
+    /**
+     * 켜 둘 업종을 통째로 바꾼다. 끈 업종의 메뉴 · 방문 · 예측 · 캠페인은 건드리지 않는다 (화면에서만 숨김).
+     *
+     * @throws ApiException 비었거나, 같은 값이 두 번이거나, 시술 카테고리 5개 밖의 값이면 {@code invalid}
+     */
+    void changeIndustries(List<String> values) {
+        if (values == null || values.isEmpty()) {
+            throw fieldInvalid("industries", "업종을 하나 이상 켜 주세요");
+        }
+        if (values.stream().anyMatch(v -> v == null || !CATEGORIES.contains(v))
+                || values.stream().distinct().count() != values.size()) {
+            throw fieldInvalid("industries", "선택할 수 없는 업종입니다");
+        }
+        this.industries = String.join(",", CATEGORIES.stream().filter(values::contains).toList());
+    }
+
     public record CategoryCycle(String category, int minDays, int maxDays) {}
 
     /** 카테고리 기본 주기 5개, {@link #CATEGORIES} 순서 */
@@ -322,11 +347,20 @@ public class Shop {
         return s == null || s.isBlank() ? null : s.strip();
     }
 
+    /** 업종은 5개 모두 켠다 (기존 매장과 같은 시작값) */
     static Shop create(String email, String passwordHash, String name) {
+        return create(email, passwordHash, name, CATEGORIES);
+    }
+
+    /**
+     * @throws ApiException 업종이 규칙을 어기면 {@code invalid} ({@link #changeIndustries})
+     */
+    static Shop create(String email, String passwordHash, String name, List<String> industries) {
         Shop shop = new Shop();
         shop.email = email;
         shop.passwordHash = passwordHash;
         shop.name = name;
+        shop.changeIndustries(industries);
         // 매핑한 칸은 INSERT에 모두 들어가 V1의 DB 기본값이 쓰이지 않으므로 같은 값을 넣는다 (FR-SET-02 · C16)
         shop.changeCategoryCycle("NAIL", 21, 28);
         shop.changeCategoryCycle("LASH", 30, 60);

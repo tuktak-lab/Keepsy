@@ -95,6 +95,22 @@ class ShopInfoTest {
     }
 
     @Test
+    void 업종은_켜_둔_것만_계약_순서로_주고_기존_매장은_5개_모두_켜져_있다() throws Exception {
+        getShop(staff)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.industries.length()").value(5))
+                .andExpect(jsonPath("$.industries[0]").value("NAIL"))
+                .andExpect(jsonPath("$.industries[3]").value("SEMI_PERMANENT"));
+
+        jdbc.update("UPDATE shop SET industries = 'ETC,NAIL' WHERE id = ?", shop);
+
+        getShop(staff)
+                .andExpect(jsonPath("$.industries.length()").value(2))
+                .andExpect(jsonPath("$.industries[0]").value("NAIL"))
+                .andExpect(jsonPath("$.industries[1]").value("ETC"));
+    }
+
+    @Test
     void 근무자가_없으면_worker_required_403() throws Exception {
         getShop(null)
                 .andExpect(status().isForbidden())

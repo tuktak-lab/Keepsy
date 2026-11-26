@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.tuktaklab.keepsy.common.error.ApiException;
 import com.tuktaklab.keepsy.common.error.ErrorCode;
+import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -43,6 +44,51 @@ class ShopSignupServiceTest {
         assertThat(owner.get("locked_feature_allowed")).isEqualTo(true);
         assertThat(owner.get("status")).isEqualTo("ACTIVE");
         assertThat(passwordEncoder.matches("1234", (String) owner.get("pin_hash"))).isTrue();
+    }
+
+    @Test
+    void 가입_때_고른_업종이_계약_순서로_저장되고_고르지_않으면_5개_모두_켠다() {
+        long chosen =
+                signupService.signUp(
+                        "industry-test@example.com",
+                        "password1",
+                        "테스트 네일",
+                        "원장",
+                        "1234",
+                        List.of("ETC", "NAIL"));
+        long unchosen =
+                signupService.signUp(
+                        "industry-all@example.com", "password1", "테스트 네일", "원장", "1234");
+
+        assertThat(industriesOf(chosen)).isEqualTo("NAIL,ETC");
+        assertThat(industriesOf(unchosen)).isEqualTo("NAIL,LASH,WAXING,SEMI_PERMANENT,ETC");
+    }
+
+    @Test
+    void 업종이_규칙을_어기면_invalid이고_매장이_생기지_않는다() {
+        assertThatThrownBy(() ->
+                        signupService.signUp(
+                                "industry-bad@example.com",
+                                "password1",
+                                "테스트 네일",
+                                "원장",
+                                "1234",
+                                List.of("HAIR")))
+                .isInstanceOf(ApiException.class)
+                .extracting(e -> ((ApiException) e).errorCode())
+                .isEqualTo(ErrorCode.INVALID);
+
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT COUNT(*) FROM shop WHERE email = ?",
+                                Integer.class,
+                                "industry-bad@example.com"))
+                .isZero();
+    }
+
+    private String industriesOf(long shopId) {
+        return jdbc.queryForObject(
+                "SELECT industries FROM shop WHERE id = ?", String.class, shopId);
     }
 
     @Test
