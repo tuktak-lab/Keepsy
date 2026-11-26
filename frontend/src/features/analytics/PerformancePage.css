@@ -4,7 +4,7 @@ a{color:#7A4450;text-decoration:none}
 .num{font-variant-numeric:tabular-nums}
 .pf-wrap{padding:28px 32px 56px 40px;max-width:1280px;width:100%;box-sizing:border-box;display:flex;flex-direction:column;gap:18px}
 /* 머리 2줄 (#424): 1줄 제목 · 기간 버튼, 2줄 설명 · 직접 지정 날짜. 2줄은 날짜 칸 높이(36px)를 늘 유지해 버튼 · 제목이 움직이지 않는다 */
-.pf-head{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;column-gap:16px;row-gap:4px}
+.pf-head{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;column-gap:16px;row-gap:14px}
 .pf-head .pf-sub{margin:0;min-height:36px;display:flex;align-items:center}
 .pf-head .pf-seg{justify-self:end}
 .pf-range{display:flex;justify-content:flex-end;align-items:center;gap:6px;min-height:36px;color:var(--muted)}
