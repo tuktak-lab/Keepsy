@@ -35,7 +35,7 @@ import org.springframework.test.web.servlet.ResultActions;
 @AutoConfigureMockMvc
 class VisitDeleteControllerTest {
 
-    private static final LocalDate DAY = LocalDate.of(2026, 12, 1);
+    private static final LocalDate DAY = LocalDate.of(2026, 11, 3);
 
     @Autowired MockMvc mvc;
     @Autowired JdbcTemplate jdbc;

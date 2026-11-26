@@ -27,7 +27,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 @SpringBootTest
 class ReservationLockTest {
 
-    private static final LocalDate DAY = LocalDate.of(2026, 12, 1);
+    private static final LocalDate DAY = LocalDate.of(2026, 11, 3);
 
     @Autowired ReservationAppService reservations;
     @Autowired VisitAppService visits;

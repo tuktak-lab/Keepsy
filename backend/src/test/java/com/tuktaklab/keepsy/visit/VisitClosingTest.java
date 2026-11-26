@@ -5,11 +5,13 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.tuktaklab.keepsy.common.error.ApiException;
 import com.tuktaklab.keepsy.common.error.ErrorCode;
+import com.tuktaklab.keepsy.common.time.TimeConfig;
 import com.tuktaklab.keepsy.reservation.NewReservation;
 import com.tuktaklab.keepsy.reservation.ReservationAppService;
 import com.tuktaklab.keepsy.support.TestShopData;
 import com.tuktaklab.keepsy.visit.Closing.Item;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
@@ -24,7 +26,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 @SpringBootTest
 class VisitClosingTest {
 
-    private static final LocalDate DAY = LocalDate.of(2026, 12, 1);
+    private static final LocalDate DAY = LocalDate.of(2026, 11, 3);
 
     @Autowired VisitAppService service;
     @Autowired ReservationAppService reservations;
@@ -82,6 +84,45 @@ class VisitClosingTest {
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).errorCode())
                 .isEqualTo(code);
+    }
+
+    private long reserveAt(LocalDateTime start) {
+        return reservations.create(
+                shop,
+                new NewReservation(customer, staff, start, null, null, false, null, List.of(gel)),
+                false);
+    }
+
+    @Test
+    void 예약일이_오늘보다_늦으면_마감도_완료도_409이고_아무것도_바뀌지_않는다() {
+        long r = reserveAt(LocalDate.now(TimeConfig.ZONE).plusDays(1).atTime(11, 0));
+
+        assertError(() -> service.close(shop, r, pay(50000, "메모"), staff), ErrorCode.CONFLICT);
+        assertError(() -> service.completeWithoutPayment(shop, r, null), ErrorCode.CONFLICT);
+
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT status FROM reservation WHERE id = ?", String.class, r))
+                .isEqualTo("CONFIRMED");
+        assertThat(count("SELECT COUNT(*) FROM payment WHERE reservation_id = ?", r)).isZero();
+        assertThat(count("SELECT COUNT(*) FROM visit WHERE customer_id = ?", customer)).isZero();
+    }
+
+    @Test
+    void 오늘_예약은_시작_시각_전이어도_마감할_수_있다() {
+        LocalDate today = LocalDate.now(TimeConfig.ZONE);
+        long r = reserveAt(today.atTime(11, 0));
+        // 영업시간 검사를 거치지 않게 시작 시각만 오늘 끝으로 옮긴다 (마감은 날짜만 본다, F71)
+        jdbc.update("UPDATE reservation SET start_at = ? WHERE id = ?", today.atTime(23, 59), r);
+
+        long visitId = service.close(shop, r, pay(50000, null), staff);
+
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT visit_date FROM visit WHERE id = ?",
+                                LocalDate.class,
+                                visitId))
+                .isEqualTo(today);
     }
 
     @Test

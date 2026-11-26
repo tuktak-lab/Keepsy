@@ -29,7 +29,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 @SpringBootTest
 class VisitDeleteAndPaymentTest {
 
-    private static final LocalDate DAY = LocalDate.of(2026, 12, 1);
+    private static final LocalDate DAY = LocalDate.of(2026, 11, 3);
 
     @Autowired VisitAppService service;
     @Autowired ReservationAppService reservations;
@@ -131,7 +131,7 @@ class VisitDeleteAndPaymentTest {
                 "INSERT INTO photo (shop_id, visit_id, storage_key, uploaded_at) VALUES (?, ?, 'no-such-file', ?)",
                 shop,
                 visitId,
-                LocalDateTime.of(2026, 12, 1, 12, 0));
+                LocalDateTime.of(2026, 11, 3, 12, 0));
         assertThat(service.hasActivePayments(shop, visitId)).isTrue();
 
         service.deleteVisit(shop, visitId);
