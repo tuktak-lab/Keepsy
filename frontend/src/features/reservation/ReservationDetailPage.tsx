@@ -123,7 +123,7 @@ export default function ReservationDetailPage() {
 
   const at = detail ? seoulParts(detail.startAt) : null;
   const tone = detail && nowMs ? toneOf(detail.status, endMs(detail.startAt, detail.minutes), nowMs) : null;
-  const [chipLabel, chipClass] = detail ? (tone === 'unclosed' ? ['마감 미완료', 'unclosed'] : STATUS_CHIP[detail.status]) : ['', ''];
+  const [chipLabel, chipClass] = detail ? (tone === 'unclosed' ? ['종료 시각 지남 · 마감 필요', 'unclosed'] : STATUS_CHIP[detail.status]) : ['', ''];
   const confirmed = detail?.status === 'CONFIRMED';
   const hasCustomer = detail?.customer != null;
   const startMs = detail ? Date.parse(detail.startAt) : 0;
@@ -136,7 +136,7 @@ export default function ReservationDetailPage() {
   if (detail) {
     if (detail.consultFirst) notes.push('상담 후 진행 — 시술을 정하지 못한 예약이에요.');
     if (!hasCustomer && confirmed) notes.push('고객 없는 예약 — 다른 앱으로 받은 예약이라 시간만 막아 두었어요. 손님이 오면 고객을 연결하세요.');
-    if (tone === 'unclosed') notes.push('마감 미완료 — 시술 시간이 지났지만 결제 · 방문 기록이 아직 없어요.');
+    if (tone === 'unclosed') notes.push('종료 시각 지남 · 마감 필요 — 시술 종료 시각이 지났는데 결제 · 방문 기록이 아직 없어요.');
   }
 
   return (
