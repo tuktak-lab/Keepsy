@@ -24,6 +24,7 @@ public class CampaignRecipientQuery {
      * @param nightAdConsent 야간 광고 동의 최신 행이 동의인지 (F46)
      * @param lastServiceDate 캠페인 카테고리 예측의 마지막 시술일. 카테고리 없음 · 예측 없음이면 null
      * @param lastServiceName 그날 그 카테고리에서 주기 계산 제외가 아닌 첫 시술(저장 순)의 메뉴 이름. 메뉴가 없으면 카테고리 이름 (F46)
+     * @param lastAdSentAt 마지막으로 발송 성공한 광고 메시지의 결과 시각 (실패 · 대조군 제외). 발송 시점 재발송 제한 재확인에 쓴다 (F68)
      */
     public record Recipient(
             long customerId,
@@ -33,7 +34,8 @@ public class CampaignRecipientQuery {
             LocalDateTime marketingConsentAt,
             boolean nightAdConsent,
             LocalDate lastServiceDate,
-            String lastServiceName) {}
+            String lastServiceName,
+            LocalDateTime lastAdSentAt) {}
 
     private static final String SQL =
             "SELECT t.customer_id, t.control_group, c.status = 'DELETED' AS deleted,"
@@ -51,7 +53,11 @@ public class CampaignRecipientQuery {
                     + "   LEFT JOIN service_menu sm ON sm.id = vs.service_menu_id"
                     + "   WHERE v.customer_id = t.customer_id AND v.visit_date = p.last_service_date"
                     + "   AND vs.category = p.category AND NOT vs.cycle_excluded"
-                    + "   ORDER BY vs.id LIMIT 1) AS last_service_name"
+                    + "   ORDER BY vs.id LIMIT 1) AS last_service_name,"
+                    // 대상 고르기(CampaignTargetQuery)의 last_ad와 같은 정의
+                    + " (SELECT MAX(am.result_at) FROM campaign_message am"
+                    + "   WHERE am.shop_id = :shopId AND am.customer_id = t.customer_id AND am.kind = 'AD'"
+                    + "   AND am.send_status = 'SENT' AND am.control_group = FALSE) AS last_ad"
                     + " FROM campaign_target t JOIN customer c ON c.id = t.customer_id"
                     + " LEFT JOIN customer_prediction p ON p.customer_id = t.customer_id"
                     + "   AND p.category = :category"
@@ -80,7 +86,8 @@ public class CampaignRecipientQuery {
                                 rs.getObject("marketing_at", LocalDateTime.class),
                                 rs.getBoolean("night_ad"),
                                 rs.getObject("last_service_date", LocalDate.class),
-                                rs.getString("last_service_name")));
+                                rs.getString("last_service_name"),
+                                rs.getObject("last_ad", LocalDateTime.class)));
     }
 
     /**

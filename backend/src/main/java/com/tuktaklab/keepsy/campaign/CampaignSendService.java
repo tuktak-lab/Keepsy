@@ -5,6 +5,7 @@ import com.tuktaklab.keepsy.campaign.port.ShopSendSettings;
 import com.tuktaklab.keepsy.campaign.port.ShopSendSettings.ShopContact;
 import com.tuktaklab.keepsy.campaign.query.CampaignRecipientQuery;
 import com.tuktaklab.keepsy.campaign.query.CampaignRecipientQuery.Recipient;
+import com.tuktaklab.keepsy.campaign.query.CampaignTargetQuery;
 import com.tuktaklab.keepsy.common.error.ApiException;
 import com.tuktaklab.keepsy.common.error.ErrorCode;
 import java.time.Clock;
@@ -13,6 +14,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,6 +33,9 @@ public class CampaignSendService {
     static final String DELETED_CUSTOMER = "삭제된 고객";
     static final String UNSENDABLE = "발송 불가";
 
+    /** 광고 캠페인에서 발송 시점에 재발송 제한 기간 안에 다른 광고를 받은 고객 (FR-CMP-02, F68) */
+    static final String RESEND_LIMITED = "재발송 제한";
+
     /** 야간 예약 광고 캠페인에서 발송 시점에 야간 광고 동의가 없는 고객 (F56) */
     static final String NO_NIGHT_AD_CONSENT = "야간 광고 동의 없음";
 
@@ -41,6 +46,7 @@ public class CampaignSendService {
     private final MessageTemplateRepository templates;
     private final CampaignMessageRepository messages;
     private final CampaignRecipientQuery recipients;
+    private final CampaignTargetQuery targetQuery;
     private final ShopSendSettings shopSettings;
     private final MessageSender sender;
     private final Clock clock;
@@ -219,14 +225,17 @@ public class CampaignSendService {
         List<CampaignMessage> notSent = new ArrayList<>();
         List<Outgoing> outgoing = new ArrayList<>();
         boolean allNightAdConsent = true;
+        // 재발송 제한은 광고에만 (동의 재확인 안내에는 없음, FR-CMP-13). 0이면 제한 없음
+        int resendLimitDays = ad ? targetQuery.resendLimitDays(shopId) : 0;
         for (Recipient r : recipients.find(shopId, campaignId, category)) {
             long id = r.customerId();
             if (r.controlGroup()) {
+                // 대조군은 발송하지 않으므로 다시 검사하지 않는다 (F36 · F41)
                 notSent.add(CampaignMessage.control(shopId, campaignId, kind, id, category));
                 continue;
             }
             String phone = phones.get(id);
-            String reason = skipReason(r);
+            String reason = skipReason(r, resendLimitDays, now);
             if (reason == null && ad && skipNoNightAdConsent && !r.nightAdConsent()) {
                 reason = NO_NIGHT_AD_CONSENT;
             }
@@ -276,13 +285,22 @@ public class CampaignSendService {
         }
     }
 
-    /** 발송 시점 재확인 (F7 · F51). 대상을 고른 뒤 바뀐 동의 · 삭제를 다시 본다. null이면 보낼 수 있다 */
-    static String skipReason(Recipient r) {
+    /**
+     * 발송 시점 재확인 (F7 · F51 · F68). 대상을 고른 뒤 바뀐 동의 · 삭제 · 재발송 제한을 다시 본다. 즉시 발송과 예약 발송이 같이 쓴다. null이면
+     * 보낼 수 있다
+     *
+     * @param resendLimitDays 재발송 제한 기간(일). 광고가 아니면 0 (제한 없음)
+     */
+    static String skipReason(Recipient r, int resendLimitDays, LocalDateTime now) {
         if (r.deleted()) {
             return DELETED_CUSTOMER;
         }
         if (r.marketingConsentAt() == null) {
             return NO_MARKETING_CONSENT;
+        }
+        if (ExclusionReason.withinResendLimit(
+                Optional.ofNullable(r.lastAdSentAt()), resendLimitDays, now)) {
+            return RESEND_LIMITED;
         }
         return null;
     }

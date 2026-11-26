@@ -452,6 +452,61 @@ class CampaignSendTest {
     }
 
     @Test
+    void 즉시_발송_시점에_재발송_제한_기간_안에_광고를_받은_고객은_재발송_제한으로_빠진다() throws Exception {
+        // F68, Keepsy #375: 캠페인을 만든 뒤 다른 광고가 나간 고객. 기간은 매장 설정(기본 7일), 지금부터 N × 24시간 (B2)
+        long recent = agreedCustomer();
+        long old = agreedCustomer();
+        long fresh = agreedCustomer();
+        long campaign = campaign(BODY, List.of(recent, old, fresh), List.of(), true);
+        sentAdBefore(recent, 6);
+        sentAdBefore(old, 8);
+
+        send(campaign).andExpect(status().isOk()).andExpect(jsonPath("$.skippedCount").value(1));
+
+        assertThat(row(campaign, recent))
+                .containsEntry("send_status", "FAILED")
+                .containsEntry("failure_reason", "재발송 제한");
+        assertThat((String) row(campaign, old).get("send_status")).isIn("PENDING", "SENT");
+        assertThat((String) row(campaign, fresh).get("send_status")).isIn("PENDING", "SENT");
+    }
+
+    @Test
+    void 예약_발송_시점에도_재발송_제한을_다시_검사한다() throws Exception {
+        long recent = agreedCustomer();
+        long fresh = agreedCustomer();
+        long campaign = campaign(BODY, List.of(recent, fresh), List.of(), true);
+        schedule(campaign, today().atTime(15, 0)).andExpect(status().isNoContent());
+        sentAdBefore(recent, 1); // 예약해 둔 사이 다른 광고가 나갔다
+
+        clock.at(today().atTime(15, 0));
+        runner.run();
+
+        assertThat(row(campaign, recent))
+                .containsEntry("send_status", "FAILED")
+                .containsEntry("failure_reason", "재발송 제한");
+        assertThat((String) row(campaign, fresh).get("send_status")).isIn("PENDING", "SENT");
+    }
+
+    @Test
+    void 재발송_제한은_대조군과_동의_재확인_안내에는_다시_검사하지_않는다() throws Exception {
+        // 대조군은 발송하지 않으므로 그대로 대조군 행 (F36 · F41), 안내에는 재발송 제한이 없다 (FR-CMP-13)
+        long control = agreedCustomer();
+        long sent = agreedCustomer();
+        long ad = campaign(BODY, List.of(sent), List.of(control), true);
+        long infoTarget = agreedCustomer();
+        long info = infoCampaign(List.of(infoTarget));
+        sentAdBefore(control, 1);
+        sentAdBefore(infoTarget, 1);
+
+        send(ad).andExpect(status().isOk());
+        send(info).andExpect(status().isOk());
+
+        assertThat(row(ad, control)).containsEntry("control_group", true);
+        assertThat(row(ad, control).get("send_status")).isNull();
+        assertThat((String) row(info, infoTarget).get("send_status")).isIn("PENDING", "SENT");
+    }
+
+    @Test
     void 발송_시점에_일_발송_한도를_넘으면_기록_없이_취소하고_사유를_남긴다() throws Exception {
         long campaign =
                 campaign(BODY, List.of(agreedCustomer(), agreedCustomer()), List.of(), true);
@@ -635,6 +690,18 @@ class CampaignSendTest {
                     c);
         }
         return id;
+    }
+
+    /** 다른 광고 캠페인에서 {@code daysAgo}일 전(지금 기준)에 발송 성공한 광고 메시지 */
+    private void sentAdBefore(long customerId, int daysAgo) {
+        long other = campaignIn(shop, BODY, List.of(), true);
+        jdbc.update(
+                "INSERT INTO campaign_message (shop_id, campaign_id, kind, customer_id, category,"
+                        + " control_group, send_status, result_at) VALUES (?, ?, 'AD', ?, 'NAIL', FALSE, 'SENT', ?)",
+                shop,
+                other,
+                customerId,
+                LocalDateTime.now(clock).minusDays(daysAgo));
     }
 
     private long campaignIn(long shopId, String body, List<Long> send, boolean reviewed) {
