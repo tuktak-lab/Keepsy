@@ -38,7 +38,7 @@ public final class MessageRenderer {
 
     /**
      * @param sender 광고({@link MessageKind#AD})일 때만 필요하다 ({@code ShopContact#adSender})
-     * @param today 오늘 (Asia/Seoul). {경과일} 계산에 쓴다
+     * @param today 오늘 (Asia/Seoul). {경과일} 계산에 쓴다. 마지막 시술일이 오늘보다 늦으면 {경과일}은 값 없음(발송 불가)이다
      */
     public static Rendered render(
             String body,
@@ -78,8 +78,9 @@ public final class MessageRenderer {
                             : r.marketingConsentAt().format(CONSENT_DATE);
             case "야간광고동의" -> r.nightAdConsent() ? "동의" : "미동의";
             case "최근시술" -> r.lastServiceDate() == null ? null : r.lastServiceName();
+            // 마지막 시술일이 오늘보다 늦으면 음수가 되므로 값 없음으로 본다 (F70, #411)
             case "경과일" ->
-                    r.lastServiceDate() == null
+                    r.lastServiceDate() == null || r.lastServiceDate().isAfter(today)
                             ? null
                             : String.valueOf(ChronoUnit.DAYS.between(r.lastServiceDate(), today));
             default -> null;
