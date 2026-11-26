@@ -197,7 +197,7 @@ export default function LandingPage() {
           </div>
           <div className={styles.heroPreview}>
             <Screen title={FEATURES[0].screen} rows={FEATURES[0].rows} />
-            <Screen title={FEATURES[3].screen} rows={FEATURES[3].rows.slice(0, 3)} />
+            <Screen title={FEATURES[3].screen} rows={FEATURES[3].rows} />
           </div>
         </section>
 
@@ -280,14 +280,6 @@ export default function LandingPage() {
               </details>
             ))}
           </div>
-        </section>
-
-        <section className={styles.final}>
-          <h2>오늘 다시 올 고객, Keepsy가 먼저 알려 드려요</h2>
-          <p>고객 · 예약 · 캠페인 · 인사이트를 한 곳에서 관리해 보세요.</p>
-          <Link href="/login" className={styles.primaryLight}>
-            로그인하고 시작하기
-          </Link>
         </section>
       </main>
 
