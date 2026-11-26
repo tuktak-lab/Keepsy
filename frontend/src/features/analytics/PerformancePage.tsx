@@ -4,8 +4,8 @@ import { PinGate } from '@/components/common/PinGate';
 import { CountUp } from '@/components/common/CountUp';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Topbar } from '@/components/layout/Topbar';
-import { ApiError, api, type Page } from '@/lib/api';
-import { PERIODS, periodQuery, sumFunnels, type Funnel, type Period } from '@/lib/analytics';
+import { ApiError, api } from '@/lib/api';
+import { PERIODS, periodQuery, type Funnel, type Period } from '@/lib/analytics';
 import { rateText } from '@/lib/campaignResult';
 import { formatDateTime } from '@/lib/format';
 import { CATEGORY_LABEL, type Category } from '@/lib/menus';
@@ -14,7 +14,7 @@ import { useStyleSheet } from '@/hooks/useStyleSheet';
 
 // 성과 분석 (FR-ANL-01 · 02 · 05 · 06 · 07 · 09). 화면 전체가 「매출 · 성과 분석」 기능이다 (SALES_ANALYTICS, PinGate).
 // API (docs CONTRACTS 4장): 기간별 GET /api/analytics/summary · /prediction-accuracy,
-// 캠페인별 GET /api/campaigns (목록) → 발송한 캠페인마다 …/funnel · …/revenue, 고른 캠페인의 …/control-comparison
+// 캠페인 성과는 GET /api/analytics/campaigns 한 번 (기간 안에 발송한 광고 캠페인별 퍼널 · 연결 매출과 중복 없는 전체 합계, F65), 고른 캠페인의 GET /api/campaigns/{id}/control-comparison
 // 결과는 모의 데이터로 만든 값임을 밝힌다 (E9).
 
 type Summary = {
@@ -27,8 +27,11 @@ type Summary = {
   cycleRevisits?: { category: Category; endedCount: number; revisitedCount: number }[];
 };
 type Accuracy = { evaluatedCount: number; hitCount: number; averageErrorDays: number | null };
-type CampaignItem = { id: number; name: string; category: Category | null; sentAt: string | null };
-type Camp = CampaignItem & { funnel: Funnel; revenue: number | null };
+type Camp = Funnel & { id: number; name: string; category: Category; sentAt: string; revenue: number };
+type CampaignTotal = Funnel & { campaignCount: number; revenue: number };
+type Campaigns = { items: Camp[]; totalElements: number; total: CampaignTotal };
+const ZERO: Funnel = { sentCount: 0, reachedCount: 0, rebookedCount: 0, revisitedCount: 0 };
+const CAMP_SIZE = 100; // API 최대. 기간 안 캠페인이 더 많으면 화면에는 발송이 늦은 순으로 이만큼만 보이고, 합계는 전체 (표 아래에 안내)
 type Control = {
   reachedCount: number;
   rebookedCount: number;
@@ -62,8 +65,7 @@ function Body() {
   const [to, setTo] = useState('');
   const query = periodQuery(period, from, to);
   const [stats, setStats] = useState<{ q: string; summary?: Summary; accuracy?: Accuracy; error?: string } | null>(null);
-  const [camps, setCamps] = useState<Camp[] | null>(null);
-  const [campError, setCampError] = useState('');
+  const [campRes, setCampRes] = useState<{ q: string; data?: Campaigns; error?: string } | null>(null);
   const [sel, setSel] = useState<number | 'all'>('all');
   const [control, setControl] = useState<{ id: number; value?: Control; error?: string } | null>(null);
   const [grown, setGrown] = useState(false);
@@ -85,26 +87,15 @@ function Body() {
     return () => { cancelled = true; };
   }, [query]);
 
-  // 발송한 캠페인과 캠페인마다 퍼널 · 연결 매출 (FR-ANL-01 · 02)
+  // 기간 안에 발송한 캠페인의 퍼널 · 연결 매출과 전체 합계 (FR-ANL-01 · 02)
   useEffect(() => {
+    if (!query) return;
     let cancelled = false;
-    (async () => {
-      // shortcut: 최근 100개 캠페인만 보고 캠페인마다 2번 더 부른다. 캠페인이 많아지면 성과 요약 API를 따로 두기
-      const list = await api<Page<CampaignItem>>('/api/campaigns?page=0&size=100', { silent: true });
-      const sent = list.items.filter((c) => c.sentAt);
-      const rows = await Promise.all(
-        sent.map(async (c) => {
-          const [funnel, revenue] = await Promise.all([
-            api<Funnel>(`/api/campaigns/${c.id}/funnel`, { silent: true }),
-            api<{ revenue: number }>(`/api/campaigns/${c.id}/revenue`, { silent: true }).then((r) => r.revenue, () => null),
-          ]);
-          return { ...c, funnel, revenue };
-        }),
-      );
-      if (!cancelled) setCamps(rows);
-    })().catch((err) => !cancelled && setCampError(errorText(err)));
+    api<Campaigns>(`/api/analytics/campaigns?${query}&page=0&size=${CAMP_SIZE}`, { silent: true })
+      .then((data) => !cancelled && setCampRes({ q: query, data }))
+      .catch((err) => !cancelled && setCampRes({ q: query, error: errorText(err) }));
     return () => { cancelled = true; };
-  }, []);
+  }, [query]);
 
   // 고른 캠페인의 대조군 비교 (FR-ANL-09)
   useEffect(() => {
@@ -117,9 +108,12 @@ function Body() {
   }, [sel]);
 
   const cur = stats && stats.q === query ? stats : null;
-  const picked = camps?.filter((c) => sel === 'all' || c.id === sel) ?? [];
-  const f = sumFunnels(picked.map((c) => c.funnel));
-  const ctrl = sel !== 'all' && control?.id === sel ? control : null;
+  const campCur = campRes && campRes.q === query ? campRes : null;
+  const camps = campCur?.data?.items;
+  // 기간을 바꿔 고른 캠페인이 목록에서 빠졌으면 「전체」로 본다
+  const selId = camps?.some((c) => c.id === sel) ? sel : 'all';
+  const f: Funnel = selId === 'all' ? campCur?.data?.total ?? ZERO : camps?.find((c) => c.id === selId) ?? ZERO;
+  const ctrl = selId !== 'all' && control?.id === selId ? control : null;
   const funnelRows = [
     { label: '발송', n: f.sentCount, c: '#D9AFA6' },
     { label: '도달', n: f.reachedCount, c: '#CC9A9E' },
@@ -202,27 +196,29 @@ function Body() {
         <h2 style={{ fontSize: 19, fontWeight: 600 }}>캠페인 성과</h2>
         {camps && camps.length > 0 ? (
           <div className="pf-seg" role="group" aria-label="캠페인 선택">
-            <button type="button" aria-pressed={sel === 'all'} onClick={() => setSel('all')}>전체</button>
+            <button type="button" aria-pressed={selId === 'all'} onClick={() => setSel('all')}>전체</button>
             {camps.map((x) => (
-              <button type="button" key={x.id} aria-pressed={sel === x.id} onClick={() => setSel(x.id)}>{x.name}</button>
+              <button type="button" key={x.id} aria-pressed={selId === x.id} onClick={() => setSel(x.id)}>{x.name}</button>
             ))}
           </div>
         ) : null}
       </div>
 
-      {campError ? (
-        <p className="pf-note">캠페인 성과를 불러오지 못했어요. {campError}</p>
-      ) : !camps ? (
+      {!query ? (
+        <p className="pf-note">기간을 정하면 그 기간에 발송한 캠페인의 성과가 보여요.</p>
+      ) : campCur?.error ? (
+        <p className="pf-note">캠페인 성과를 불러오지 못했어요. {campCur.error}</p>
+      ) : !camps || !campCur?.data ? (
         <p className="pf-note">불러오는 중…</p>
       ) : camps.length === 0 ? (
-        <p className="pf-note">아직 발송한 캠페인이 없어요.</p>
+        <p className="pf-note">이 기간에 발송한 캠페인이 없어요.</p>
       ) : (
         <>
           <div className="pf-two">
             <section className="pf-card" aria-label="전환 퍼널">
               <div>
                 <h2>발송에서 재방문까지</h2>
-                <span className="pf-note">발송 → 도달 → 재예약 → 재방문 · 고객은 캠페인별 1회 집계{sel === 'all' ? ` · 캠페인 ${camps.length}개 합계` : ''}</span>
+                <span className="pf-note">발송 → 도달 → 재예약 → 재방문 · {selId === 'all' ? `캠페인 ${campCur.data.total.campaignCount}개 합계, 여러 캠페인을 받은 고객도 한 번만 집계` : '고객은 캠페인별 1회 집계'}</span>
               </div>
               <div>
                 {funnelRows.map((r) => (
@@ -242,7 +238,7 @@ function Body() {
                 <h2>대조군 비교</h2>
                 <span className="pf-note">발송군과 발송하지 않은 대조군의 재예약률 · 주기 내 재방문율</span>
               </div>
-              {sel === 'all' ? (
+              {selId === 'all' ? (
                 <p className="pf-note">위에서 캠페인을 하나 고르면 대조군 비교가 보여요.</p>
               ) : !ctrl ? (
                 <p className="pf-note">불러오는 중…</p>
@@ -276,17 +272,30 @@ function Body() {
                         <AppLink href={`/campaigns/detail?id=${x.id}`} style={{ color: '#221D1B', fontWeight: 600 }}>{x.name}</AppLink>
                         <div className="pf-note">{x.sentAt ? formatDateTime(x.sentAt) : ''} 발송 · {x.category ? CATEGORY_LABEL[x.category] : '동의 재확인 안내'}</div>
                       </td>
-                      <td className="num">{x.funnel.sentCount}</td>
-                      <td className="num">{x.funnel.reachedCount}</td>
-                      <td className="num" style={{ color: '#7A4450', fontWeight: 600 }}>{x.funnel.rebookedCount} ({rateText(x.funnel.rebookedCount, x.funnel.reachedCount) ?? '-'})</td>
-                      <td className="num">{x.funnel.revisitedCount}</td>
-                      <td className="num">{x.revenue === null ? '-' : won(x.revenue)}</td>
+                      <td className="num">{x.sentCount}</td>
+                      <td className="num">{x.reachedCount}</td>
+                      <td className="num" style={{ color: '#7A4450', fontWeight: 600 }}>{x.rebookedCount} ({rateText(x.rebookedCount, x.reachedCount) ?? '-'})</td>
+                      <td className="num">{x.revisitedCount}</td>
+                      <td className="num">{won(x.revenue)}</td>
                     </tr>
                   ))}
                 </tbody>
+                <tfoot>
+                  <tr style={{ fontWeight: 600 }}>
+                    <td>전체 합계 ({campCur.data.total.campaignCount}개)</td>
+                    <td className="num">{campCur.data.total.sentCount}</td>
+                    <td className="num">{campCur.data.total.reachedCount}</td>
+                    <td className="num" style={{ color: '#7A4450' }}>{campCur.data.total.rebookedCount} ({rateText(campCur.data.total.rebookedCount, campCur.data.total.reachedCount) ?? '-'})</td>
+                    <td className="num">{campCur.data.total.revisitedCount}</td>
+                    <td className="num">{won(campCur.data.total.revenue)}</td>
+                  </tr>
+                </tfoot>
               </table>
             </div>
-            <span className="pf-note">재예약 비율은 도달 대비예요. 연결 매출은 캠페인마다 따로 세서, 한 방문이 여러 캠페인에 귀속되면 각 캠페인에 모두 들어가요. 그래서 합계는 보이지 않아요.</span>
+            <span className="pf-note">
+              재예약 비율은 도달 대비예요. 한 고객이나 방문이 여러 캠페인에 들어가면 캠페인 줄에는 각각 세고, 전체 합계에는 한 번만 세요. 그래서 줄을 더한 값과 합계가 다를 수 있어요.
+              {campCur.data.totalElements > camps.length ? ` 기간 안 캠페인 ${campCur.data.totalElements}개 중 최근 발송한 ${camps.length}개만 표시해요 (합계는 전체).` : ''}
+            </span>
             <AppLink href="/campaigns" className="pf-btn" style={{ color: '#fff' }}>유사 캠페인 만들기</AppLink>
           </section>
         </>
