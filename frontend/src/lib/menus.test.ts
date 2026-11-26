@@ -5,7 +5,10 @@ import {
   CATEGORIES,
   changesPrediction,
   emptyMenuValues,
+  enabledCategories,
   formatDuration,
+  pickCategory,
+  pickableMenus,
   toCreateRequest,
   toCycleValues,
   toCyclesRequest,
@@ -101,4 +104,27 @@ test('카테고리 기본 주기 검증과 요청 본문', () => {
   assert.equal(body.length, 5);
   assert.deepEqual(body[0], { category: 'NAIL', minDays: 20, maxDays: 40 });
   assert.deepEqual(body.map((b) => b.category), [...CATEGORIES]);
+});
+
+const menuOf = (id: number, category: Menu['category']): Menu => ({ id, category, name: '메뉴' + id, price: 0, durationMinutes: 60, cycleMinDays: 10, cycleMaxDays: 20, predictionAttribute: 'NORMAL' });
+
+test('enabledCategories: 켜 둔 업종만 시술 카테고리 순서로, 모르면 모두, 불러오는 중에는 없음', () => {
+  assert.deepEqual(enabledCategories(['ETC', 'NAIL']), ['NAIL', 'ETC']);
+  assert.deepEqual(enabledCategories(null), [...CATEGORIES]);
+  assert.deepEqual(enabledCategories(undefined), []);
+});
+
+test('pickCategory: 꺼 둔 업종이면 켜 둔 첫 업종으로, 아직 모르면 그대로', () => {
+  assert.equal(pickCategory('NAIL', ['NAIL', 'ETC']), 'NAIL');
+  assert.equal(pickCategory('NAIL', ['LASH', 'ETC']), 'LASH');
+  assert.equal(pickCategory('NAIL', undefined), 'NAIL'); // 불러오는 중
+  assert.equal(pickCategory('ETC', null), 'ETC'); // 모름: 모두 보여 줌
+});
+
+test('pickableMenus: 켜 둔 업종의 메뉴와 이미 고른 메뉴만 보인다', () => {
+  const menus = [menuOf(1, 'NAIL'), menuOf(2, 'LASH'), menuOf(3, 'SEMI_PERMANENT')];
+  assert.deepEqual(pickableMenus(menus, ['NAIL']).map((m) => m.id), [1]);
+  assert.deepEqual(pickableMenus(menus, ['NAIL'], [3]).map((m) => m.id), [1, 3]); // 끈 업종이어도 이미 고른 것은 남는다
+  assert.deepEqual(pickableMenus(menus, null).map((m) => m.id), [1, 2, 3]);
+  assert.deepEqual(pickableMenus(menus, undefined, [1]), []);
 });

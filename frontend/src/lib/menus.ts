@@ -13,6 +13,30 @@ export const CATEGORY_LABEL: Record<Category, string> = {
   ETC: '기타',
 };
 
+// ── 켜 둔 매장 업종 (CONTRACTS 3절 「매장 업종」) ──
+// `industries`: GET /api/shop의 켜 둔 업종. undefined는 아직 모름(불러오는 중), null은 불러오지 못해 모름.
+
+/** 선택지에 보일 카테고리. 모르면(null) 모두, 불러오는 중(undefined)에는 아직 아무것도 보이지 않는다 */
+export function enabledCategories(industries: readonly string[] | null | undefined): Category[] {
+  if (industries === undefined) return [];
+  return CATEGORIES.filter((c) => industries === null || industries.includes(c));
+}
+
+/** 쓰려던 카테고리가 꺼 둔 업종이면 켜 둔 첫 업종으로 바꾼다 (아직 모르는 동안에는 그대로) */
+export function pickCategory(wanted: Category, industries: readonly string[] | null | undefined): Category {
+  const list = enabledCategories(industries);
+  return list.includes(wanted) ? wanted : (list[0] ?? wanted);
+}
+
+/**
+ * 새로 고를 수 있는 메뉴: 켜 둔 업종의 메뉴, 그리고 이미 골라 둔 메뉴(`keepIds`).
+ * 끈 업종의 메뉴가 이미 예약 · 마감에 들어 있으면 그 선택은 끊기지 않게 계속 보인다.
+ */
+export function pickableMenus<T extends { id: number; category: string }>(menus: T[], industries: readonly string[] | null | undefined, keepIds: readonly number[] = []): T[] {
+  if (industries === undefined) return [];
+  return menus.filter((m) => industries === null || industries.includes(m.category) || keepIds.includes(m.id));
+}
+
 /** 메뉴 예측 속성 (E5). 한글 설명은 명세서 FR-SET-02 */
 export type PredictionAttribute = 'NORMAL' | 'EXCLUDE' | 'END_SIGNAL';
 export const ATTRIBUTES: [PredictionAttribute, string][] = [

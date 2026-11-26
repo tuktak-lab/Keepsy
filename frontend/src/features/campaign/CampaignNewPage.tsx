@@ -17,9 +17,10 @@ import {
   type TargetStatus,
 } from '@/lib/campaignNew';
 import { formatWon } from '@/lib/format';
-import { CATEGORIES, CATEGORY_LABEL, type Category } from '@/lib/menus';
+import { CATEGORIES, CATEGORY_LABEL, enabledCategories, pickCategory, type Category } from '@/lib/menus';
 import { PURPOSES, type TemplatePurpose } from '@/lib/messageTemplate';
 import styleText from './CampaignsPage.css?inline';
+import { useIndustries } from '@/hooks/useIndustries';
 import { useStyleSheet } from '@/hooks/useStyleSheet';
 
 // 캠페인 작성 (FR-CMP-01~09 · 12 · 18). 경로: /campaigns/new (만든 뒤에는 ?id=로 이어서 발송)
@@ -69,9 +70,12 @@ function Body() {
 /** 1단계: 대상 · 템플릿 · 대조군을 정해 캠페인을 만든다 (FR-CMP-01 · 02 · 03 · 18) */
 function SetupStep(props: { presetIds: number[]; presetCategory: string | null }) {
   const router = useRouter();
-  const [category, setCategory] = useState<Category>(
+  const industries = useIndustries();
+  const [wantedCategory, setCategory] = useState<Category>(
     (CATEGORIES as readonly string[]).includes(props.presetCategory ?? '') ? (props.presetCategory as Category) : 'NAIL',
   );
+  // 꺼 둔 업종은 고를 수 없다. 처음 값(주소의 category · 기본 네일)이 꺼 둔 업종이면 켜 둔 첫 업종으로 시작한다
+  const category = pickCategory(wantedCategory, industries);
   const [status, setStatus] = useState<TargetStatus | null>(props.presetIds.length ? null : 'DUE');
   const [customerIds, setCustomerIds] = useState(props.presetIds);
   const [more, setMore] = useState(false);
@@ -154,7 +158,7 @@ function SetupStep(props: { presetIds: number[]; presetCategory: string | null }
       <div className="cp-step">
         <h3><i>1</i>시술 카테고리와 대상</h3>
         <div className="cp-seg" role="group" aria-label="시술 카테고리">
-          {CATEGORIES.map((k) => (
+          {enabledCategories(industries).map((k) => (
             <button type="button" key={k} aria-pressed={category === k} onClick={() => setCategory(k)}>{CATEGORY_LABEL[k]}</button>
           ))}
         </div>

@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { toast } from '@/components/common/Toast';
+import { useIndustries } from '@/hooks/useIndustries';
 import { ApiError, api } from '@/lib/api';
 import { CHANNEL_LABEL, hmOf, seoulParts, type Channel, type DateStr } from '@/lib/calendar';
+import { pickableMenus } from '@/lib/menus';
 import { defaultMinutes, detailsText, MINUTE_STEPS, toRequest, validate, type FormValues } from '@/lib/reservationForm';
 import { ACTION_TEXT, actionPath, canMarkNoShow, confirmText, NO_SHOW_TOO_EARLY, type StatusAction } from '@/lib/reservationActions';
 import { CustomerSearch, type CustomerPick } from './CustomerSearch';
@@ -12,7 +14,7 @@ import { CustomerSearch, type CustomerPick } from './CustomerSearch';
 // 일정 변경 창에서는 예약 취소 · 노쇼 처리도 한다 (FR-RSV-03, lib/reservationActions). 되돌릴 수 없어 한 번 더 확인한다.
 
 type StaffRef = { id: number; name: string };
-type Menu = { id: number; name: string; durationMinutes: number };
+type Menu = { id: number; category: string; name: string; durationMinutes: number };
 type Detail = {
   startAt: string;
   minutes: number;
@@ -53,6 +55,7 @@ export function ReservationForm(props: {
   const [minutesTouched, setMinutesTouched] = useState(false); // 소요 시간을 직접 고르기 전에는 시술 합계를 따른다
   const [ready, setReady] = useState(!editing);
   const [menus, setMenus] = useState<Menu[] | null>(null);
+  const industries = useIndustries(); // 꺼 둔 업종의 메뉴는 새로 고르는 선택지에서 뺀다 (이미 고른 메뉴는 남긴다)
   const [own, setOwn] = useState<{ date: DateStr; staffId: number; hm: string; startMs: number } | null>(null); // 수정 중인 예약의 원래 자리
   const [confirming, setConfirming] = useState<StatusAction | null>(null); // 취소 · 노쇼 확인 중
   const [openedAt] = useState(() => Date.now()); // 노쇼 가능 여부를 가르는 "지금" (창을 연 시각)
@@ -157,6 +160,7 @@ export function ReservationForm(props: {
   };
 
   const hasCustomer = editing ? hadCustomer : v.customerMode === 'pick';
+  const pickable = pickableMenus(menus ?? [], industries, v.menuIds);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -310,11 +314,11 @@ export function ReservationForm(props: {
 
             <div>
               <span className="lbl">예정 시술 (1개 이상 필수)</span>
-              {menus !== null && menus.length === 0 ? (
-                <p className="hint">등록된 시술 메뉴가 없어요. 매장 설정에서 메뉴를 먼저 등록해 주세요.</p>
+              {menus !== null && industries !== undefined && pickable.length === 0 ? (
+                <p className="hint">켜 둔 업종에 등록된 시술 메뉴가 없어요. 매장 설정에서 메뉴를 먼저 등록하거나 업종을 켜 주세요.</p>
               ) : (
                 <div className="pills">
-                  {(menus ?? []).map((m) => {
+                  {pickable.map((m) => {
                     const on = v.menuIds.includes(m.id);
                     return (
                       <button
