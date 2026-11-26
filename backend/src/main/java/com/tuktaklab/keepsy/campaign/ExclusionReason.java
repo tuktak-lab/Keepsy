@@ -34,11 +34,19 @@ public enum ExclusionReason {
         if (!marketingConsent) {
             return Optional.of(unsubscribed ? UNSUBSCRIBED : NO_CONSENT);
         }
-        // 최근 N일 = 지금부터 N × 24시간 전보다 뒤 (B2)
-        LocalDateTime limitStart = now.minusDays(resendLimitDays);
-        if (kind == MessageKind.AD && lastAdSentAt.filter(t -> t.isAfter(limitStart)).isPresent()) {
+        if (kind == MessageKind.AD && withinResendLimit(lastAdSentAt, resendLimitDays, now)) {
             return Optional.of(RESEND_LIMIT);
         }
         return Optional.empty();
+    }
+
+    /**
+     * 재발송 제한 기간 안에 발송 성공한 광고가 있는지. 최근 N일 = 지금부터 N × 24시간 전보다 뒤 (B2). 대상 고르기와 발송 시점 재확인(F68)이 같이 쓴다.
+     * 0일이면 제한 없음
+     */
+    public static boolean withinResendLimit(
+            Optional<LocalDateTime> lastAdSentAt, int resendLimitDays, LocalDateTime now) {
+        LocalDateTime limitStart = now.minusDays(resendLimitDays);
+        return lastAdSentAt.filter(t -> t.isAfter(limitStart)).isPresent();
     }
 }

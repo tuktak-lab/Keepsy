@@ -24,7 +24,8 @@ class MessageRendererTest {
                 LocalDateTime.of(2026, 3, 1, 9, 30),
                 false,
                 lastServiceDate,
-                lastService);
+                lastService,
+                null);
     }
 
     @Test
@@ -80,7 +81,7 @@ class MessageRendererTest {
 
     @Test
     void 삭제된_고객은_변수가_없는_본문이어도_발송_불가() {
-        Recipient deleted = new Recipient(1L, false, true, null, null, false, null, null);
+        Recipient deleted = new Recipient(1L, false, true, null, null, false, null, null, null);
 
         Rendered r =
                 MessageRenderer.render("{매장명} 안내", MessageKind.AD, "모의 매장", SENDER, deleted, TODAY);
