@@ -197,7 +197,7 @@ export default function LandingPage() {
           </div>
           <div className={styles.heroPreview}>
             <Screen title={FEATURES[0].screen} rows={FEATURES[0].rows} />
-            <Screen title={FEATURES[3].screen} rows={FEATURES[3].rows.slice(0, 3)} />
+            <Screen title={FEATURES[3].screen} rows={FEATURES[3].rows} />
           </div>
         </section>
 

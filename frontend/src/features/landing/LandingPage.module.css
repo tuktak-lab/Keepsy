@@ -151,12 +151,9 @@
   display: grid;
   grid-template-columns: 1.4fr 1fr;
   gap: 20px;
-  max-width: 980px;
+  max-width: 1080px; /* 아래 섹션 내용 폭(.section max-width)과 맞춘다 */
   margin: 56px auto 0;
   text-align: left;
-}
-.heroPreview > :last-child {
-  margin-top: 48px;
 }
 
 /* ── 미리보기 화면 (모의 데이터) ── */
@@ -167,6 +164,9 @@
   box-shadow: var(--glass-shadow);
   backdrop-filter: var(--glass-blur);
   overflow: hidden;
+  /* 옆 칸과 높이를 맞출 때 늘어난 만큼 행 사이를 고르게 벌린다 */
+  display: flex;
+  flex-direction: column;
 }
 
 .screenBar {
@@ -193,6 +193,10 @@
   list-style: none;
   margin: 0;
   padding: 8px 10px 12px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
 }
 .screenRows li {
   display: flex;
@@ -313,7 +317,7 @@
 .feature {
   display: grid;
   grid-template-columns: 1fr 1.1fr;
-  align-items: center;
+  align-items: stretch; /* 왼쪽 설명 · 단계와 오른쪽 미리보기의 위아래 끝을 맞춘다 */
   gap: 48px;
   margin-top: 40px;
   text-align: left;
