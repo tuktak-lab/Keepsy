@@ -452,6 +452,38 @@ class CampaignSendTest {
     }
 
     @Test
+    void 발송_시점에_일_발송_한도를_넘으면_기록_없이_취소하고_사유를_남긴다() throws Exception {
+        long campaign =
+                campaign(BODY, List.of(agreedCustomer(), agreedCustomer()), List.of(), true);
+        schedule(campaign, today().atTime(15, 0)).andExpect(status().isNoContent());
+        dailyLimit(1);
+
+        clock.at(today().atTime(15, 0));
+        runner.run();
+
+        assertThat(campaignRow(campaign))
+                .containsEntry("status", "CANCELED")
+                .containsEntry("cancel_reason", "DAILY_LIMIT_EXCEEDED");
+        assertThat(campaignRow(campaign).get("canceled_at")).isNotNull();
+        assertThat(rowCount(campaign)).isZero();
+    }
+
+    @Test
+    void 발송_시점에_광고_표기용_매장_정보가_없으면_기록_없이_취소한다() throws Exception {
+        long campaign = campaign(BODY, List.of(agreedCustomer()), List.of(), true);
+        schedule(campaign, today().atTime(15, 0)).andExpect(status().isNoContent());
+        jdbc.update("UPDATE shop SET phone = NULL WHERE id = ?", shop);
+
+        clock.at(today().atTime(15, 0));
+        runner.run();
+
+        assertThat(campaignRow(campaign))
+                .containsEntry("status", "CANCELED")
+                .containsEntry("cancel_reason", "SHOP_INFO_MISSING");
+        assertThat(rowCount(campaign)).isZero();
+    }
+
+    @Test
     void 즉시_발송_시점에_재발송_제한_기간_안에_광고를_받은_고객은_재발송_제한으로_빠진다() throws Exception {
         // F68, Keepsy #375: 캠페인을 만든 뒤 다른 광고가 나간 고객. 기간은 매장 설정(기본 7일), 지금부터 N × 24시간 (B2)
         long recent = agreedCustomer();
@@ -504,38 +536,6 @@ class CampaignSendTest {
         assertThat(row(ad, control)).containsEntry("control_group", true);
         assertThat(row(ad, control).get("send_status")).isNull();
         assertThat((String) row(info, infoTarget).get("send_status")).isIn("PENDING", "SENT");
-    }
-
-    @Test
-    void 발송_시점에_일_발송_한도를_넘으면_기록_없이_취소하고_사유를_남긴다() throws Exception {
-        long campaign =
-                campaign(BODY, List.of(agreedCustomer(), agreedCustomer()), List.of(), true);
-        schedule(campaign, today().atTime(15, 0)).andExpect(status().isNoContent());
-        dailyLimit(1);
-
-        clock.at(today().atTime(15, 0));
-        runner.run();
-
-        assertThat(campaignRow(campaign))
-                .containsEntry("status", "CANCELED")
-                .containsEntry("cancel_reason", "DAILY_LIMIT_EXCEEDED");
-        assertThat(campaignRow(campaign).get("canceled_at")).isNotNull();
-        assertThat(rowCount(campaign)).isZero();
-    }
-
-    @Test
-    void 발송_시점에_광고_표기용_매장_정보가_없으면_기록_없이_취소한다() throws Exception {
-        long campaign = campaign(BODY, List.of(agreedCustomer()), List.of(), true);
-        schedule(campaign, today().atTime(15, 0)).andExpect(status().isNoContent());
-        jdbc.update("UPDATE shop SET phone = NULL WHERE id = ?", shop);
-
-        clock.at(today().atTime(15, 0));
-        runner.run();
-
-        assertThat(campaignRow(campaign))
-                .containsEntry("status", "CANCELED")
-                .containsEntry("cancel_reason", "SHOP_INFO_MISSING");
-        assertThat(rowCount(campaign)).isZero();
     }
 
     @Test
