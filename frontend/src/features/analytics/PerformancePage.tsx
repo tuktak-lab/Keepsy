@@ -126,20 +126,19 @@ function Body() {
           <h1 className="pf-h1">성과 분석</h1>
           <p className="pf-sub">기간별 매장 지표와 예측 정확도, 캠페인 발송 이후의 재예약 · 재방문을 확인하세요.</p>
         </div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
-          <div className="pf-seg" role="group" aria-label="기간">
-            {PERIODS.map(([p, label]) => (
-              <button type="button" key={p} aria-pressed={period === p} onClick={() => setPeriod(p)}>{label}</button>
-            ))}
-          </div>
-          {period === 'CUSTOM' ? (
-            <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
-              <input type="date" className="inp" aria-label="시작일" value={from} onChange={(e) => setFrom(e.target.value)} />~
-              <input type="date" className="inp" aria-label="종료일" value={to} onChange={(e) => setTo(e.target.value)} />
-            </span>
-          ) : null}
+        <div className="pf-seg" role="group" aria-label="기간">
+          {PERIODS.map(([p, label]) => (
+            <button type="button" key={p} aria-pressed={period === p} onClick={() => setPeriod(p)}>{label}</button>
+          ))}
         </div>
       </div>
+      {/* 직접 지정 날짜는 기간 버튼 아래 줄에 둔다. 버튼 옆에 두면 버튼 묶음이 왼쪽으로 밀린다 (#424) */}
+      {period === 'CUSTOM' ? (
+        <div className="pf-range">
+          <input type="date" className="inp" aria-label="시작일" value={from} onChange={(e) => setFrom(e.target.value)} />~
+          <input type="date" className="inp" aria-label="종료일" value={to} onChange={(e) => setTo(e.target.value)} />
+        </div>
+      ) : null}
 
       <section className="pf-kpis pf-card" aria-label="매장 기본 지표">
         {!query ? (
