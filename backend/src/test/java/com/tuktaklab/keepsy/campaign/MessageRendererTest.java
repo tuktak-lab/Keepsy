@@ -80,6 +80,35 @@ class MessageRendererTest {
     }
 
     @Test
+    void 마지막_시술일이_오늘보다_늦으면_경과일을_구할_수_없어_발송_불가() {
+        Rendered r =
+                MessageRenderer.render(
+                        "{최근시술} 후 {경과일}일",
+                        MessageKind.AD,
+                        "모의 매장",
+                        SENDER,
+                        recipient("모의 고객", TODAY.plusDays(14), "젤"),
+                        TODAY);
+
+        assertThat(r).isEqualTo(new Rendered(null, null, null, List.of("경과일")));
+        assertThat(r.sendable()).isFalse();
+    }
+
+    @Test
+    void 오늘_시술은_경과일_0() {
+        Rendered r =
+                MessageRenderer.render(
+                        "{경과일}일",
+                        MessageKind.CONSENT_RECONFIRM,
+                        "모의 매장",
+                        null,
+                        recipient("모의 고객", TODAY, "젤"),
+                        TODAY);
+
+        assertThat(r.text()).isEqualTo("0일");
+    }
+
+    @Test
     void 삭제된_고객은_변수가_없는_본문이어도_발송_불가() {
         Recipient deleted = new Recipient(1L, false, true, null, null, false, null, null, null);
 
