@@ -1,0 +1,42 @@
+/* 화면 오류 공통 화면 (#407). 카드 · 패널 · 버튼은 features/account/AuthPage.module.css를 같이 쓰고, 여기에는 차이만 둔다. */
+.eyebrow {
+  margin: 0;
+  font-family: 'Playfair Display', serif;
+  font-size: 56px;
+  font-weight: 500;
+  line-height: 1;
+  color: var(--wine);
+}
+
+/* 링크(<a>)로 쓴 버튼의 밑줄을 지운다 (로그인 화면은 <button>) */
+.plain {
+  text-decoration: none;
+}
+
+.textLink {
+  font-weight: 600;
+  color: var(--wine);
+  text-decoration: none;
+}
+.textLink:hover {
+  text-decoration: underline;
+}
+
+/* 매장 화면 본문 자리: 상단바 아래 여백(28px)을 다른 화면과 맞추고 카드를 가운데에 */
+.shell {
+  display: flex;
+  justify-content: center;
+  padding: 28px 32px 48px;
+  box-sizing: border-box;
+}
+.shellCard {
+  height: 560px;
+}
+@media (max-width: 760px) {
+  .shell {
+    padding: 20px 16px 32px;
+  }
+  .shellCard {
+    height: auto;
+  }
+}
