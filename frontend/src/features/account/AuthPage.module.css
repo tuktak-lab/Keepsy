@@ -1,0 +1,573 @@
+/* 매장 로그인 · 가입: 유리 카드 + 슬라이드 패널. 색 · 글자 위계는 styles/base.css의 :root 토큰을 쓴다. */
+.page {
+  /* base.css가 html에 zoom 0.85를 걸어 100vh가 실제 화면의 85%만 덮는다. 나눠서 화면 전체 높이에 맞춘다 */
+  min-height: calc(100vh / 0.85);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr); /* 카드 폭이 열을 늘려 좁은 화면에서 가로로 넘치지 않게 */
+  place-items: center;
+  align-content: center;
+  gap: 26px;
+  padding: 24px 16px;
+  box-sizing: border-box;
+  font-family: 'Noto Sans KR', sans-serif;
+  color: var(--ink);
+}
+
+.logo img {
+  display: block;
+  height: 44px;
+  width: auto;
+}
+
+/* ───────── 카드 (반투명 유리) ───────── */
+.card {
+  --ease: 0.6s cubic-bezier(0.65, 0, 0.35, 1);
+  position: relative;
+  overflow: hidden;
+  width: 1060px;
+  max-width: 100%;
+  height: 700px;
+  border: 1.5px solid rgba(255, 255, 255, 0.85);
+  border-radius: 30px;
+  background: rgba(255, 255, 255, 0.52);
+  backdrop-filter: blur(26px) saturate(1.15);
+  box-shadow: 0 34px 80px -28px rgba(140, 66, 86, 0.38), 0 0 0 1px rgba(150, 100, 108, 0.1), inset 0 1px 0 #fff;
+}
+
+/* 슬라이드 패널: 로그인 → 오른쪽, 가입 → 왼쪽. 원형 무늬가 겹친 와인 유리 */
+.cardBg {
+  position: absolute;
+  z-index: 2;
+  inset: 5px auto 5px 5px;
+  width: calc(50% - 5px);
+  border-radius: 26px;
+  overflow: hidden;
+  background: linear-gradient(158deg, #ad7281 0%, #8c4857 34%, #7a3a49 62%, #8e4d5c 100%);
+  box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.55), inset 0 0 30px rgba(255, 255, 255, 0.16);
+  translate: 100% 0;
+  transition: translate var(--ease);
+}
+.cardBg::before,
+.cardBg::after {
+  content: '';
+  position: absolute;
+  pointer-events: none;
+}
+/* 왼쪽 위의 큰 원 */
+.cardBg::before {
+  inset: 0;
+  background: radial-gradient(circle 300px at 6% 0%, rgba(255, 255, 255, 0.13) 299px, transparent 300px);
+}
+/* 오른쪽 아래의 겹친 원 두 개 */
+.cardBg::after {
+  inset: 0;
+  background:
+    radial-gradient(circle 250px at 100% 104%, rgba(255, 255, 255, 0.11) 249px, transparent 250px),
+    radial-gradient(circle 360px at 64% 142%, rgba(255, 255, 255, 0.075) 359px, transparent 360px);
+}
+.card.register .cardBg {
+  translate: 0 0;
+}
+
+/* ───────── 히어로 / 폼 공통 위치 ───────── */
+.hero,
+.form {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 50%;
+  height: 100%;
+  opacity: 0;
+  visibility: hidden;
+  transition: translate var(--ease), opacity var(--ease), visibility var(--ease);
+}
+
+.hero.login,
+.form.login {
+  opacity: 1;
+  visibility: visible;
+}
+.card.register :is(.hero, .form).login {
+  opacity: 0;
+  visibility: hidden;
+}
+.card.register :is(.hero, .form).register {
+  opacity: 1;
+  visibility: visible;
+}
+
+.hero.login {
+  left: 50%;
+  translate: 0 0;
+}
+.card.register .hero.login {
+  translate: 100% 0;
+}
+
+.hero.register {
+  translate: -100% 0;
+}
+.card.register .hero.register {
+  translate: 0 0;
+}
+
+.form.login {
+  translate: 0 0;
+}
+.card.register .form.login {
+  translate: 100% 0;
+}
+
+.form.register {
+  left: 50%;
+  translate: -100% 0;
+}
+.card.register .form.register {
+  translate: 0 0;
+}
+
+/* ───────── 히어로 (와인 패널 위 글자) ───────── */
+.hero {
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 14px;
+  padding: 0 64px;
+  box-sizing: border-box;
+  color: #fff;
+}
+.hero h2 {
+  margin: 0;
+  font-size: 29px;
+  font-weight: 500;
+  line-height: 1.35;
+  letter-spacing: -0.03em;
+}
+.hero p {
+  margin: 0 0 14px;
+  white-space: pre-line; /* 문구의 줄바꿈(\n)을 그대로 보여 준다 */
+  word-break: keep-all; /* 한글을 단어 중간에서 꺾지 않는다 */
+  font-size: 16px;
+  line-height: 1.75;
+  color: rgba(255, 255, 255, 0.84);
+}
+.switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  height: 52px;
+  padding: 0 28px;
+  border: 1.5px solid rgba(255, 255, 255, 0.7);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  font: inherit;
+  font-size: 16px;
+  font-weight: 500;
+  color: inherit;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+.switch:hover {
+  background: #fff;
+  border-color: #fff;
+  color: var(--wine);
+}
+
+/* ───────── 폼 ───────── */
+.form {
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 16px;
+  padding: 44px 64px;
+  box-sizing: border-box;
+  overflow-y: auto;
+}
+.form h1 {
+  margin: 0 0 2px;
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: #4a2231;
+}
+.sub {
+  margin: -6px 0 6px;
+  font-size: 15px;
+  color: var(--muted);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.fieldRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.label {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--body);
+}
+
+/* 둥근 알약 입력칸 */
+.input {
+  width: 100%;
+  box-sizing: border-box;
+  height: 52px;
+  padding: 0 22px;
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow: 0 2px 10px rgba(140, 66, 86, 0.07), inset 0 1px 2px rgba(122, 68, 80, 0.05);
+  font: inherit;
+  font-size: 16px;
+  color: var(--ink);
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+}
+.input::placeholder {
+  color: #a59a94;
+}
+.input:hover {
+  background: rgba(255, 255, 255, 0.92);
+}
+.input:focus {
+  border-color: var(--wine);
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(122, 68, 80, 0.14);
+}
+.input.hasIcon {
+  padding-right: 52px;
+}
+
+/* 입력칸 오른쪽 끝 아이콘 (비밀번호 보기 · PIN 안내) */
+.inputWrap {
+  position: relative;
+  display: block;
+}
+.iconBtn,
+.inputIcon {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  translate: 0 -50%;
+  color: var(--muted);
+}
+.iconBtn {
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+}
+.iconBtn:hover {
+  color: var(--wine);
+  background: rgba(122, 68, 80, 0.08);
+}
+.inputIcon {
+  pointer-events: none;
+}
+
+.textLink {
+  font-size: 13px;
+  color: var(--muted);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.textLink:hover {
+  color: var(--wine);
+}
+
+.error {
+  margin: 0;
+  padding: 11px 18px;
+  border-radius: 18px;
+  background: rgba(248, 236, 238, 0.9);
+  font-size: 14px;
+  color: #8a2f3f;
+}
+
+/* 아래 큰 버튼: 알약 + 와인 그라데이션 + 화살표 */
+.submit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  height: 56px;
+  margin-top: 6px;
+  border: 0;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #98505f 0%, #7a3a49 100%);
+  box-shadow: 0 12px 24px -12px rgba(122, 58, 73, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.28);
+  font: inherit;
+  font-size: 17px;
+  font-weight: 600;
+  color: #fff;
+  cursor: pointer;
+  transition: filter 0.15s, transform 0.15s;
+}
+.submit:hover:not(:disabled) {
+  filter: brightness(1.07);
+}
+.submit:active:not(:disabled) {
+  transform: translateY(1px);
+}
+.submit:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* 모바일에서만 보이는 전환 링크 (데스크톱은 옆 패널 버튼을 쓴다) */
+.formSwitch {
+  display: none;
+}
+
+/* 키보드 포커스 */
+.card button:focus-visible,
+.card a:focus-visible {
+  outline: 2px solid rgba(122, 68, 80, 0.55);
+  outline-offset: 2px;
+}
+.switch:focus-visible {
+  outline-color: #fff;
+}
+
+/* ───────── 가입: 칸이 많아 간격을 줄이고 3단계를 표시한다 ───────── */
+.form.register {
+  gap: 7px;
+  padding: 30px 64px 26px;
+}
+.form.register h1 {
+  margin-bottom: 0;
+}
+.form.register .sub {
+  margin: 2px 0 4px;
+  font-size: 14.5px;
+}
+.form.register .field {
+  gap: 5px;
+}
+.form.register .label,
+.industry legend {
+  font-size: 14.5px;
+}
+.form.register .input {
+  height: 44px;
+  font-size: 15.5px;
+}
+.form.register .submit {
+  height: 52px;
+  margin-top: 4px;
+}
+
+.stepNo {
+  margin: 6px 0 0;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--wine);
+}
+.bar {
+  display: flex;
+  gap: 3px;
+  max-width: 300px;
+}
+.bar span {
+  flex: 1;
+  height: 5px;
+  background: rgba(122, 68, 80, 0.13);
+}
+.bar span:first-child {
+  border-radius: 99px 0 0 99px;
+}
+.bar span:last-child {
+  border-radius: 0 99px 99px 0;
+}
+.bar .barOn {
+  background: linear-gradient(90deg, #98505f, #7a3a49);
+}
+
+.hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.hint svg {
+  flex: none;
+}
+.fieldError {
+  font-size: 12.5px;
+  color: #8a2f3f;
+}
+.input.invalid {
+  border-color: #c0697a;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 2px;
+}
+.actions > :last-child {
+  flex: 1;
+}
+.form.register .actions .submit {
+  margin-top: 0; /* 「이전」 버튼과 같은 높이에 놓는다 */
+}
+.back {
+  flex: none;
+  width: 100px;
+  height: 52px;
+  border: 1.5px solid rgba(122, 68, 80, 0.4);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.55);
+  font: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--wine);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.back:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.9);
+}
+
+/* 업종 선택 */
+.industry {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  text-align: left;
+}
+.industry legend {
+  padding: 0;
+  margin-bottom: 8px;
+  font-weight: 700;
+  color: var(--body);
+}
+.industryGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+.industryItem {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 48px;
+  border: 1.5px solid rgba(122, 68, 80, 0.26);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.6);
+  font-size: 15.5px;
+  font-weight: 500;
+  color: var(--body);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.industryItem input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.industryItem:hover {
+  background: rgba(255, 255, 255, 0.9);
+}
+.industryItem:has(input:focus-visible) {
+  outline: 2px solid rgba(122, 68, 80, 0.55);
+  outline-offset: 2px;
+}
+.industryOn {
+  border-color: transparent;
+  background: linear-gradient(90deg, #98505f, #7a3a49);
+  color: #fff;
+}
+.industryOn:hover {
+  background: linear-gradient(90deg, #98505f, #7a3a49);
+  filter: brightness(1.07);
+}
+
+/* 가입 뒤 초기 설정 안내 */
+.notice {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 18px;
+  border-radius: 20px;
+  background: rgba(122, 68, 80, 0.07);
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--body);
+}
+.notice b {
+  color: var(--wine);
+}
+
+/* ───────── 모바일: 패널 없이 폼만, 하단 링크로 전환 ───────── */
+@media (max-width: 760px) {
+  .card {
+    height: auto;
+    border-radius: 24px;
+  }
+  .cardBg,
+  .hero {
+    display: none;
+  }
+
+  .form {
+    position: static;
+    width: 100%;
+    height: auto;
+    padding: 32px 24px;
+    translate: none !important;
+    transition: none;
+    overflow: visible;
+  }
+  .form.register {
+    padding: 28px 24px 24px;
+    display: none;
+  }
+  .card.register .form.register {
+    display: flex;
+  }
+  .card.register .form.login {
+    display: none;
+  }
+
+  .formSwitch {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    margin: 6px 0 0;
+    font-size: 14px;
+    color: var(--muted);
+  }
+  .formSwitch button {
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    font-weight: 600;
+    color: var(--wine);
+    cursor: pointer;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cardBg,
+  .hero,
+  .form {
+    transition: opacity 0.2s, visibility 0.2s;
+  }
+}
