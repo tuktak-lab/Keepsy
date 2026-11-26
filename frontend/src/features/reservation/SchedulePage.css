@@ -183,6 +183,8 @@ a.blk{cursor:pointer;color:#221D1B;text-decoration:none}
 a.btn{display:inline-flex;align-items:center;justify-content:center;text-decoration:none}
 /* 예약 상세 */
 .detail-card{max-width:720px;padding:24px 28px}
+/* 캠페인 결과는 퍼널 · 대조군 · 대상 목록이 길어 본문 폭을 다 쓴다 (#418). 예약 상세 · 시술 마감은 720px 그대로 */
+.detail-card.wide{max-width:none}
 .st-chip.s-canceled{color:#6B605B}
 .st-chip.s-noshow{color:#9E3F3F}
 :root .sub .p-link{font-size:13px}
