@@ -26,14 +26,14 @@
 
 - 실제 값은 루트 `.env` 하나에 둔다. `compose.yaml`이 자동으로 읽고, 백엔드는 `spring.config.import: optional:file:../.env[.properties]`로 읽는다. 그래서 백엔드 작업 디렉터리는 `backend/`여야 한다 (IntelliJ 실행 구성 Working directory 포함).
 - `.env` 값은 Compose와 Spring(properties 형식)이 같이 읽는다. 따옴표 없이 쓰고 `$` `\` `#` 공백은 피한다.
-- MySQL 계정 · 비밀번호는 볼륨을 처음 만들 때만 반영된다. 바꾸려면 `docker compose down -v`(데이터 삭제)가 필요하다.
-- 3306을 다른 MySQL이 쓰고 있으면 `.env`의 `MYSQL_PORT`를 바꾼다. compose와 백엔드가 같은 값을 쓴다.
+- MySQL 계정 · 비밀번호는 볼륨을 처음 만들 때만 반영된다. 바꾸려면 그 DB의 볼륨을 지우고 다시 만들어야 하고, 그 볼륨의 데이터가 모두 사라진다. `docker compose down -v`는 개발 DB와 데모 DB 볼륨을 함께 지우므로 해결 방법으로 쓰지 않는다. `docker volume ls`로 대상 볼륨(개발 `keepsy_keepsy-mysql-data`, 데모 `keepsy_keepsy-mysql-demo-data`. 테스트 DB는 메모리라 볼륨 없음)을 확인하고, 지우기 전에 사용자에게 묻는다.
+- 3306을 다른 MySQL이 쓰고 있으면 `.env`의 `MYSQL_PORT`를 바꾼다. compose와 백엔드가 같은 값을 쓴다. 테스트 · 데모 DB 포트는 `MYSQL_TEST_PORT` · `MYSQL_DEMO_PORT`(기본 3307 · 3308).
 
 ## 역할 분담
 
-- 백엔드 골격 · 설정: 저장소 담당자
+- 백엔드 공용 설정: 저장소 담당자
 - 이슈 생성: 다른 조원 담당. 사용자가 요청하지 않으면 이슈를 만들지 않는다
-- 프론트: 다른 조원이 데모를 `frontend/`에 올릴 예정. 올라오기 전에는 프론트 코드 · 이슈를 만들지 않는다
+- 프론트: `frontend/`(데모에서 전환, Keepsy #119)는 프론트 담당 조원이 맡는다
 
 ## 이슈를 만들 때 (요청받았을 때만)
 
@@ -42,7 +42,7 @@
 - 라벨은 종류(`feature` · `bug` · `chore`) + `area:<영역 코드>`만 쓴다. 정의는 `.github/labels.yml`.
 - 우선순위 라벨(`priority:p1~p3`)과 마일스톤은 쓰지 않는다 (2026-11-23 팀 결정, docs `DEVELOPMENT.md` 3장). 명세서 우선순위는 Feature 본문 「우선순위」 칸에 적는다.
 - 백엔드 이슈는 CONTRACTS 4장 엔드포인트 표를 근거로 한다.
-- 프론트 이슈는 데모가 `frontend/`에 올라온 뒤에만 만든다. 데모를 ARCHITECTURE 3장(정적 빌드 제약) · 4장(프론트 구조, API 호출 규칙, 화면 경로 표)과 대조해 화면 경로 표의 행 단위로 만들고, 데모와 문서가 다른 곳은 따로 정리해 보고한다. 데모 코드를 임의로 갈아엎거나 문서를 데모에 맞춰 바꾸지 않는다.
+- 프론트 이슈는 `frontend/` 화면을 ARCHITECTURE 3장(정적 빌드 제약) · 4장(프론트 구조, API 호출 규칙, 화면 경로 표)과 대조해 화면 경로 표의 행 단위로 만들고, 화면과 문서가 다른 곳은 따로 정리해 보고한다. 프론트 코드를 임의로 갈아엎거나 문서를 코드에 맞춰 바꾸지 않는다.
 - 만들기 전에 목록(제목 · 라벨)을 먼저 보여 주고 확인을 받는다.
 
 ## 작업 원칙
@@ -55,7 +55,7 @@
 
 여러 사람이 각자 Claude Code 세션에서 동시에 작업한다. 세션끼리는 서로의 진행 중인 작업을 모르므로 아래를 지킨다.
 
-- **PR을 올리기 직전과 머지 직전에** `git fetch && git rebase origin/main` 후 `./gradlew build`(프론트면 `npm run build`)를 다시 돌린다. 충돌은 작성자가 자기 세션에서 푼다.
+- **PR을 올리기 직전과 머지 직전에** `git fetch && git rebase origin/main` 후 테스트 DB(`mysql-test`)를 띄우고 `./gradlew build`(프론트면 `npm run lint` · `npm test` · `npm run build`, CI와 같음)를 다시 돌린다. 충돌은 작성자가 자기 세션에서 푼다.
 - **PR을 쌓지 않는다.** 앞 PR이 머지된 뒤 `main`에서 새 브랜치를 딴다. 꼭 쌓았다면 앞 PR이 squash 머지된 직후 `git rebase --onto origin/main <앞 PR의 마지막 커밋>` 후 `git push --force-with-lease`(자기 브랜치만).
 - 머지할 때 다른 PR이 base로 쓰는 브랜치는 지우지 않는다. 그 PR의 base를 `main`으로 바꾼 뒤 지운다 (지우면 그 PR이 닫힌다).
 - **승인되면 작성자가 바로 머지한다.** 승인된 PR을 쌓아 두지 않는다. 작성자가 다른 세션 사용자라면 머지는 그 사람에게 맡긴다.
