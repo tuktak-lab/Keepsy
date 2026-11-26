@@ -1,5 +1,7 @@
 'use client';
 
-import LoginPage from '@/features/account/LoginPage';
+import AuthPage from '@/features/account/AuthPage';
 
-export default LoginPage;
+export default function Page() {
+  return <AuthPage initial="login" />;
+}
