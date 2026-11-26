@@ -221,6 +221,15 @@
   font-weight: 700;
   color: var(--wine);
 }
+.rowIcon {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
 
 .rowText {
   flex: 1;
@@ -368,6 +377,8 @@
 .featureText > p {
   margin: 12px 0 0;
   font-size: 16px;
+  line-height: 1.7;
+  white-space: pre-line; /* 설명의 줄바꿈(쉼표 뒤)을 그대로 보여 준다 */
   color: var(--muted);
 }
 
@@ -455,9 +466,14 @@
 }
 
 .faqItem {
-  border-radius: var(--radius-ctl);
+  border-radius: 20px;
   background: var(--glass-bg);
   border: 1px solid var(--glass-border);
+  overflow: hidden;
+  transition: background var(--t-hover) var(--ease);
+}
+.faqItem[open] {
+  background: var(--glass-bg-strong);
 }
 .faqItem summary {
   display: flex;
@@ -483,9 +499,11 @@
 .faqItem[open] summary::after {
   transform: rotate(45deg);
 }
+/* 펼친 답변: 질문과 구분선으로 나눈다 */
 .faqItem p {
-  margin: 0;
-  padding: 0 22px 20px;
+  margin: 0 22px;
+  padding: 16px 0 20px;
+  border-top: 1px solid var(--line);
   font-size: 15px;
   color: var(--muted);
 }

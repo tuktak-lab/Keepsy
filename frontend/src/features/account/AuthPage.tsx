@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import logoImg from '@/assets/images/keepsy-logo-thin.png';
 import { ChevronIcon } from './AuthFields';
@@ -10,7 +10,10 @@ type Mode = 'login' | 'register';
 
 const PATH: Record<Mode, string> = { login: '/login', register: '/signup' };
 
-function Hero(props: { variant: Mode; title: string; text: string; buttonLabel: string; onSwitch: () => void }) {
+// 와인 패널 글 안의 「Keepsy」는 글자 대신 로고 이미지로 (흰색으로 바꿔 와인 바탕에서 보이게)
+const HeroLogo = () => <img className={styles.heroLogo} src={logoImg.src} alt="Keepsy" />;
+
+function Hero(props: { variant: Mode; title: ReactNode; text: ReactNode; buttonLabel: string; onSwitch: () => void }) {
   return (
     <div className={`${styles.hero} ${styles[props.variant]}`}>
       <h2>{props.title}</h2>
@@ -46,7 +49,12 @@ export default function AuthPage(props: { initial: Mode }) {
         <Hero
           variant="register"
           title="이미 계정이 있나요?"
-          text={'매장 계정으로 로그인하고\n오늘도 Keepsy와 함께하세요.'}
+          text={
+            <>
+              {'매장 계정으로 로그인하고\n오늘도 '}
+              <HeroLogo />와 함께하세요.
+            </>
+          }
           buttonLabel="로그인"
           onSwitch={() => go('login')}
         />
@@ -61,7 +69,11 @@ export default function AuthPage(props: { initial: Mode }) {
 
         <Hero
           variant="login"
-          title="Keepsy가 처음이신가요?"
+          title={
+            <>
+              <HeroLogo />가 처음이신가요?
+            </>
+          }
           text={'고객 기록과 재방문 흐름을\n한곳에서 관리할 수 있어요.'}
           buttonLabel="매장 가입"
           onSwitch={() => go('register')}

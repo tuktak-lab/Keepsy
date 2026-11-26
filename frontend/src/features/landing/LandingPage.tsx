@@ -8,7 +8,27 @@ import styles from './LandingPage.module.css';
 // 로그인 전 첫 화면 (서비스 소개). [로그인] → /login → /shift(근무자 PIN) → /dashboard.
 // 미리보기 화면의 이름 · 수치는 모두 모의 데이터다.
 
-type Row = { name: string; meta: string; tag?: string };
+// icon: 사람이 아닌 행(캠페인)은 이름 첫 글자 대신 Lucide 아이콘(lucide-static 0.460.0의 path)을 그린다
+type Row = { name: string; meta: string; tag?: string; icon?: string[] };
+
+// Lucide 아이콘 path (https://lucide.dev, ISC). rect는 같은 모양의 path로 옮겼다
+const ICON = {
+  calendarCheck: ['M8 2v4', 'M16 2v4', 'M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z', 'M3 10h18', 'm9 16 2 2 4-4'],
+  gift: [
+    'M4 8h16a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z',
+    'M12 8v13',
+    'M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7',
+    'M7.5 8a2.5 2.5 0 0 1 0-5A4.8 8 0 0 1 12 8a4.8 8 0 0 1 4.5-5 2.5 2.5 0 0 1 0 5',
+  ],
+  sparkles: [
+    'M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z',
+    'M20 3v4',
+    'M22 5h-4',
+    'M4 17v2',
+    'M5 18H3',
+  ],
+  bell: ['M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9', 'M10.3 21a1.94 1.94 0 0 0 3.4 0'],
+};
 type Feature = {
   id: string;
   label: string;
@@ -38,7 +58,7 @@ const FEATURES: Feature[] = [
     id: 'reservations',
     label: '예약 관리',
     title: '오늘 예약을 한눈에',
-    desc: '시간대별 예약과 담당 디자이너를 보고, 예약 등록부터 방문 처리까지 이어서 해요.',
+    desc: '시간대별 예약과 담당 디자이너를 보고,\n예약 등록부터 방문 처리까지 이어서 해요.',
     steps: ['오늘 일정 확인', '예약 등록·변경', '방문 완료 처리', '노쇼·취소 기록'],
     screen: '오늘 예약',
     rows: [
@@ -52,21 +72,21 @@ const FEATURES: Feature[] = [
     id: 'campaigns',
     label: '캠페인',
     title: '다시 올 때가 된 고객에게 안내를',
-    desc: '목적에 맞는 대상을 고르고, 수신 동의와 야간 발송 제한을 확인한 뒤 보내요.',
+    desc: '목적에 맞는 대상을 고르고,\n수신 동의와 야간 발송 제한을 확인한 뒤 보내요.',
     steps: ['목적과 대상 고르기', '제외 대상 확인', '미리보기 검토', '바로 또는 예약 발송'],
     screen: '캠페인 목록',
     rows: [
-      { name: '재방문 안내', meta: '대상 24명 · 발송 완료', tag: '완료' },
-      { name: '생일 쿠폰', meta: '대상 8명 · 내일 10:00', tag: '예약' },
-      { name: '신규 시술 소개', meta: '대상 31명 · 작성 중', tag: '초안' },
-      { name: '케어 주기 알림', meta: '대상 12명 · 발송 완료', tag: '완료' },
+      { name: '재방문 안내', meta: '대상 24명 · 발송 완료', tag: '완료', icon: ICON.calendarCheck },
+      { name: '생일 쿠폰', meta: '대상 8명 · 내일 10:00', tag: '예약', icon: ICON.gift },
+      { name: '신규 시술 소개', meta: '대상 31명 · 작성 중', tag: '초안', icon: ICON.sparkles },
+      { name: '케어 주기 알림', meta: '대상 12명 · 발송 완료', tag: '완료', icon: ICON.bell },
     ],
   },
   {
     id: 'insights',
     label: '인사이트',
     title: '놓치기 전에 알려 주는 이탈 신호',
-    desc: '방문 주기가 길어진 고객을 먼저 보여 주고, 바로 안내 캠페인으로 이어져요.',
+    desc: '방문 주기가 길어진 고객을 먼저 보여 주고,\n바로 안내 캠페인으로 이어져요.',
     steps: ['이탈 신호 고객 보기', '평소 방문 주기 비교', '대상으로 담기', '캠페인 성과 확인'],
     screen: '이탈 신호',
     rows: [
@@ -150,7 +170,17 @@ function Screen({ title, rows, children }: { title: string; rows?: Row[]; childr
         <ul className={styles.screenRows}>
           {rows?.map((r) => (
             <li key={r.name}>
-              <span className={styles.avatar}>{r.name.replace(/^[\d:]+\s/, '').charAt(0)}</span>
+              <span className={styles.avatar}>
+                {r.icon ? (
+                  <svg className={styles.rowIcon} viewBox="0 0 24 24" aria-hidden="true">
+                    {r.icon.map((d) => (
+                      <path key={d} d={d} />
+                    ))}
+                  </svg>
+                ) : (
+                  r.name.replace(/^[\d:]+\s/, '').charAt(0)
+                )}
+              </span>
               <span className={styles.rowText}>
                 <b>{r.name}</b>
                 <small>{r.meta}</small>

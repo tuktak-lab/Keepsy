@@ -153,6 +153,14 @@
   line-height: 1.75;
   color: rgba(255, 255, 255, 0.84);
 }
+/* 패널 글 안의 Keepsy 로고: 글자 높이에 맞추고 와인 바탕에서 보이게 흰색으로.
+   base.css의 img[alt='Keepsy'](와인 획 굵게)보다 우선하도록 .hero를 붙인다 */
+.hero .heroLogo {
+  height: 0.95em;
+  width: auto;
+  vertical-align: -0.14em;
+  filter: brightness(0) invert(1);
+}
 .switch {
   display: inline-flex;
   align-items: center;
