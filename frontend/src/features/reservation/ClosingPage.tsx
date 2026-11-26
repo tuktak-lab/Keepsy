@@ -238,7 +238,7 @@ export default function ClosingPage() {
       <div className="wrap">
         <header className="head">
           <div>
-            <h1 className="h1 serif">{completed ? '추가 결제' : '시술 마감'}</h1>
+            <h1 className="h1">{completed ? '추가 결제' : '시술 마감'}</h1>
             <p className="sub">
               <AppLink href={backHref} className="p-link">
                 ‹ 예약 상세로

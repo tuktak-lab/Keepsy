@@ -180,6 +180,9 @@ export default function SchedulePage() {
   const gridHeight = (axis.end - axis.start) * HH;
   const gW = 100 / groups;
   const { pos, more } = layout(blocks, (b) => b.col, groups, isDay ? 99 : 2);
+  // 주간 보기에서 겹쳐 숨긴 예약 수 (날짜 열마다). 칸 안 대신 열 아래 「더보기」로 알려 주고 그날 일간 보기로 보낸다 (#415)
+  const hiddenOf = (col: number) => more.filter((m) => m.group === col).reduce((n, m) => n + m.count, 0);
+  const anyHidden = !isDay && dates.some((_, i) => hiddenOf(i) > 0);
   const topOf = (minutes: number) => ((minutes - axis.start * 60) / 60) * HH;
   // 열마다의 날짜 · 요일 · (일간이면) 스탭. 음영과 열 배경이 같이 쓴다
   const colDefs = isDay
@@ -251,7 +254,7 @@ export default function SchedulePage() {
       <div className="wrap">
         <header className="head">
           <div>
-            <h1 className="h1 serif">예약 · 일정 관리</h1>
+            <h1 className="h1">예약 · 일정 관리</h1>
             <p className="sub">날짜를 고르면 그 날짜의 예약을 볼 수 있어요. 일간은 스탭별, 주간은 요일별이에요. 예약을 누르면 상세를 볼 수 있어요.</p>
           </div>
           <button type="button" className="btn btn-p" onClick={() => setCreating(true)} disabled={staff.length === 0}>
@@ -446,26 +449,25 @@ export default function SchedulePage() {
                         const w = gW / p.n;
                         return block(b, b.col * gW + p.lane * w, w);
                       })}
-                      {more.map((m, i) => {
-                        const w = gW / m.n;
+                    </div>
+                  </div>
+                  {anyHidden ? (
+                    <div className="g-foot">
+                      <div className="axis-sp"></div>
+                      {dates.map((d, i) => {
+                        const n = hiddenOf(i);
                         return (
-                          <div
-                            key={i}
-                            className="blk-more"
-                            title={`같은 시간에 예약이 ${m.count}건 더 있어요. 담당 스탭을 고르면 나눠서 볼 수 있어요.`}
-                            style={{
-                              top: topOf(m.start) + 2,
-                              height: Math.max(((m.end - m.start) / 60) * HH - 4, 24),
-                              left: `calc(${m.group * gW + m.lane * w}% + 3px)`,
-                              width: `calc(${w}% - 6px)`,
-                            }}
-                          >
-                            +{m.count}건
+                          <div key={d} className="gf-cell">
+                            {n > 0 ? (
+                              <button type="button" className="more-btn" onClick={() => changeView('day', d)} title={`겹쳐서 숨긴 예약 ${n}건이 더 있어요. 누르면 그날 일간 보기에서 모두 봐요`}>
+                                {n}건 더보기
+                              </button>
+                            ) : null}
                           </div>
                         );
                       })}
                     </div>
-                  </div>
+                  ) : null}
                   {!data && !loadFailed ? <p className="empty-note">불러오는 중…</p> : null}
                   {loadFailed ? (
                     <p className="empty-note">

@@ -142,7 +142,7 @@ export default function ReservationDetailPage() {
       <div className="wrap">
         <header className="head">
           <div>
-            <h1 className="h1 serif">예약 상세</h1>
+            <h1 className="h1">예약 상세</h1>
             <p className="sub">
               <AppLink href={backHref} className="p-link">
                 ‹ 예약 캘린더로
