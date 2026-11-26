@@ -20,15 +20,3 @@ export function periodQuery(period: Period, from: string, to: string): string | 
 }
 
 export type Funnel = { sentCount: number; reachedCount: number; rebookedCount: number; revisitedCount: number };
-
-/** 「전체」: 캠페인별 퍼널을 단계마다 더한다 (고객은 캠페인마다 따로 센다) */
-export const sumFunnels = (list: Funnel[]): Funnel =>
-  list.reduce(
-    (a, f) => ({
-      sentCount: a.sentCount + f.sentCount,
-      reachedCount: a.reachedCount + f.reachedCount,
-      rebookedCount: a.rebookedCount + f.rebookedCount,
-      revisitedCount: a.revisitedCount + f.revisitedCount,
-    }),
-    { sentCount: 0, reachedCount: 0, rebookedCount: 0, revisitedCount: 0 },
-  );
