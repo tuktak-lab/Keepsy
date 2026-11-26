@@ -195,7 +195,7 @@ export default function DashboardPage() {
           <section className="kp-kpis kp-card" aria-label="고객 현황 요약">
             {kpi('/customers', '전체 고객', num(customers), !customerOpen ? 'PIN 인증 후 표시' : failed.customers ? '불러오지 못함' : '삭제된 고객 제외')}
             {kpi('/reservations', '오늘 예약', num(todayList?.length), todayList ? `확정 ${todayList.filter((r) => r.status === 'CONFIRMED').length} · 상담 후 진행 ${todayList.filter((r) => r.consultFirst).length}` : failed.today ? '불러오지 못함' : '')}
-            {kpi('/reservations', '마감 안 된 예약', num(today?.unclosed.length), failed.today ? '불러오지 못함' : '지난 예약 · 시술 마감 필요')}
+            {kpi('/reservations', '마감 안 된 예약', num(today?.unclosed.length), failed.today ? '불러오지 못함' : '시작 시각 지남 · 마감 필요')}
             {kpi('/insights', '주기 도래 고객', num(insightOpen ? segCounts?.DUE : null), !insightOpen ? 'PIN 인증 후 표시' : failed.segments ? '불러오지 못함' : '예약 없음 · 우선순위 순')}
             {kpi(
               latest ? `/campaigns/detail?id=${latest.id}` : '/analytics',
@@ -248,7 +248,7 @@ export default function DashboardPage() {
                     <span style={{ display: 'flex', flexDirection: 'column' }}>
                       <strong style={{ fontSize: '14px' }}>{resvName(r)}</strong>
                       <span style={{ fontSize: '13px', color: '#4A3F3B' }}>
-                        {r.services.map((s) => s.name).join(' · ')} · {hmOf(r.startAt)} · 시술 마감 필요
+                        {r.services.map((s) => s.name).join(' · ')} · {hmOf(r.startAt)} · 시작 시각 지남 · 마감 필요
                       </span>
                     </span>
                   </AppLink>

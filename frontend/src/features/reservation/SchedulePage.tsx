@@ -61,7 +61,7 @@ const HH = 56; // 1시간 높이(px)
 const STATES: [Tone, string][] = [
   ['booked', '예약 확정'],
   ['done', '시술 완료'],
-  ['unclosed', '마감 미완료'],
+  ['unclosed', '종료 시각 지남 · 마감 필요'], // 캘린더 · 예약 상세는 시술 종료 시각 기준 (calendar.ts toneOf)
 ];
 const TONE_LABEL = Object.fromEntries(STATES) as Record<Tone, string>;
 
