@@ -504,6 +504,7 @@
   margin: 0 22px;
   padding: 16px 0 20px;
   border-top: 1px solid var(--line);
+  white-space: pre-line; /* 답변의 줄바꿈을 그대로 보여 준다 */
   font-size: 15px;
   color: var(--muted);
 }
