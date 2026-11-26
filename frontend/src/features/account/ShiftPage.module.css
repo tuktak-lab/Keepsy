@@ -1,12 +1,12 @@
 /* 근무자 PIN 화면. 카드 · 제목 · 버튼은 LoginPage.module.css를 같이 쓰고, 여기에는 PIN 입력과 숫자 패드만 둔다. */
-/* 숫자 패드가 있어도 배율 100% 한 화면(낮은 노트북 창 650px)에 스크롤 없이 들어가도록 촘촘하게 줄인다 */
+/* 숫자 패드가 있어도 배율 100% 한 화면(낮은 노트북 창 650px)에 스크롤 없이 들어가는 범위에서 위아래 여유를 둔다 */
 .card {
-  padding: 28px 56px 22px;
+  padding: 44px 56px 36px;
 }
 
 .card > img {
-  height: 34px;
-  margin-bottom: 8px;
+  height: 38px;
+  margin-bottom: 14px;
 }
 
 .card > h1 {
@@ -14,21 +14,21 @@
 }
 
 .card > p:not(.shop) {
-  margin: 4px 0 12px;
+  margin: 8px 0 20px;
   font-size: 14.5px;
 }
 
 .card > p:last-child {
-  margin: 10px 0 0;
+  margin: 18px 0 0;
   font-size: 14px;
 }
 
 .card form {
-  gap: 8px;
+  gap: 12px;
 }
 
 .shop {
-  margin: -12px 0 6px;
+  margin: -12px 0 10px;
   font-size: 14px;
   font-weight: 600;
   color: var(--wine);
@@ -40,7 +40,7 @@
 
 .pin {
   width: 100%;
-  height: 46px;
+  height: 54px;
   box-sizing: border-box;
   border: 1px solid var(--line);
   border-radius: 16px;
@@ -68,12 +68,12 @@
 .keypad {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 6px;
+  gap: 8px;
   margin: 4px 0 6px;
 }
 
 .key {
-  height: 42px;
+  height: 50px;
   border: 1px solid var(--line);
   border-radius: 16px;
   background: rgba(255, 255, 255, 0.85);
@@ -102,8 +102,8 @@
 
 .submit {
   width: 100%;
-  height: 48px;
-  margin-top: 2px;
+  height: 54px;
+  margin-top: 4px;
 }
 
 .linkButton {
