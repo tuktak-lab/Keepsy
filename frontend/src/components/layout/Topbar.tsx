@@ -201,16 +201,10 @@ export function Topbar() {
             cursor: 'pointer',
           }}
         >
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#221D1B', fontWeight: 600, fontSize: '16px' }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#221D1B', fontWeight: 600, fontSize: '16px', whiteSpace: 'nowrap' }}>
             <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#7A4450' }} />
             {session?.currentStaff ? `근무자 ${session.currentStaff.name}` : '근무자 확인 중'}
           </span>
-          {session && (
-            <>
-              <span style={{ width: '1px', height: '14px', background: '#D9CBC4' }} />
-              {session.shopName}의 데이터만 표시됩니다
-            </>
-          )}
           <svg
             width="14"
             height="14"
@@ -250,6 +244,27 @@ export function Topbar() {
           </span>
         )}
       </span>
+      {session && (
+        <>
+          <span style={{ width: '1px', height: '14px', background: '#D9CBC4' }} />
+          {/* 매장 이름 안내 대신 바로 근무자 PIN 화면으로 가는 버튼 (#403) */}
+          <button
+            type="button"
+            onClick={() => router.push('/shift')}
+            style={{
+              border: 0,
+              background: 'transparent',
+              padding: 0,
+              font: "500 13px 'Noto Sans KR', sans-serif",
+              color: '#7A4450',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            근무자 전환하기
+          </button>
+        </>
+      )}
       <span style={{ width: '1px', height: '26px', background: '#D9CBC4' }} />
       <button
         type="button"
