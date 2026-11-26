@@ -278,6 +278,10 @@ public class VisitAppService {
 
     /** 확정 예약 하나를 방문에 붙이고 완료로 바꾼다. 고객이 있으면 같은 날 방문에 합치고, 없으면 예약마다 새 방문 (C6, E3) */
     private Visit completeWithVisit(long shopId, ReservationToClose r, List<Closing.Item> items) {
+        // 방문일은 예약일이라 미래 예약을 완료하면 미래 방문이 생긴다. 오늘 예약은 시작 전이어도 된다 (F71)
+        if (r.date().isAfter(LocalDate.now(clock))) {
+            throw new ApiException(ErrorCode.CONFLICT, "아직 오지 않은 날짜의 예약은 완료할 수 없습니다");
+        }
         if (items != null && items.isEmpty()) {
             throw new ApiException(ErrorCode.INVALID, "실제 시술을 1개 이상 골라 주세요");
         }

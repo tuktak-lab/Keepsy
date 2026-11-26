@@ -61,7 +61,7 @@ class PaymentControllerTest {
                         new NewReservation(
                                 customer,
                                 staff,
-                                LocalDate.of(2026, 12, 1).atTime(11, 0),
+                                LocalDate.of(2026, 11, 3).atTime(11, 0),
                                 null,
                                 null,
                                 false,

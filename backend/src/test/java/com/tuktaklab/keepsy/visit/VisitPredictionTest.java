@@ -19,7 +19,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 @SpringBootTest
 class VisitPredictionTest {
 
-    private static final LocalDate DAY = LocalDate.of(2026, 12, 1);
+    private static final LocalDate DAY = LocalDate.of(2026, 11, 3);
 
     @Autowired VisitAppService service;
     @Autowired ReservationAppService reservations;

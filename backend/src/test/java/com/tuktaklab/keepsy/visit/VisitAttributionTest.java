@@ -2,20 +2,27 @@ package com.tuktaklab.keepsy.visit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.tuktaklab.keepsy.common.time.TimeConfig;
 import com.tuktaklab.keepsy.reservation.NewReservation;
 import com.tuktaklab.keepsy.reservation.ReservationAppService;
 import com.tuktaklab.keepsy.support.TestShopData;
 import java.sql.PreparedStatement;
 import java.sql.Statement;
 import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
@@ -32,7 +39,45 @@ class VisitAttributionTest {
     @Autowired VisitAppService service;
     @Autowired ReservationAppService reservations;
     @Autowired JdbcTemplate jdbc;
-    @Autowired Clock clock;
+    @Autowired MovableClock clock;
+
+    /** 예약은 지금 만들고 방문은 며칠 뒤에 마감하려고(미래 예약은 완료할 수 없음, F71) 시계를 앞으로 옮긴다 */
+    @TestConfiguration
+    static class Clocks {
+        @Bean
+        @Primary
+        MovableClock movableClock() {
+            return new MovableClock();
+        }
+    }
+
+    // ponytail: campaign 테스트의 MutableClock과 비슷하다. 더 필요해지면 support/로 옮긴다
+    static class MovableClock extends Clock {
+        private volatile Duration offset = Duration.ZERO;
+
+        void advanceDays(long days) {
+            offset = offset.plusDays(days);
+        }
+
+        void reset() {
+            offset = Duration.ZERO;
+        }
+
+        @Override
+        public ZoneId getZone() {
+            return TimeConfig.ZONE;
+        }
+
+        @Override
+        public Clock withZone(ZoneId zone) {
+            return Clock.offset(Clock.system(zone), offset);
+        }
+
+        @Override
+        public Instant instant() {
+            return Instant.now().plus(offset);
+        }
+    }
 
     private TestShopData data;
     private long shop;
@@ -51,6 +96,7 @@ class VisitAttributionTest {
 
     @AfterEach
     void cleanUp() {
+        clock.reset();
         data.cleanUp();
     }
 
@@ -129,6 +175,7 @@ class VisitAttributionTest {
         long m = sent("NAIL", now.minusDays(2));
 
         long r = reserve(now.toLocalDate().plusDays(16), List.of(nail));
+        clock.advanceDays(16);
         long visitId = service.completeWithoutPayment(shop, r, null);
 
         assertThat(reservationAttributed(r)).isEqualTo(m);
@@ -144,6 +191,7 @@ class VisitAttributionTest {
         sent("WAXING", now.minusDays(2)); // 방문일 기준 18일 전이라 따로 계산하면 기간 밖
 
         long r = reserve(now.toLocalDate().plusDays(16), List.of(nail));
+        clock.advanceDays(16);
         long visitId = service.completeWithoutPayment(shop, r, List.of(nail, waxing));
 
         assertThat(attributed(visitId, nail)).isEqualTo(m);
@@ -173,6 +221,7 @@ class VisitAttributionTest {
                 day);
 
         long r = reserve(day, List.of(nail));
+        clock.advanceDays(16);
         long visitId = service.completeWithoutPayment(shop, r, null);
 
         assertThat(reservationAttributed(r)).isNotNull();

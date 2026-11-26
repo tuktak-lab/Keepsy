@@ -63,13 +63,13 @@ class CustomerPaymentTest {
 
     @Test
     void 최신순으로_금액과_취소_여부를_주고_취소된_결제도_포함한다() throws Exception {
-        long r1 = reserve(customer, LocalDate.of(2026, 12, 1));
+        long r1 = reserve(customer, LocalDate.of(2026, 11, 3));
         long visit1 = close(r1, 50000, PaymentMethod.CARD);
         close(r1, 10000, PaymentMethod.CASH); // 완료된 예약에 결제 추가 (E4)
-        long r2 = reserve(customer, LocalDate.of(2026, 12, 2));
+        long r2 = reserve(customer, LocalDate.of(2026, 11, 4));
         long visit2 = close(r2, 30000, PaymentMethod.TRANSFER);
         close(
-                reserve(data.customer(shop, false, null), LocalDate.of(2026, 12, 3)),
+                reserve(data.customer(shop, false, null), LocalDate.of(2026, 11, 5)),
                 1,
                 PaymentMethod.ETC);
 
