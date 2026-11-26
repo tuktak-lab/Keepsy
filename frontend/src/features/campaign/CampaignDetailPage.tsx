@@ -118,7 +118,7 @@ export default function CampaignDetailPage() {
           </div>
         </header>
 
-        <section className="card detail-card" aria-label="캠페인 결과">
+        <section className="card detail-card wide" aria-label="캠페인 결과">
           {!validId || current?.error === 'notfound' ? (
             <p className="meta">찾을 수 없는 캠페인이에요. 캠페인 목록에서 다시 골라 주세요.</p>
           ) : current?.error ? (
