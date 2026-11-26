@@ -4,7 +4,6 @@ import { api, ApiError } from '@/lib/api';
 import { logout, refreshSession, useSession } from '@/lib/session';
 import logoImg from '@/assets/images/keepsy-logo-thin.png';
 import type { WorkerRequest, WorkerResponse } from './types';
-import card from './LoginPage.module.css';
 import styles from './ShiftPage.module.css';
 
 const PIN_MAX = 6; // PIN은 숫자 4~6자리 (C21)
@@ -48,14 +47,14 @@ export default function ShiftPage() {
   const current = session?.currentStaff;
 
   return (
-    <main className={card.page}>
-      <section className={`${card.card} ${styles.card}`} aria-labelledby="shift-title">
-        <img className={card.logo} src={logoImg.src} alt="Keepsy" />
+    <main className={styles.page}>
+      <section className={styles.card} aria-labelledby="shift-title">
+        <img className={styles.logo} src={logoImg.src} alt="Keepsy" />
         {session && <p className={styles.shop}>{session.shopName}</p>}
-        <h1 id="shift-title" className={card.title}>
+        <h1 id="shift-title" className={styles.title}>
           {current ? '근무자 전환' : '근무 시작'}
         </h1>
-        <p className={card.sub}>
+        <p className={styles.sub}>
           {current ? (
             <>
               지금 근무자는 <strong className={styles.current}>{current.name}</strong>님입니다. 교대할 스탭의 PIN을 입력하세요.
@@ -65,7 +64,7 @@ export default function ShiftPage() {
           )}
         </p>
 
-        <form onSubmit={onSubmit}>
+        <form className={styles.form} onSubmit={onSubmit}>
           <input
             className={styles.pin}
             type="password"
@@ -96,17 +95,17 @@ export default function ShiftPage() {
           </div>
 
           {error && (
-            <p className={`${card.error} ${styles.error}`} role="alert">
+            <p className={styles.error} role="alert">
               {error}
             </p>
           )}
 
-          <button className={`${card.submit} ${styles.submit}`} type="submit" disabled={pending || pin.length < 4}>
+          <button className={styles.submit} type="submit" disabled={pending || pin.length < 4}>
             {pending ? '확인 중…' : current ? '전환' : '시작'}
           </button>
         </form>
 
-        <p className={card.foot}>
+        <p className={styles.foot}>
           다른 매장 계정인가요?{' '}
           <button type="button" className={styles.linkButton} onClick={logout}>
             로그아웃
