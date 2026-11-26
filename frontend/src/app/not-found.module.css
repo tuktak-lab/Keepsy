@@ -1,0 +1,23 @@
+/* 404 화면 (#406). 카드 · 패널 · 버튼은 features/account/AuthPage.module.css를 같이 쓰고, 여기에는 404 숫자와 링크만 둔다. */
+.code {
+  margin: 0;
+  font-family: 'Playfair Display', serif;
+  font-size: 64px;
+  font-weight: 500;
+  line-height: 1;
+  color: var(--wine);
+}
+
+/* 로그인 화면은 <button>이라 밑줄이 없지만 여기서는 링크(<a>)라 밑줄을 지운다 */
+.plain {
+  text-decoration: none;
+}
+
+.homeLink {
+  font-weight: 600;
+  color: var(--wine);
+  text-decoration: none;
+}
+.homeLink:hover {
+  text-decoration: underline;
+}
