@@ -30,6 +30,8 @@ import { detailsText } from '@/lib/reservationForm';
 // 시술 메뉴 · 카테고리 기본 주기 (FR-SET-02). 변경은 원장 PIN이 필요하다 (api.ts가 PIN 창을 띄움).
 // API: GET · POST · PATCH /api/service-menus, GET · PUT /api/category-cycles (docs CONTRACTS 6장 「매장 설정 (SET)」)
 // 메뉴의 기본 주기나 예측 속성을 바꾸면 그 메뉴를 받은 고객 전체의 예측이 다시 계산되므로 저장 전에 한 번 더 확인한다.
+// 매장 업종(CONTRACTS 3절)에서 꺼 둔 카테고리는 이 구역에서만 숨긴다. 기존 메뉴 · 방문 · 예측 데이터는 그대로이고,
+// 기본 주기는 저장할 때 5개를 모두 보낸다 (PUT /api/category-cycles). 숨긴 카테고리 값은 불러온 그대로다.
 
 /** 편집 중인 메뉴 한 줄. `menuId`가 null이면 새 메뉴 */
 type Editing = { menuId: number | null; category: Category; values: MenuValues; confirm: boolean; error: string; busy: boolean };
@@ -37,7 +39,8 @@ type Editing = { menuId: number | null; category: Category; values: MenuValues; 
 const errorText = (err: unknown): string =>
   err instanceof ApiError ? (err.code === 'invalid' ? (detailsText(err.details) ?? err.message) : err.message) : '잠시 후 다시 시도해 주세요';
 
-export function MenuSection() {
+/** @param industries 켜 둔 업종. undefined는 아직 모름(불러오는 중), null은 불러오지 못해 모름(모두 보여 줌) */
+export function MenuSection({ industries }: { industries: string[] | null | undefined }) {
   const [menus, setMenus] = useState<Menu[] | null>(null);
   const [cycles, setCycles] = useState<CategoryCycle[] | null>(null);
   const [cycleValues, setCycleValues] = useState<CycleValues | null>(null);
@@ -85,7 +88,7 @@ export function MenuSection() {
       </section>
     );
   }
-  if (!menus || !cycles || !cycleValues || !savedCycleValues) {
+  if (!menus || !cycles || !cycleValues || !savedCycleValues || industries === undefined) {
     return (
       <section id="st-menu" className="st-card">
         <h2>시술 메뉴 · 기본 주기</h2>
@@ -93,6 +96,11 @@ export function MenuSection() {
       </section>
     );
   }
+
+  const shown = CATEGORIES.filter((c) => !industries || industries.includes(c));
+  const hidden = CATEGORIES.filter((c) => !shown.includes(c));
+  // 편집 중이던 카테고리가 꺼지면 편집을 닫는다 (안 닫으면 다른 버튼이 계속 잠긴다)
+  if (editing && !shown.includes(editing.category)) setEditing(null);
 
   const cycleOf = (c: Category) => cycles.find((x) => x.category === c);
 
@@ -157,7 +165,13 @@ export function MenuSection() {
         <b>종료 신호</b> : &quot;젤 제거만&quot;처럼 그만두는 손님이 받는 메뉴예요. 이 메뉴만 받은 방문은 다음 방문을 예측하지 않아요.
       </div>
 
-      {CATEGORIES.map((cat) => {
+      {hidden.length > 0 ? (
+        <p className="st-meta">
+          꺼 둔 업종: {hidden.map((c) => CATEGORY_LABEL[c]).join(' · ')}. 위 「매장 정보 · 영업시간」의 매장 업종에서 켤 수 있어요. 숨겨도 메뉴와 기본 주기 값은 그대로예요.
+        </p>
+      ) : null}
+
+      {shown.map((cat) => {
         const list = menus.filter((m) => m.category === cat);
         const cycle = cycleOf(cat);
         const newHere = editing !== null && editing.menuId === null && editing.category === cat;
@@ -201,7 +215,7 @@ export function MenuSection() {
       <div>
         <div className="st-lbl">카테고리 기본 주기</div>
         <p className="st-meta">메뉴가 없는 가져온 방문의 예측에 쓰여요. 바꾸면 그 카테고리에 메뉴 없는 방문이 있는 고객의 예측이 다시 계산돼요.</p>
-        {CATEGORIES.map((cat) => (
+        {shown.map((cat) => (
           <div className="st-row" key={cat}>
             <span className="nm" style={{ width: 64, fontWeight: 600 }}>
               {CATEGORY_LABEL[cat]}

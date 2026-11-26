@@ -8,13 +8,15 @@ import {
   toRows,
   toSettingsRequest,
   toShopRequest,
+  toggleIndustry,
   validateSettings,
   validateShop,
   type ShopValues,
 } from './settings.ts';
 
 const rows = toRows(DAYS.map((d, i) => ({ dayOfWeek: d, open: i === 6 ? null : '10:00', close: i === 6 ? null : '19:00' })));
-const shop: ShopValues = { name: ' 테스트샵 ', phone: '02-000-0000', senderNumber: '', unsubscribeNumber: '080-000-0000', hours: rows };
+const ORDER = ['NAIL', 'LASH', 'WAXING', 'SEMI_PERMANENT', 'ETC'];
+const shop: ShopValues = { name: ' 테스트샵 ', phone: '02-000-0000', senderNumber: '', unsubscribeNumber: '080-000-0000', hours: rows, industries: ORDER };
 
 test('영업시간 변환: 7줄로 맞추고 정기 휴무(null)는 off', () => {
   assert.equal(rows.length, 7);
@@ -105,4 +107,20 @@ test('설정값 검증: 비었거나 숫자가 아니면 막는다', () => {
   assert.match(validateSettings({ ...settings, retentionYears: '-1' })!, /보관 기간.*숫자/);
   assert.equal(parseInteger(' 42 '), 42);
   assert.equal(parseInteger('4 2'), null);
+});
+
+test('업종 켜기 · 끄기: 순서는 계약 순서로 맞추고 마지막 하나는 끌 수 없다', () => {
+  assert.deepEqual(toggleIndustry(ORDER, ORDER, 'WAXING'), ['NAIL', 'LASH', 'SEMI_PERMANENT', 'ETC']); // 끄기
+  assert.deepEqual(toggleIndustry(ORDER, ['NAIL', 'ETC'], 'LASH'), ['NAIL', 'LASH', 'ETC']); // 켜기는 제자리에 끼운다
+  assert.deepEqual(toggleIndustry(ORDER, ['ETC'], 'NAIL'), ['NAIL', 'ETC']);
+  assert.deepEqual(toggleIndustry(ORDER, ['ETC'], 'ETC'), ['ETC']); // 마지막 하나는 그대로
+  const before = ['NAIL', 'LASH'];
+  toggleIndustry(ORDER, before, 'LASH');
+  assert.deepEqual(before, ['NAIL', 'LASH']); // 받은 목록은 바꾸지 않는다
+});
+
+test('매장 검증 · 저장 본문: 업종은 1개 이상이고 그대로 보낸다', () => {
+  assert.match(validateShop({ ...shop, industries: [] })!, /업종을 하나 이상/);
+  assert.equal(validateShop({ ...shop, industries: ['ETC'] }), null);
+  assert.deepEqual(toShopRequest({ ...shop, industries: ['NAIL', 'ETC'] }).industries, ['NAIL', 'ETC']);
 });
