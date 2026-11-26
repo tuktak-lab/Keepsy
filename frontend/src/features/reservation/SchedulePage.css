@@ -229,6 +229,7 @@ a.btn{display:inline-flex;align-items:center;justify-content:center;text-decorat
 .box.warn{background:#FDF6F5;border-color:#EBC9C6}
 .d-acts{display:flex;flex-direction:column;gap:8px}
 .act-2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.act-2:has(> :only-child){grid-template-columns:1fr}
 :root .btn-w{width:100%}
 .sub-acts{display:flex;justify-content:space-between;padding:2px 2px 0}
 .lk{border:0;background:transparent;padding:0;font:600 13px 'Noto Sans KR',sans-serif;color:#7A4450;cursor:pointer}
