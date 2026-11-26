@@ -1,7 +1,15 @@
 // 실행: npm test
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ACTION_TEXT, actionPath, canMarkNoShow, confirmText } from './reservationActions.ts';
+import { ACTION_TEXT, actionPath, canClose, canMarkNoShow, closeTooEarly, confirmText } from './reservationActions.ts';
+
+test('시술 마감은 예약일이 오늘 이하일 때만 (F71): 오늘 예약은 시작 전이어도 가능', () => {
+  assert.equal(canClose('2026-11-26', '2026-11-26'), true);
+  assert.equal(canClose('2026-11-25', '2026-11-26'), true);
+  assert.equal(canClose('2026-11-27', '2026-11-26'), false);
+  assert.equal(canClose('2027-01-01', '2026-12-31'), false);
+  assert.equal(closeTooEarly('2026-12-01'), '예약일(12월 1일)부터 마감할 수 있어요');
+});
 
 test('경로: 취소와 노쇼는 예약 ID 아래 동작 이름', () => {
   assert.equal(actionPath(12, 'cancel'), '/api/reservations/12/cancel');

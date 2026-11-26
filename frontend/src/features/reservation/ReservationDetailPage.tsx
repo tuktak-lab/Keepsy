@@ -4,10 +4,10 @@ import { AppLink } from '@/components/common/AppLink';
 import { toast } from '@/components/common/Toast';
 import { useStyleSheet } from '@/hooks/useStyleSheet';
 import { ApiError, api } from '@/lib/api';
-import { CHANNEL_LABEL, DOW_LABEL, dayIndex, endMs, formatMinutes, seoulParts, toneOf, type Channel, type ReservationStatus } from '@/lib/calendar';
+import { CHANNEL_LABEL, DOW_LABEL, dayIndex, endMs, formatMinutes, seoulParts, todayInSeoul, toneOf, type Channel, type ReservationStatus } from '@/lib/calendar';
 import { useNowMs } from '@/lib/clock';
 import { formatWon } from '@/lib/format';
-import { ACTION_TEXT, actionPath, canMarkNoShow, confirmText, NO_SHOW_TOO_EARLY, type StatusAction } from '@/lib/reservationActions';
+import { ACTION_TEXT, actionPath, canClose, canMarkNoShow, closeTooEarly, confirmText, NO_SHOW_TOO_EARLY, type StatusAction } from '@/lib/reservationActions';
 import { CustomerSearch, type CustomerPick } from './CustomerSearch';
 import { ReservationForm } from './ReservationForm';
 import styleText from './SchedulePage.css?inline';
@@ -126,6 +126,8 @@ export default function ReservationDetailPage() {
   const hasCustomer = detail?.customer != null;
   const startMs = detail ? Date.parse(detail.startAt) : 0;
   const canNoShow = nowMs > 0 && canMarkNoShow(startMs, nowMs);
+  // 시계를 읽기 전(nowMs 0)에는 막지 않는다. 서버가 다시 검사한다 (F71)
+  const canCloseNow = !at || nowMs === 0 || canClose(at.date, todayInSeoul(nowMs));
   const total = detail ? detail.services.reduce((sum, s) => sum + s.price, 0) : 0;
   const route = detail ? (CHANNEL_LABEL[detail.channel] ?? detail.channel) : '';
   const backHref = at ? `/reservations?date=${at.date}` : '/reservations';
@@ -268,9 +270,18 @@ export default function ReservationDetailPage() {
                   </div>
                 ) : (
                   <div className="d-acts">
-                    <AppLink href={`/reservations/closing?id=${id}`} className="btn btn-p btn-w">
-                      시술 마감
-                    </AppLink>
+                    {canCloseNow ? (
+                      <AppLink href={`/reservations/closing?id=${id}`} className="btn btn-p btn-w">
+                        시술 마감
+                      </AppLink>
+                    ) : (
+                      <>
+                        <button type="button" className="btn btn-p btn-w" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>
+                          시술 마감
+                        </button>
+                        {at ? <p className="meta">{closeTooEarly(at.date)}</p> : null}
+                      </>
+                    )}
                     <div className="act-2">
                       <button type="button" className="btn btn-w" onClick={() => setEditing(true)} disabled={staff.length === 0}>
                         일정 변경
