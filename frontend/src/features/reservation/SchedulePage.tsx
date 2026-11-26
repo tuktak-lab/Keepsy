@@ -213,6 +213,9 @@ export default function SchedulePage() {
     const route = CHANNEL_LABEL[r.channel] ?? r.channel;
     const treat = r.services.map((s) => s.name).join(' + ');
     const label = r.consultFirst ? `${TONE_LABEL[tone]} · 상담 후 진행` : TONE_LABEL[tone];
+    // 카드 안은 폭이 좁아 보이는 글자는 짧게 (범례 · 요약 · 접근성 이름은 전체 문구)
+    const shortTone = tone === 'unclosed' ? '마감 필요' : TONE_LABEL[tone];
+    const cardLabel = r.consultFirst ? `${shortTone} · 상담 후 진행` : shortTone;
     const who = r.customer ? (r.customer.name ?? '이름 없음') : route; // 고객 없는 예약은 이름 대신 예약 경로 (E3)
     const range = `${formatMinutes(b.start)}–${formatMinutes(b.end)}`;
     // 모든 예약 카드는 예약 상세로 간다. 일정 변경 · 취소 · 노쇼 · 고객 연결은 거기서 한다 (#128)
@@ -235,7 +238,7 @@ export default function SchedulePage() {
         </span>
         <span className="bt num">{range}</span>
         <span className="b2">{treat}</span>
-        <span className="b3">{label}</span>
+        <span className="b3">{cardLabel}</span>
       </>
     );
     return (
