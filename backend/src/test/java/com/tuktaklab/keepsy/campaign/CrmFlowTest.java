@@ -293,6 +293,10 @@ class CrmFlowTest {
     @Test
     void 다른_매장의_고객과_캠페인_성과는_not_found이고_PIN_없이_발송하면_pin_required() throws Exception {
         long customer = register("모의 가", "010-0000-9401");
+        // 광고 대상은 그 카테고리 예측 행이 있는 고객만 남으므로(CONTRACTS 6장) 네일 방문을 하나 만든다
+        long reservation = reserve(customer, DAY0.atTime(10, 0));
+        clock.at(DAY0.atTime(11, 0));
+        close(reservation, 50_000);
         long campaign = createCampaignFor(customer);
         long otherShop = data.shop();
         long otherStaff = data.staff(otherShop, "ACTIVE", true);
