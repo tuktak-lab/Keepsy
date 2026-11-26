@@ -1,4 +1,5 @@
 import { Avatar } from '@/components/common/Avatar';
+import { images } from '@/assets/images';
 import { Photo } from '@/components/common/Photo';
 import logoImg from '@/assets/images/keepsy-logo-thin.png';
 
@@ -6,6 +7,16 @@ import logoImg from '@/assets/images/keepsy-logo-thin.png';
 const logo = logoImg.src;
 import styleText from './DesignSystemPage.css?inline';
 import { useStyleSheet } from '@/hooks/useStyleSheet';
+
+// 디자인 시스템 화면의 예시 사진. 실제 화면의 Avatar는 이니셜만 보이고, 여기서만 데모 사진을 명시적으로 넘긴다
+const DEMO_PHOTO: Record<string, string> = {
+  김민지: images.avatarKimMinji,
+  이윤서: images.avatarLeeYunseo,
+  최유진: images.avatarChoiYujin,
+  정하린: images.avatarJungHarin,
+  한예린: images.avatarHanYerin,
+  오서현: images.avatarOhSeohyun,
+};
 
 export default function DesignSystemPage() {
   useStyleSheet('DesignSystemPage', styleText);
@@ -682,7 +693,7 @@ export default function DesignSystemPage() {
                 <span style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <span style={{ display: 'flex', flex: 'none' }}>
                     <div>
-                      <Avatar who={r.name} size="36" />
+                      <Avatar who={r.name} size="36" photo={DEMO_PHOTO[r.name]} />
                     </div>
                   </span>
                   <span style={{ display: 'flex', flexDirection: 'column' }}>
@@ -867,16 +878,16 @@ export default function DesignSystemPage() {
               <div style={{ display: 'flex', gap: '14px', alignItems: 'flex-end' }}>
                 {' '}
                 <div>
-                  <Avatar who="김민지" size="72" />
+                  <Avatar who="김민지" size="72" photo={DEMO_PHOTO['김민지']} />
                 </div>{' '}
                 <div>
-                  <Avatar who="최유진" size="52" />
+                  <Avatar who="최유진" size="52" photo={DEMO_PHOTO['최유진']} />
                 </div>{' '}
                 <div>
-                  <Avatar who="오서현" size="40" />
+                  <Avatar who="오서현" size="40" photo={DEMO_PHOTO['오서현']} />
                 </div>{' '}
                 <div>
-                  <Avatar who="윤다혜" size="40" />
+                  <Avatar who="윤다혜" size="40" photo={DEMO_PHOTO['윤다혜']} />
                 </div>{' '}
               </div>{' '}
               <span className="meta num">72 상세 · 52 요약 · 36–40 목록 · 사진 없음</span>
