@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AppLink } from '@/components/common/AppLink';
 import { toast } from '@/components/common/Toast';
+import { useIndustries } from '@/hooks/useIndustries';
 import { useStyleSheet } from '@/hooks/useStyleSheet';
 import { ApiError, api } from '@/lib/api';
 import { CHANNEL_LABEL, DOW_LABEL, dayIndex, formatMinutes, seoulParts, type Channel } from '@/lib/calendar';
@@ -17,6 +18,7 @@ import {
   type PaymentMethod,
 } from '@/lib/closing';
 import { formatWon } from '@/lib/format';
+import { pickableMenus } from '@/lib/menus';
 import { detailsText } from '@/lib/reservationForm';
 import { ConsentRequests, PhotoPicker, uploadPhotos } from './ClosingExtras';
 import { CustomerSearch, type CustomerPick } from './CustomerSearch';
@@ -31,7 +33,7 @@ import styleText from './SchedulePage.css?inline';
 // 사진 일부가 실패해도 마감은 이미 저장됐으므로 마감을 다시 보내지 않는다 (추가 결제가 두 번 생기지 않게). 실패한 사진만 다시 올린다.
 
 type StaffRef = { id: number; name: string };
-type Menu = { id: number; name: string; price: number; durationMinutes: number; predictionAttribute: string };
+type Menu = { id: number; category: string; name: string; price: number; durationMinutes: number; predictionAttribute: string };
 type Closing = {
   reservationId: number;
   status: 'CONFIRMED' | 'COMPLETED';
@@ -59,6 +61,7 @@ export default function ClosingPage() {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [staff, setStaff] = useState<StaffRef[]>([]);
   const [menus, setMenus] = useState<Menu[]>([]);
+  const industries = useIndustries(); // 꺼 둔 업종의 메뉴는 시술 추가 선택지에서 뺀다 (이미 담긴 시술은 그대로 보인다)
   const [rows, setRows] = useState<ClosingService[]>([]);
   const [amount, setAmount] = useState('');
   const [amountTouched, setAmountTouched] = useState(false); // 금액을 직접 고치기 전에는 시술 가격 합계를 따른다
@@ -230,7 +233,7 @@ export default function ClosingPage() {
 
   const at = summary ? seoulParts(summary.startAt) : null;
   const backHref = `/reservations/detail?id=${validId ? id : ''}`;
-  const unchosen = menus.filter((m) => !rows.some((r) => r.serviceMenuId === m.id));
+  const unchosen = pickableMenus(menus, industries).filter((m) => !rows.some((r) => r.serviceMenuId === m.id));
   const amountOk = parseAmount(shownAmount);
 
   return (

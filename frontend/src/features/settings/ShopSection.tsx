@@ -4,7 +4,7 @@ import { ApiError, api } from '@/lib/api';
 import type { OpeningHour } from '@/lib/calendar';
 import { detailsText } from '@/lib/reservationForm';
 import { CATEGORIES, CATEGORY_LABEL } from '@/lib/menus';
-import { DAY_LABEL, DEFAULT_CLOSE, DEFAULT_OPEN, toRows, toShopRequest, toggleIndustry, validateShop, type ShopValues } from '@/lib/settings';
+import { DAY_LABEL, DEFAULT_CLOSE, DEFAULT_OPEN, toRows, industryChange, toShopRequest, toggleIndustry, validateShop, type ShopValues } from '@/lib/settings';
 import { PushedReservations, type PushedReservation } from './PushedReservations';
 
 // 매장 정보 · 영업시간 (FR-SET-01). GET · PUT /api/shop (docs CONTRACTS 6장 「매장 설정 (SET)」). 변경은 원장 PIN이 필요하다 (api.ts가 PIN 창을 띄움).
@@ -37,6 +37,7 @@ export function ShopSection({ onIndustries }: { onIndustries?: (list: string[] |
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [pushed, setPushed] = useState<PushedReservation[]>([]);
+  const [confirming, setConfirming] = useState(false); // 업종을 바꾼 저장은 한 번 더 확인한다
 
   useEffect(() => {
     let cancelled = false;
@@ -88,8 +89,11 @@ export function ShopSection({ onIndustries }: { onIndustries?: (list: string[] |
   }
 
   const dirty = JSON.stringify(values) !== JSON.stringify(saved);
+  const change = industryChange(CATEGORIES, saved.industries, values.industries);
+  const industryChanged = change.off.length > 0 || change.on.length > 0;
   const edit = (patch: Partial<ShopValues>) => {
     setError('');
+    setConfirming(false);
     setValues({ ...values, ...patch });
   };
   const editRow = (i: number, patch: Partial<ShopValues['hours'][number]>) => edit({ hours: values.hours.map((h, j) => (j === i ? { ...h, ...patch } : h)) });
@@ -98,6 +102,11 @@ export function ShopSection({ onIndustries }: { onIndustries?: (list: string[] |
     if (!values) return;
     const problem = validateShop(values);
     if (problem) return setError(problem);
+    // 업종이 바뀌었으면 처음 누를 때는 바뀌는 내용을 보여 주고, 「예, 저장」을 눌러야 저장한다
+    if (industryChanged && !confirming) {
+      setConfirming(true);
+      return;
+    }
     setBusy(true);
     setError('');
     try {
@@ -110,6 +119,7 @@ export function ShopSection({ onIndustries }: { onIndustries?: (list: string[] |
       setError(err instanceof ApiError ? (err.code === 'invalid' ? (detailsText(err.details) ?? err.message) : err.message) : '잠시 후 다시 시도해 주세요');
     } finally {
       setBusy(false);
+      setConfirming(false);
     }
   }
 
@@ -165,7 +175,7 @@ export function ShopSection({ onIndustries }: { onIndustries?: (list: string[] |
           })}
         </div>
       </div>
-      <p className="st-meta">켜 둔 업종만 아래 「시술 메뉴 · 기본 주기」에 보여요. 꺼도 기존 메뉴와 고객 기록은 그대로이고, 다시 켜면 돌아와요. 하나는 켜 두어야 해요.</p>
+      <p className="st-meta">켜 둔 업종만 아래 「시술 메뉴 · 기본 주기」, 예약 · 시술 마감의 시술 선택, 새 캠페인의 시술 카테고리에 보여요. 꺼도 기존 메뉴 · 예약 · 고객 기록은 그대로이고, 다시 켜면 돌아와요. 하나는 켜 두어야 해요.</p>
 
       <div>
         <div className="st-lbl">요일별 영업시간 (30분 단위)</div>
@@ -211,11 +221,23 @@ export function ShopSection({ onIndustries }: { onIndustries?: (list: string[] |
           {error}
         </p>
       ) : null}
+      {confirming && industryChanged ? (
+        <div className="st-note" role="alert">
+          <b>매장 업종을 바꿀까요?</b>
+          {change.off.length > 0 ? <> 꺼지는 업종: {change.off.map((c) => CATEGORY_LABEL[c as keyof typeof CATEGORY_LABEL]).join(' · ')}.</> : null}
+          {change.on.length > 0 ? <> 켜지는 업종: {change.on.map((c) => CATEGORY_LABEL[c as keyof typeof CATEGORY_LABEL]).join(' · ')}.</> : null} 꺼 둔 업종은 시술 메뉴 · 기본 주기, 예약 · 시술 마감의 시술 선택, 새 캠페인의 시술 카테고리에서 숨겨져요. 기존 메뉴 · 예약 · 고객 기록은 그대로이고 다시 켜면 돌아와요.
+        </div>
+      ) : null}
       <PushedReservations items={pushed} onDismiss={() => setPushed([])} />
       <div className="st-savebar">
         <span className="st-meta">{dirty ? '저장되지 않은 변경 사항이 있어요' : '변경 사항 없음'}</span>
+        {confirming ? (
+          <button type="button" className="st-btn" disabled={busy} onClick={() => setConfirming(false)}>
+            취소
+          </button>
+        ) : null}
         <button type="button" className="st-btn p" disabled={!dirty || busy} onClick={() => void save()}>
-          {busy ? '저장 중…' : '매장 정보 저장'}
+          {busy ? '저장 중…' : confirming ? '예, 저장' : '매장 정보 저장'}
         </button>
       </div>
     </section>

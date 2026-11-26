@@ -25,6 +25,11 @@ export function toRows(hours: OpeningHour[]): HoursRow[] {
 /** `industries`는 켜 둔 매장 업종(시술 카테고리 5개 중, CONTRACTS 3절 「매장 업종」). 순서는 3절 순서 */
 export type ShopValues = { name: string; phone: string; senderNumber: string; unsubscribeNumber: string; hours: HoursRow[]; industries: string[] };
 
+/** 저장된 업종과 고친 업종의 차이: 새로 꺼지는 것(`off`)과 새로 켜지는 것(`on`), 3절 순서 */
+export function industryChange(order: readonly string[], saved: string[], next: string[]): { off: string[]; on: string[] } {
+  return { off: order.filter((x) => saved.includes(x) && !next.includes(x)), on: order.filter((x) => !saved.includes(x) && next.includes(x)) };
+}
+
 /**
  * 업종 하나를 켜거나 끈 새 목록. 순서는 `order`(3절 순서)로 맞추고, 마지막 하나는 끌 수 없어 그대로 돌려준다 (1개 이상).
  * 끈 업종은 시술 메뉴 · 기본 주기 화면에서 숨기기만 하고 데이터는 그대로 둔다.
