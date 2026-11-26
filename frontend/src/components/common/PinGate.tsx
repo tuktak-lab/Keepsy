@@ -12,6 +12,7 @@ import { useSession } from '@/lib/session';
 const FEATURE: Record<string, string> = {
   performance: 'SALES_ANALYTICS',
   campaigns: 'CAMPAIGN_VIEW',
+  'campaign-new': 'CAMPAIGN_SEND', // 캠페인 작성은 발송 권한 (CONTRACTS 3장)
   settings: 'OWNER_PIN',
 };
 

@@ -516,7 +516,7 @@ export default function CampaignNewPage() {
       </div>
       <main style={{ flex: '999 1 640px', minWidth: 0, display: 'flex', flexDirection: 'column' }}>
         <Topbar crumb="파트너 센터 / 캠페인 관리 / 새 캠페인" />
-        <PinGate id="campaigns" title="새 캠페인 만들기">
+        <PinGate id="campaign-new" title="새 캠페인 만들기">
           <div className="cp-wrap">
             <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-end', gap: 16 }}>
               <div>
