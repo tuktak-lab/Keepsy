@@ -663,10 +663,13 @@ html {
   align-items: center;
   gap: 6px;
 }
-/* 로고 크기는 그대로 두고 획만 굵게: 같은 색 그림자를 좌우 · 위아래로 아주 조금씩 겹쳐 획을 두껍게 보이게 한다 */
+/* 로고 크기는 그대로 두고 획만 굵게: 같은 색 그림자를 좌우 · 위아래로 아주 조금씩 겹쳐 획을 두껍게 보이게 한다.
+   사이드바뿐 아니라 모든 화면의 Keepsy 로고 이미지에 같은 굵기를 쓴다 */
+img[alt='Keepsy'] {
+  filter: drop-shadow(0.45px 0 0 #7a2a3c) drop-shadow(-0.45px 0 0 #7a2a3c) drop-shadow(0 0.3px 0 #7a2a3c);
+}
 .kp-nav-logo img {
   width: 132px;
-  filter: drop-shadow(0.45px 0 0 #7a2a3c) drop-shadow(-0.45px 0 0 #7a2a3c) drop-shadow(0 0.3px 0 #7a2a3c);
   height: auto;
   display: block;
 }
@@ -798,18 +801,20 @@ html {
 }
 
 /* ─────────────────────────────────────────────────────────────
-   상단 헤더: 스크롤해도 고정, 스크롤되면 배경·경계선이 생김
+   상단 헤더: 스크롤해도 고정. 소개 화면 머리글처럼 처음부터 흰 반투명 배경 · 아래 경계선을 두고,
+   스크롤되면 그림자만 더한다
    ───────────────────────────────────────────────────────────── */
 .kp-top {
   position: sticky;
   top: 0;
   z-index: 30;
+  background: rgba(255, 255, 255, 0.6);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border-bottom: 1px solid var(--glass-border);
   transition: background-color var(--t-panel) var(--ease), box-shadow var(--t-panel) var(--ease),
     height var(--t-panel) var(--ease);
 }
 .kp-top.scrolled {
-  background: rgba(255, 255, 255, 0.42);
-  -webkit-backdrop-filter: var(--glass-blur);
-  backdrop-filter: var(--glass-blur);
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.8), 0 10px 30px -14px rgba(150, 90, 100, 0.25);
+  box-shadow: 0 10px 30px -14px rgba(150, 90, 100, 0.25);
 }
