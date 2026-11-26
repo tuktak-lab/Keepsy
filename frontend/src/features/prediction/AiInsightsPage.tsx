@@ -37,7 +37,7 @@ export default function AiInsightsPage() {
   const [tab, setTab] = useState<InsightStatus>('DUE');
   const [counts, setCounts] = useState<Record<InsightStatus, number> | null>(null);
   const [list, setList] = useState<{ tab: InsightStatus; rows: Row[]; total: number; error?: string } | null>(null);
-  const [more, setMore] = useState(false);
+  const [moreTab, setMoreTab] = useState<InsightStatus | null>(null); // 어느 탭이 더 불러오는 중인지 (탭을 바꿔도 다른 탭의 버튼은 막지 않는다)
   const [busyKey, setBusyKey] = useState('');
   const [showRule, setShowRule] = useState(false);
 
@@ -66,13 +66,21 @@ export default function AiInsightsPage() {
   const total = counts ? STATUS_TABS.reduce((a, t) => a + counts[t.status], 0) : null;
 
   async function loadMore() {
-    if (!cur) return;
-    setMore(true);
+    if (!cur || moreTab === tab) return; // 같은 탭에서 이미 불러오는 중이면 다시 부르지 않는다 (같은 페이지가 두 번 붙는 것 방지)
+    const asked = tab;
+    setMoreTab(asked);
     try {
-      const p = await api<Page<Row>>(`/api/insights?status=${tab}&page=${Math.ceil(cur.rows.length / SIZE)}&size=${SIZE}`, { silent: true });
-      setList({ ...cur, rows: [...cur.rows, ...p.items], total: p.totalElements });
+      const p = await api<Page<Row>>(`/api/insights?status=${asked}&page=${Math.ceil(cur.rows.length / SIZE)}&size=${SIZE}`, { silent: true });
+      // 요청한 탭이 아직 화면의 탭일 때만 붙인다. 그 사이 탭을 바꿨으면 이전 탭 데이터로 새 탭 목록을 덮지 않는다
+      setList((l) => {
+        if (!l || l.tab !== asked) return l;
+        const have = new Set(l.rows.map((r) => `${r.customerId}-${r.category}`));
+        return { ...l, rows: [...l.rows, ...p.items.filter((r) => !have.has(`${r.customerId}-${r.category}`))], total: p.totalElements };
+      });
+    } catch (err) {
+      toast(`더 불러오지 못했어요. ${errorText(err)}`, 'warn');
     } finally {
-      setMore(false);
+      setMoreTab((m) => (m === asked ? null : m));
     }
   }
 
@@ -232,8 +240,8 @@ export default function AiInsightsPage() {
                 <p className="meta list-foot">
                   {cur.total}명 중 우선순위 상위 {cur.rows.length}명 표시 · 연락함 · 보류는 중복 연락을 막는 표시이고, 다음 방문이 생기면 자동으로 풀려요.
                   {cur.rows.length < cur.total ? (
-                    <button type="button" className="btn btn-sm" style={{ marginLeft: 8 }} disabled={more} onClick={() => void loadMore()}>
-                      {more ? '불러오는 중…' : '더 보기'}
+                    <button type="button" className="btn btn-sm" style={{ marginLeft: 8 }} disabled={moreTab === tab} onClick={() => void loadMore()}>
+                      {moreTab === tab ? '불러오는 중…' : '더 보기'}
                     </button>
                   ) : null}
                 </p>
