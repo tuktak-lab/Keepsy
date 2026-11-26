@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { toast } from '@/components/common/Toast';
 import { ApiError, api } from '@/lib/api';
 import { CHANNEL_LABEL, hmOf, seoulParts, type Channel, type DateStr } from '@/lib/calendar';
@@ -59,6 +59,7 @@ export function ReservationForm(props: {
   const [hadCustomer, setHadCustomer] = useState(false);
   const [customerName, setCustomerName] = useState('');
   const [noShow, setNoShow] = useState<number | null>(null);
+  const pickedId = useRef<number | null>(null); // 마지막으로 고른 고객. 늦게 도착한 앞 고객의 응답으로 노쇼 횟수를 바꾸지 않으려고 둔다
   const [timesFor, setTimesFor] = useState<{ key: string; list: string[] } | null>(null);
   const [tick, setTick] = useState(0); // 겹침으로 거절되면 가능 시각을 다시 읽는다
   const [error, setError] = useState('');
@@ -144,12 +145,14 @@ export function ReservationForm(props: {
   const pickCustomer = (c: CustomerPick, created: boolean) => {
     set({ customerId: c.id });
     setCustomerName(c.name);
+    pickedId.current = c.id;
     // 고객을 고르면 그 고객의 노쇼 횟수를 함께 보여 준다 (C8). 방금 등록한 고객은 노쇼가 없다
     setNoShow(created ? 0 : null);
     if (!created) {
+      // 응답이 올 때 마지막으로 고른 고객이 그대로일 때만 반영한다 (빠르게 다른 고객으로 바꾼 경우 앞 고객 응답은 버린다)
       api<{ noShowCount: number }>(`/api/customers/${c.id}`, { silent: true })
-        .then((d) => setNoShow(d.noShowCount))
-        .catch(() => setNoShow(null));
+        .then((d) => pickedId.current === c.id && setNoShow(d.noShowCount))
+        .catch(() => pickedId.current === c.id && setNoShow(null));
     }
   };
 
