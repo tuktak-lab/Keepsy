@@ -8,6 +8,7 @@ import {
   toRows,
   toSettingsRequest,
   toShopRequest,
+  industryChange,
   toggleIndustry,
   validateSettings,
   validateShop,
@@ -117,6 +118,13 @@ test('업종 켜기 · 끄기: 순서는 계약 순서로 맞추고 마지막 �
   const before = ['NAIL', 'LASH'];
   toggleIndustry(ORDER, before, 'LASH');
   assert.deepEqual(before, ['NAIL', 'LASH']); // 받은 목록은 바꾸지 않는다
+});
+
+test('업종 변경 내용: 새로 꺼지는 것과 켜지는 것만 계약 순서로', () => {
+  assert.deepEqual(industryChange(ORDER, ORDER, ORDER), { off: [], on: [] });
+  assert.deepEqual(industryChange(ORDER, ORDER, ['NAIL', 'WAXING']), { off: ['LASH', 'SEMI_PERMANENT', 'ETC'], on: [] });
+  assert.deepEqual(industryChange(ORDER, ['NAIL', 'ETC'], ['LASH', 'NAIL']), { off: ['ETC'], on: ['LASH'] });
+  assert.deepEqual(industryChange(ORDER, ['ETC'], ['SEMI_PERMANENT', 'ETC']), { off: [], on: ['SEMI_PERMANENT'] });
 });
 
 test('매장 검증 · 저장 본문: 업종은 1개 이상이고 그대로 보낸다', () => {
