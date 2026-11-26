@@ -8,8 +8,8 @@
 
 ```text
 backend/        Spring Boot 4.2.0 · Java 21 · Gradle (패키지 com.tuktaklab.keepsy)
-frontend/       Next.js 16 정적 빌드 · React 19 · Node 24 (데모 Keepsy-design@6ac161c에서 전환, #119). 화면만 있고 API 연동 전
-compose.yaml    로컬 MySQL 8.4
+frontend/       Next.js 16 정적 빌드 · React 19 · Node 24 (데모 Keepsy-design@6ac161c에서 전환, #119). 백엔드 API와 연동
+compose.yaml    로컬 MySQL 8.4: 개발 3306 · 테스트 3307(profile test) · 데모 3308(profile demo)
 .env.example    환경 변수 이름. 복사해서 .env를 만들고 값을 채웁니다 (.env는 커밋 금지)
 ```
 
@@ -20,7 +20,8 @@ docs 저장소를 이 저장소와 같은 상위 폴더에 `docs`라는 이름�
 1. `.env.example`을 복사해 `.env`를 만들고 값을 채웁니다.
 2. 실행 명령과 순서는 docs 저장소 [`docs/DEVELOPMENT.md` 6장 「실행 명령」](https://github.com/tuktak-lab/docs/blob/main/docs/DEVELOPMENT.md)을 따릅니다. "확인됨"으로 표시된 명령만 검증된 것입니다.
 3. 백엔드 테스트(`./gradlew test` · `build`)는 개발 DB가 아니라 테스트 전용 DB(`127.0.0.1:3307`, 데이터는 메모리)에 붙습니다. 먼저 저장소 루트에서 `docker compose --profile test up -d --wait mysql-test`로 띄웁니다. 테스트 DB가 없거나 DB 이름이 `_test`로 끝나지 않으면 테스트가 바로 실패합니다. 백엔드 · MySQL · 프론트 개발 서버는 이 PC(`127.0.0.1`)에서만 열립니다 (결정 F64).
-4. 시연 · 성능 점검용 시드(C17)는 개발 DB가 아니라 데모 전용 DB(`127.0.0.1:3308`, `keepsy_demo`)에 넣습니다. `docker compose --profile demo up -d --wait mysql-demo` 후 `backend/`에서 `./gradlew seedDemo -Pseed.scale=perf -Pseed.until=<시연일>`(규모 `small` · `demo` · `perf`, 고정 난수 `-Pseed.random=…`, 다시 만들기 `-Pseed.recreate=true`). 백엔드를 데모 DB로 띄우려면 `MYSQL_PORT=3308 MYSQL_DATABASE=keepsy_demo MYSQL_USER=keepsy_demo MYSQL_PASSWORD=keepsy-demo ./gradlew bootRun` (로컬 시연 컨테이너용 임시 값). 데모 매장 로그인은 `demo@example.com` / `keepsy-demo-1234`, 원장 PIN `1111` (모의 데이터).
+4. 시연 · 성능 점검용 시드(C17)는 개발 DB가 아니라 데모 전용 DB(`127.0.0.1:3308`, `keepsy_demo`)에 넣습니다. `docker compose --profile demo up -d --wait mysql-demo` 후 `backend/`에서 `./gradlew seedDemo -Pseed.scale=perf -Pseed.until=<시연일>`(규모 `small` · `demo` · `perf`, 고정 난수 `-Pseed.random=…`, 다시 만들기 `-Pseed.recreate=true`). 백엔드를 데모 DB로 띄우려면 `MYSQL_PORT=3308 MYSQL_DATABASE=keepsy_demo MYSQL_USER=keepsy_demo MYSQL_PASSWORD=keepsy-demo ./gradlew bootRun` (로컬 시연 컨테이너용 임시 값). 데모 매장 로그인은 `demo@example.com` / `keepsy-demo-1234`, 원장 PIN `1111` (모의 데이터). 발표용 데모 DB를 두고 리허설 날짜용 시드를 따로 넣는 방법은 DEVELOPMENT 6장 「리허설용 DB」.
+5. 프론트 검사는 `frontend/`에서 CI와 같이 `npm run lint` · `npm test` · `npm run build`를 돌립니다. `npm run typecheck`는 `build`나 `dev`를 한 번 돌린 뒤에 실행합니다. 로컬 build가 옛 화면 경로를 찾다 실패하면 남은 `frontend/.next/`를 지웁니다 (DEVELOPMENT 6장 「로컬 산출물 문제」).
 
 ## 협업
 
