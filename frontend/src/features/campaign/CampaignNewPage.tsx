@@ -4,8 +4,6 @@ import { AppLink } from '@/components/common/AppLink';
 import { PinGate } from '@/components/common/PinGate';
 import { CountUp } from '@/components/common/CountUp';
 import { toast } from '@/components/common/Toast';
-import { Sidebar } from '@/components/layout/Sidebar';
-import { Topbar } from '@/components/layout/Topbar';
 import { ApiError, api, type Page } from '@/lib/api';
 import { CAMPAIGN_STATUS_LABEL } from '@/lib/campaignResult';
 import {
@@ -510,30 +508,24 @@ function SendStep({ id }: { id: number }) {
 export default function CampaignNewPage() {
   useStyleSheet('CampaignsPage', styleText);
   return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', minHeight: '1100px' }}>
-      <div style={{ flex: '0 0 232px' }}>
-        <Sidebar active="campaigns" />
-      </div>
-      <main style={{ flex: '999 1 640px', minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-        <Topbar crumb="파트너 센터 / 캠페인 관리 / 새 캠페인" />
-        <PinGate id="campaign-new" title="새 캠페인 만들기">
-          <div className="cp-wrap">
-            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-end', gap: 16 }}>
-              <div>
-                <h1 className="cp-h1">새 캠페인 만들기</h1>
-                <p className="cp-sub">시술 카테고리 하나를 정해 대상을 고르고, 미리보기와 검토를 거쳐 발송해요.</p>
-              </div>
-              <AppLink href="/campaigns" className="cp-btn">캠페인 목록</AppLink>
+    <>
+      <PinGate id="campaign-new" title="새 캠페인 만들기">
+        <div className="cp-wrap">
+          <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-end', gap: 16 }}>
+            <div>
+              <h1 className="cp-h1">새 캠페인 만들기</h1>
+              <p className="cp-sub">시술 카테고리 하나를 정해 대상을 고르고, 미리보기와 검토를 거쳐 발송해요.</p>
             </div>
-            <section className="cp-card cp-main" aria-label="캠페인 작성">
-              <div className="cp-main-in">
-                <Body />
-              </div>
-            </section>
-            <p className="cp-foot">마케팅 수신 동의 고객에게만 발송해요. 문구는 템플릿으로 만들고 자동 발송되지 않으며, 검토 체크가 필요해요. MVP는 가상 발송이에요.</p>
+            <AppLink href="/campaigns" className="cp-btn">캠페인 목록</AppLink>
           </div>
-        </PinGate>
-      </main>
-    </div>
+          <section className="cp-card cp-main" aria-label="캠페인 작성">
+            <div className="cp-main-in">
+              <Body />
+            </div>
+          </section>
+          <p className="cp-foot">마케팅 수신 동의 고객에게만 발송해요. 문구는 템플릿으로 만들고 자동 발송되지 않으며, 검토 체크가 필요해요. MVP는 가상 발송이에요.</p>
+        </div>
+      </PinGate>
+    </>
   );
 }

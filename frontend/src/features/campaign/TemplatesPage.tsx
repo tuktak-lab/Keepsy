@@ -1,7 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { AppLink } from '@/components/common/AppLink';
-import { Sidebar } from '@/components/layout/Sidebar';
-import { Topbar } from '@/components/layout/Topbar';
 import { toast } from '@/components/common/Toast';
 import { api, ApiError, type Page } from '@/lib/api';
 import {
@@ -139,176 +137,170 @@ export default function TemplatesPage() {
   const kind = messageKind(form.purpose);
 
   return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', minHeight: '1020px' }}>
-      <div style={{ flex: '0 0 232px' }}>
-        <Sidebar active="campaigns" />
-      </div>
-      <main style={{ flex: '999 1 640px', minWidth: '0', display: 'flex', flexDirection: 'column' }}>
-        <Topbar crumb="Campaign / 템플릿 관리" />
-        <div className={styles.wrap}>
-          <div className={styles.head}>
-            <div>
-              <h1 className={styles.title}>템플릿 관리</h1>
-              <p className={styles.sub}>캠페인 문구의 틀을 만들어 두고, 캠페인을 만들 때 골라 써요.</p>
-            </div>
-            <div className={styles.headActions}>
-              <AppLink href="/campaigns" className={styles.secondary}>
-                캠페인으로
-              </AppLink>
-              <button type="button" className={styles.primary} onClick={startNew}>
-                새 템플릿
-              </button>
-            </div>
+    <>
+      <div className={styles.wrap}>
+        <div className={styles.head}>
+          <div>
+            <h1 className={styles.title}>템플릿 관리</h1>
+            <p className={styles.sub}>캠페인 문구의 틀을 만들어 두고, 캠페인을 만들 때 골라 써요.</p>
           </div>
-
-          {loadError ? (
-            <p className={styles.error} role="alert">
-              {loadError}
-            </p>
-          ) : (
-            <div className={styles.layout}>
-              <section className={styles.list} aria-label="템플릿 목록">
-                {items === null ? (
-                  <p className={styles.empty}>불러오는 중…</p>
-                ) : items.length === 0 ? (
-                  <p className={styles.empty}>아직 템플릿이 없어요.</p>
-                ) : (
-                  items.map((t) => (
-                    <button
-                      key={t.id}
-                      type="button"
-                      className={styles.item}
-                      aria-current={selected === t.id ? 'true' : undefined}
-                      onClick={() => open(t)}
-                    >
-                      <span className={styles.itemHead}>
-                        <b>{t.name}</b>
-                        <span className={styles.kind} data-kind={t.messageKind}>
-                          {KIND_LABEL[t.messageKind]}
-                        </span>
-                      </span>
-                      <span className={styles.purpose}>{PURPOSE_LABEL[t.purpose]}</span>
-                      <span className={styles.preview}>{t.body}</span>
-                    </button>
-                  ))
-                )}
-              </section>
-
-              {selected !== null && (
-                <form className={styles.editor} onSubmit={onSubmit}>
-                  <h2 className={styles.cardTitle}>{selected === 'new' ? '새 템플릿' : '템플릿 수정'}</h2>
-
-                  <label className={styles.field}>
-                    <span className={styles.label}>
-                      이름 <em>필수</em>
-                    </span>
-                    <input
-                      className={styles.input}
-                      value={form.name}
-                      maxLength={100}
-                      required
-                      onChange={(e) => setForm({ ...form, name: e.target.value })}
-                      aria-invalid={Boolean(errors.name)}
-                    />
-                    {errors.name && <span className={styles.fieldError}>{errors.name}</span>}
-                  </label>
-
-                  <div className={styles.field}>
-                    <span className={styles.label}>
-                      용도 <em>필수</em>
-                    </span>
-                    <div className={styles.segment} role="radiogroup" aria-label="용도">
-                      {PURPOSES.map(([value, label]) => (
-                        <button
-                          key={value}
-                          type="button"
-                          role="radio"
-                          aria-checked={form.purpose === value}
-                          onClick={() => setForm({ ...form, purpose: value })}
-                        >
-                          {label}
-                        </button>
-                      ))}
-                    </div>
-                    <span className={styles.hint}>
-                      메시지 종류: <b>{KIND_LABEL[kind]}</b>
-                      {kind === 'AD'
-                        ? ' — 보낼 때 (광고) 표기 같은 광고 문구가 붙고, 마케팅 수신 동의 고객에게만 가요.'
-                        : ' — 동의 재확인 안내라 광고 표기 없이 보내요.'}
-                    </span>
-                    {errors.purpose && <span className={styles.fieldError}>{errors.purpose}</span>}
-                  </div>
-
-                  <div className={styles.field}>
-                    <label className={styles.label} htmlFor="template-body">
-                      본문 <em>필수</em>
-                    </label>
-                    <div className={styles.vars} aria-label="변수 넣기">
-                      {allowedVariables(form.purpose).map((v) => (
-                        <button key={v} type="button" onClick={() => insert(v)}>
-                          {`{${v}}`}
-                        </button>
-                      ))}
-                    </div>
-                    <textarea
-                      id="template-body"
-                      ref={bodyRef}
-                      className={`${styles.input} ${styles.textarea}`}
-                      value={form.body}
-                      required
-                      rows={7}
-                      onChange={(e) => setForm({ ...form, body: e.target.value })}
-                      aria-invalid={Boolean(errors.body) || wrongVars.length > 0 || bytes > MAX_BODY_BYTES}
-                    />
-                    <div className={styles.bodyMeta}>
-                      <span>
-                        {wrongVars.length > 0 &&
-                          `이 용도에서 쓸 수 없는 변수: ${wrongVars.map((v) => `{${v}}`).join(' ')}`}
-                      </span>
-                      <span className={bytes > MAX_BODY_BYTES ? styles.over : undefined}>
-                        {bytes.toLocaleString()} / {MAX_BODY_BYTES.toLocaleString()}바이트
-                      </span>
-                    </div>
-                    {errors.body && <span className={styles.fieldError}>{errors.body}</span>}
-                  </div>
-
-                  {error && (
-                    <p className={styles.error} role="alert">
-                      {error}
-                    </p>
-                  )}
-
-                  <div className={styles.actions}>
-                    {typeof selected === 'number' &&
-                      (confirmDelete ? (
-                        <span className={styles.confirm}>
-                          이 템플릿을 지울까요?
-                          <button type="button" className={styles.danger} onClick={onDelete} disabled={pending}>
-                            지우기
-                          </button>
-                          <button type="button" className={styles.secondary} onClick={() => setConfirmDelete(false)}>
-                            그대로 두기
-                          </button>
-                        </span>
-                      ) : (
-                        <button type="button" className={styles.textButton} onClick={() => setConfirmDelete(true)}>
-                          삭제
-                        </button>
-                      ))}
-                    <button
-                      className={styles.primary}
-                      type="submit"
-                      disabled={pending || wrongVars.length > 0 || bytes > MAX_BODY_BYTES}
-                    >
-                      {pending ? '저장 중…' : selected === 'new' ? '만들기' : '저장'}
-                    </button>
-                  </div>
-                </form>
-              )}
-            </div>
-          )}
+          <div className={styles.headActions}>
+            <AppLink href="/campaigns" className={styles.secondary}>
+              캠페인으로
+            </AppLink>
+            <button type="button" className={styles.primary} onClick={startNew}>
+              새 템플릿
+            </button>
+          </div>
         </div>
-      </main>
-    </div>
+
+        {loadError ? (
+          <p className={styles.error} role="alert">
+            {loadError}
+          </p>
+        ) : (
+          <div className={styles.layout}>
+            <section className={styles.list} aria-label="템플릿 목록">
+              {items === null ? (
+                <p className={styles.empty}>불러오는 중…</p>
+              ) : items.length === 0 ? (
+                <p className={styles.empty}>아직 템플릿이 없어요.</p>
+              ) : (
+                items.map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    className={styles.item}
+                    aria-current={selected === t.id ? 'true' : undefined}
+                    onClick={() => open(t)}
+                  >
+                    <span className={styles.itemHead}>
+                      <b>{t.name}</b>
+                      <span className={styles.kind} data-kind={t.messageKind}>
+                        {KIND_LABEL[t.messageKind]}
+                      </span>
+                    </span>
+                    <span className={styles.purpose}>{PURPOSE_LABEL[t.purpose]}</span>
+                    <span className={styles.preview}>{t.body}</span>
+                  </button>
+                ))
+              )}
+            </section>
+
+            {selected !== null && (
+              <form className={styles.editor} onSubmit={onSubmit}>
+                <h2 className={styles.cardTitle}>{selected === 'new' ? '새 템플릿' : '템플릿 수정'}</h2>
+
+                <label className={styles.field}>
+                  <span className={styles.label}>
+                    이름 <em>필수</em>
+                  </span>
+                  <input
+                    className={styles.input}
+                    value={form.name}
+                    maxLength={100}
+                    required
+                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                    aria-invalid={Boolean(errors.name)}
+                  />
+                  {errors.name && <span className={styles.fieldError}>{errors.name}</span>}
+                </label>
+
+                <div className={styles.field}>
+                  <span className={styles.label}>
+                    용도 <em>필수</em>
+                  </span>
+                  <div className={styles.segment} role="radiogroup" aria-label="용도">
+                    {PURPOSES.map(([value, label]) => (
+                      <button
+                        key={value}
+                        type="button"
+                        role="radio"
+                        aria-checked={form.purpose === value}
+                        onClick={() => setForm({ ...form, purpose: value })}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  <span className={styles.hint}>
+                    메시지 종류: <b>{KIND_LABEL[kind]}</b>
+                    {kind === 'AD'
+                      ? ' — 보낼 때 (광고) 표기 같은 광고 문구가 붙고, 마케팅 수신 동의 고객에게만 가요.'
+                      : ' — 동의 재확인 안내라 광고 표기 없이 보내요.'}
+                  </span>
+                  {errors.purpose && <span className={styles.fieldError}>{errors.purpose}</span>}
+                </div>
+
+                <div className={styles.field}>
+                  <label className={styles.label} htmlFor="template-body">
+                    본문 <em>필수</em>
+                  </label>
+                  <div className={styles.vars} aria-label="변수 넣기">
+                    {allowedVariables(form.purpose).map((v) => (
+                      <button key={v} type="button" onClick={() => insert(v)}>
+                        {`{${v}}`}
+                      </button>
+                    ))}
+                  </div>
+                  <textarea
+                    id="template-body"
+                    ref={bodyRef}
+                    className={`${styles.input} ${styles.textarea}`}
+                    value={form.body}
+                    required
+                    rows={7}
+                    onChange={(e) => setForm({ ...form, body: e.target.value })}
+                    aria-invalid={Boolean(errors.body) || wrongVars.length > 0 || bytes > MAX_BODY_BYTES}
+                  />
+                  <div className={styles.bodyMeta}>
+                    <span>
+                      {wrongVars.length > 0 &&
+                        `이 용도에서 쓸 수 없는 변수: ${wrongVars.map((v) => `{${v}}`).join(' ')}`}
+                    </span>
+                    <span className={bytes > MAX_BODY_BYTES ? styles.over : undefined}>
+                      {bytes.toLocaleString()} / {MAX_BODY_BYTES.toLocaleString()}바이트
+                    </span>
+                  </div>
+                  {errors.body && <span className={styles.fieldError}>{errors.body}</span>}
+                </div>
+
+                {error && (
+                  <p className={styles.error} role="alert">
+                    {error}
+                  </p>
+                )}
+
+                <div className={styles.actions}>
+                  {typeof selected === 'number' &&
+                    (confirmDelete ? (
+                      <span className={styles.confirm}>
+                        이 템플릿을 지울까요?
+                        <button type="button" className={styles.danger} onClick={onDelete} disabled={pending}>
+                          지우기
+                        </button>
+                        <button type="button" className={styles.secondary} onClick={() => setConfirmDelete(false)}>
+                          그대로 두기
+                        </button>
+                      </span>
+                    ) : (
+                      <button type="button" className={styles.textButton} onClick={() => setConfirmDelete(true)}>
+                        삭제
+                      </button>
+                    ))}
+                  <button
+                    className={styles.primary}
+                    type="submit"
+                    disabled={pending || wrongVars.length > 0 || bytes > MAX_BODY_BYTES}
+                  >
+                    {pending ? '저장 중…' : selected === 'new' ? '만들기' : '저장'}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        )}
+      </div>
+    </>
   );
 }

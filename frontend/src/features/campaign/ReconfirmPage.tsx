@@ -3,8 +3,6 @@ import { useRouter } from 'next/navigation';
 import { AppLink } from '@/components/common/AppLink';
 import { PinGate } from '@/components/common/PinGate';
 import { toast } from '@/components/common/Toast';
-import { Sidebar } from '@/components/layout/Sidebar';
-import { Topbar } from '@/components/layout/Topbar';
 import { ApiError, api, type Page } from '@/lib/api';
 import { dueText } from '@/lib/consentReconfirm';
 import { dotDate, seoulToday } from '@/lib/customerDetail';
@@ -242,33 +240,27 @@ function Body() {
 export default function ReconfirmPage() {
   useStyleSheet('CampaignsPage', styleText);
   return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', minHeight: '1020px' }}>
-      <div style={{ flex: '0 0 232px' }}>
-        <Sidebar active="campaigns" />
-      </div>
-      <main style={{ flex: '999 1 640px', minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-        <Topbar crumb="파트너 센터 / 캠페인 관리 / 동의 재확인" />
-        <PinGate id="campaigns" title="동의 재확인 대상">
-          <div className="cp-wrap">
-            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-end', gap: 16 }}>
-              <div>
-                <h1 className="cp-h1">동의 재확인 대상</h1>
-                <p className="cp-sub">
-                  광고 수신 동의를 받은 고객에게는 2년마다 동의 사실과 철회 방법을 다시 알려야 해요 (정보통신망법 시행령 제62조의3).
-                  <br />
-                  기한이 다가온 고객을 골라 재확인 안내를 보내요.
-                </p>
-              </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                <AppLink href="/campaigns/templates" className="cp-btn">템플릿</AppLink>
-                <AppLink href="/campaigns" className="cp-btn">캠페인 목록</AppLink>
-              </div>
+    <>
+      <PinGate id="campaigns" title="동의 재확인 대상">
+        <div className="cp-wrap">
+          <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-end', gap: 16 }}>
+            <div>
+              <h1 className="cp-h1">동의 재확인 대상</h1>
+              <p className="cp-sub">
+                광고 수신 동의를 받은 고객에게는 2년마다 동의 사실과 철회 방법을 다시 알려야 해요 (정보통신망법 시행령 제62조의3).
+                <br />
+                기한이 다가온 고객을 골라 재확인 안내를 보내요.
+              </p>
             </div>
-            <Body />
-            <p className="cp-foot">MVP는 가상 발송이라 실제 문자는 나가지 않아요.</p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              <AppLink href="/campaigns/templates" className="cp-btn">템플릿</AppLink>
+              <AppLink href="/campaigns" className="cp-btn">캠페인 목록</AppLink>
+            </div>
           </div>
-        </PinGate>
-      </main>
-    </div>
+          <Body />
+          <p className="cp-foot">MVP는 가상 발송이라 실제 문자는 나가지 않아요.</p>
+        </div>
+      </PinGate>
+    </>
   );
 }

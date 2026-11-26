@@ -2,8 +2,7 @@ import { useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { AppLink } from '@/components/common/AppLink';
 import { Avatar } from '@/components/common/Avatar';
-import { Sidebar } from '@/components/layout/Sidebar';
-import { Topbar } from '@/components/layout/Topbar';
+import { useShellTitle } from '@/components/layout/ShellTitle';
 import { api } from '@/lib/api';
 import type { CustomerConsents, CustomerDetail } from './types';
 import { AreaError, errorText } from './detail/common';
@@ -48,6 +47,7 @@ export default function CustomerDetailPage() {
     ]),
   );
   const [detail, consents] = load.data ?? [null, null];
+  useShellTitle(detail?.name); // 상단 경로 표시에 고객 이름
   const error = valid ? (load.error ? errorText(load.error) : '') : '고객을 고르지 않았어요. 고객 목록에서 열어 주세요.';
   const reload = load.reload;
 
@@ -64,109 +64,103 @@ export default function CustomerDetailPage() {
   const photoAgreed = Boolean(consents?.current.some((c) => c.item === 'PHOTO' && c.agreed));
 
   return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', minHeight: '1280px' }}>
-      <div style={{ flex: '0 0 232px' }}>
-        <Sidebar active="customers" />
-      </div>
-      <main style={{ flex: '999 1 640px', minWidth: '0', display: 'flex', flexDirection: 'column' }}>
-        <Topbar crumb={`Customer Intelligence / 고객 목록 / ${detail?.name ?? '고객 상세'}`} />
-        <div className="wrap">
-          <div className="row between">
-            <AppLink href="/customers" className="meta">
-              ‹ 고객 목록
-            </AppLink>
-            {detail && <DeleteCustomer customerId={customerId} name={detail.name} />}
-          </div>
-
-          {error && <AreaError text={error} />}
-
-          {detail && consents && (
-            <>
-              <section className="card row" style={{ gap: '18px' }}>
-                <Avatar who={detail.name} size="72" />
-                <div className="col" style={{ gap: '4px' }}>
-                  <div className="row" style={{ gap: '10px' }}>
-                    <h1 className="h1" style={{ fontSize: '24px' }}>
-                      {detail.name}
-                    </h1>
-                    {detail.noShowCount > 0 && (
-                      <span className="chip" style={{ background: '#F6E3DF', color: '#8A2F3F' }}>
-                        <i></i>노쇼 {detail.noShowCount}회
-                      </span>
-                    )}
-                    {detail.bookingRestricted && (
-                      <span className="chip" style={{ background: '#F6E3DF', color: '#8A2F3F' }} title={detail.bookingRestrictionReason ?? ''}>
-                        <i></i>예약 제한{detail.bookingRestrictionReason ? ` · ${detail.bookingRestrictionReason}` : ''}
-                      </span>
-                    )}
-                  </div>
-                  <span className="sub num row" style={{ gap: 8 }}>
-                    {phone ?? detail.phone}
-                    {!phone && (
-                      <button type="button" className="lk" onClick={showPhone}>
-                        전체 번호 보기
-                      </button>
-                    )}
-                  </span>
-                  {phoneError && <span className="meta" style={{ color: '#8A2F3F' }}>{phoneError}</span>}
-                </div>
-                <button type="button" className="btn" style={{ marginLeft: 'auto', gap: 8 }} onClick={() => setConsentOpen(true)}>
-                  동의 항목
-                  <span className="chip" style={{ background: '#F9EBE8', color: '#7A4450' }}>
-                    {consents.current.filter((c) => c.agreed).length}/{consents.current.length} 동의
-                  </span>
-                </button>
-              </section>
-
-              {consentOpen && (
-                <div
-                  role="dialog"
-                  aria-modal="true"
-                  aria-labelledby="consent-title"
-                  onKeyDown={(e) => e.key === 'Escape' && setConsentOpen(false)}
-                  onClick={(e) => e.target === e.currentTarget && setConsentOpen(false)}
-                  style={{ position: 'fixed', inset: 0, zIndex: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, background: 'rgba(34,29,27,.32)' }}
-                >
-                  <div style={{ width: 'min(820px, 100%)', maxHeight: '86vh', overflowY: 'auto', borderRadius: 20, background: '#FFFDFB' }}>
-                    <ConsentSection customerId={customerId} consents={consents} onChanged={reload} onClose={() => setConsentOpen(false)} />
-                  </div>
-                </div>
-              )}
-
-              {(detail.serviceCaution || detail.healthCaution) && (
-                <div className="note col" style={{ gap: 4 }} role="note" aria-label="주의사항">
-                  {detail.serviceCaution && (
-                    <span>
-                      <b>시술 주의</b> {detail.serviceCaution}
-                    </span>
-                  )}
-                  {detail.healthCaution && (
-                    <span>
-                      <b>건강 주의</b> {detail.healthCaution}
-                    </span>
-                  )}
-                </div>
-              )}
-
-              <div className="tabs" role="tablist" aria-label="고객 상세">
-                {TABS.map(([id, label]) => (
-                  <button type="button" role="tab" aria-selected={tab === id} onClick={() => setTab(id)} key={id}>
-                    {label}
-                  </button>
-                ))}
-              </div>
-
-              {/* 고객이 바뀌면 탭을 새로 만든다: 쓰던 메모 · 펼친 페이지가 다른 고객에게 남지 않게 (#344) */}
-              <div className="kp-fade" key={`${tab}-${customerId}`} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
-                {tab === 'summary' && <SummaryTab customerId={customerId} detail={detail} consents={consents} reload={reload} />}
-                {tab === 'history' && <HistoryTab customerId={customerId} photoAgreed={photoAgreed} />}
-                {tab === 'memo' && <MemoTab customerId={customerId} />}
-                {tab === 'messages' && <MessagesTab customerId={customerId} />}
-              </div>
-            </>
-          )}
+    <>
+      <div className="wrap">
+        <div className="row between">
+          <AppLink href="/customers" className="meta">
+            ‹ 고객 목록
+          </AppLink>
+          {detail && <DeleteCustomer customerId={customerId} name={detail.name} />}
         </div>
-      </main>
-    </div>
+
+        {error && <AreaError text={error} />}
+
+        {detail && consents && (
+          <>
+            <section className="card row" style={{ gap: '18px' }}>
+              <Avatar who={detail.name} size="72" />
+              <div className="col" style={{ gap: '4px' }}>
+                <div className="row" style={{ gap: '10px' }}>
+                  <h1 className="h1" style={{ fontSize: '24px' }}>
+                    {detail.name}
+                  </h1>
+                  {detail.noShowCount > 0 && (
+                    <span className="chip" style={{ background: '#F6E3DF', color: '#8A2F3F' }}>
+                      <i></i>노쇼 {detail.noShowCount}회
+                    </span>
+                  )}
+                  {detail.bookingRestricted && (
+                    <span className="chip" style={{ background: '#F6E3DF', color: '#8A2F3F' }} title={detail.bookingRestrictionReason ?? ''}>
+                      <i></i>예약 제한{detail.bookingRestrictionReason ? ` · ${detail.bookingRestrictionReason}` : ''}
+                    </span>
+                  )}
+                </div>
+                <span className="sub num row" style={{ gap: 8 }}>
+                  {phone ?? detail.phone}
+                  {!phone && (
+                    <button type="button" className="lk" onClick={showPhone}>
+                      전체 번호 보기
+                    </button>
+                  )}
+                </span>
+                {phoneError && <span className="meta" style={{ color: '#8A2F3F' }}>{phoneError}</span>}
+              </div>
+              <button type="button" className="btn" style={{ marginLeft: 'auto', gap: 8 }} onClick={() => setConsentOpen(true)}>
+                동의 항목
+                <span className="chip" style={{ background: '#F9EBE8', color: '#7A4450' }}>
+                  {consents.current.filter((c) => c.agreed).length}/{consents.current.length} 동의
+                </span>
+              </button>
+            </section>
+
+            {consentOpen && (
+              <div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="consent-title"
+                onKeyDown={(e) => e.key === 'Escape' && setConsentOpen(false)}
+                onClick={(e) => e.target === e.currentTarget && setConsentOpen(false)}
+                style={{ position: 'fixed', inset: 0, zIndex: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, background: 'rgba(34,29,27,.32)' }}
+              >
+                <div style={{ width: 'min(820px, 100%)', maxHeight: '86vh', overflowY: 'auto', borderRadius: 20, background: '#FFFDFB' }}>
+                  <ConsentSection customerId={customerId} consents={consents} onChanged={reload} onClose={() => setConsentOpen(false)} />
+                </div>
+              </div>
+            )}
+
+            {(detail.serviceCaution || detail.healthCaution) && (
+              <div className="note col" style={{ gap: 4 }} role="note" aria-label="주의사항">
+                {detail.serviceCaution && (
+                  <span>
+                    <b>시술 주의</b> {detail.serviceCaution}
+                  </span>
+                )}
+                {detail.healthCaution && (
+                  <span>
+                    <b>건강 주의</b> {detail.healthCaution}
+                  </span>
+                )}
+              </div>
+            )}
+
+            <div className="tabs" role="tablist" aria-label="고객 상세">
+              {TABS.map(([id, label]) => (
+                <button type="button" role="tab" aria-selected={tab === id} onClick={() => setTab(id)} key={id}>
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {/* 고객이 바뀌면 탭을 새로 만든다: 쓰던 메모 · 펼친 페이지가 다른 고객에게 남지 않게 (#344) */}
+            <div className="kp-fade" key={`${tab}-${customerId}`} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+              {tab === 'summary' && <SummaryTab customerId={customerId} detail={detail} consents={consents} reload={reload} />}
+              {tab === 'history' && <HistoryTab customerId={customerId} photoAgreed={photoAgreed} />}
+              {tab === 'memo' && <MemoTab customerId={customerId} />}
+              {tab === 'messages' && <MessagesTab customerId={customerId} />}
+            </div>
+          </>
+        )}
+      </div>
+    </>
   );
 }

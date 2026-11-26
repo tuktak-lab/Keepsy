@@ -2,8 +2,6 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { AppLink } from '@/components/common/AppLink';
 import { PinGate } from '@/components/common/PinGate';
 import { CountUp } from '@/components/common/CountUp';
-import { Sidebar } from '@/components/layout/Sidebar';
-import { Topbar } from '@/components/layout/Topbar';
 import { ApiError, api } from '@/lib/api';
 import { PERIODS, periodQuery, type Funnel, type Period } from '@/lib/analytics';
 import { rateText } from '@/lib/campaignResult';
@@ -321,16 +319,10 @@ function Body() {
 export default function PerformancePage() {
   useStyleSheet('PerformancePage', styleText);
   return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', minHeight: '1300px' }}>
-      <div style={{ flex: '0 0 232px' }}>
-        <Sidebar active="performance" />
-      </div>
-      <main style={{ flex: '999 1 640px', minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-        <Topbar crumb="파트너 센터 / 성과 분석" />
-        <PinGate id="performance" title="성과 분석">
-          <Body />
-        </PinGate>
-      </main>
-    </div>
+    <>
+      <PinGate id="performance" title="성과 분석">
+        <Body />
+      </PinGate>
+    </>
   );
 }

@@ -628,6 +628,13 @@ html {
   border-radius: 14px;
 }
 
+/* 매장 화면 공통 셸 (app/(shop)/layout.tsx): 사이드바 + 본문. 화면마다 따로 쓰던 최소 높이(1000~1300px)를 하나로 맞췄다 */
+.kp-shell {
+  display: flex;
+  flex-wrap: wrap;
+  min-height: 1000px;
+}
+
 .kp-nav {
   position: sticky;
   top: 0;

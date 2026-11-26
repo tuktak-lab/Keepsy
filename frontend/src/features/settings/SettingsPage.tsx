@@ -1,6 +1,4 @@
 import { PinGate } from '@/components/common/PinGate';
-import { Sidebar } from '@/components/layout/Sidebar';
-import { Topbar } from '@/components/layout/Topbar';
 import { useStyleSheet } from '@/hooks/useStyleSheet';
 import { FeatureLockSection, OwnerPinSection } from './AccessSection';
 import { DayOffSection } from './DayOffSection';
@@ -20,42 +18,36 @@ export default function SettingsPage() {
   useStyleSheet('SettingsPage', styleText);
 
   return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', minHeight: '1200px' }}>
-      <div style={{ flex: '0 0 232px' }}>
-        <Sidebar active="settings" />
-      </div>
-      <main style={{ flex: '999 1 640px', minWidth: '0', display: 'flex', flexDirection: 'column' }}>
-        <Topbar crumb="파트너 센터 / 매장 설정" />
-        <PinGate id="settings" title="매장 설정">
-          <div className="st-wrap">
-            <div>
-              <h1 className="st-h1">매장 설정</h1>
-              <p className="st-sub">매장 정보와 영업시간, 예측 기준, 발송 규칙, 개인정보 보관 기간을 관리해요.</p>
-            </div>
-            <nav className="st-nav" aria-label="설정 구역">
-              <a href="#st-shop">매장 정보 · 영업시간</a>
-              <a href="#st-menu">시술 메뉴 · 기본 주기</a>
-              <a href="#st-dayoff">휴무일</a>
-              <a href="#st-status">예측 상태 기준</a>
-              <a href="#st-send">발송 설정</a>
-              <a href="#st-privacy">개인정보 보관</a>
-              <a href="#st-staff">스탭 · PIN</a>
-              <a href="#st-lock">기능별 공용 / PIN</a>
-            </nav>
-            <div className="st-note">설정 화면은 원장 PIN으로만 열려요. 이 화면의 모든 변경은 항상 원장 PIN이 필요해요.</div>
-
-            <ShopSection />
-            <MenuSection />
-            <DayOffSection />
-            <SettingsSections />
-            <StaffSection />
-            <FeatureLockSection />
+    <>
+      <PinGate id="settings" title="매장 설정">
+        <div className="st-wrap">
+          <div>
+            <h1 className="st-h1">매장 설정</h1>
+            <p className="st-sub">매장 정보와 영업시간, 예측 기준, 발송 규칙, 개인정보 보관 기간을 관리해요.</p>
           </div>
-        </PinGate>
-        <div className="st-wrap" style={{ paddingTop: 0 }}>
-          <OwnerPinSection />
+          <nav className="st-nav" aria-label="설정 구역">
+            <a href="#st-shop">매장 정보 · 영업시간</a>
+            <a href="#st-menu">시술 메뉴 · 기본 주기</a>
+            <a href="#st-dayoff">휴무일</a>
+            <a href="#st-status">예측 상태 기준</a>
+            <a href="#st-send">발송 설정</a>
+            <a href="#st-privacy">개인정보 보관</a>
+            <a href="#st-staff">스탭 · PIN</a>
+            <a href="#st-lock">기능별 공용 / PIN</a>
+          </nav>
+          <div className="st-note">설정 화면은 원장 PIN으로만 열려요. 이 화면의 모든 변경은 항상 원장 PIN이 필요해요.</div>
+
+          <ShopSection />
+          <MenuSection />
+          <DayOffSection />
+          <SettingsSections />
+          <StaffSection />
+          <FeatureLockSection />
         </div>
-      </main>
-    </div>
+      </PinGate>
+      <div className="st-wrap" style={{ paddingTop: 0 }}>
+        <OwnerPinSection />
+      </div>
+    </>
   );
 }

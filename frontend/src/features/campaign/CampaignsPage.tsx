@@ -2,8 +2,6 @@ import { useEffect, useState } from 'react';
 import { AppLink } from '@/components/common/AppLink';
 import { PinGate } from '@/components/common/PinGate';
 import { CountUp } from '@/components/common/CountUp';
-import { Sidebar } from '@/components/layout/Sidebar';
-import { Topbar } from '@/components/layout/Topbar';
 import { toast } from '@/components/common/Toast';
 import { ApiError, api, type Page } from '@/lib/api';
 import { CAMPAIGN_STATUS_LABEL, SEND_STATUS_LABEL } from '@/lib/campaignResult';
@@ -311,16 +309,10 @@ function Summary({ campaign: c, onChanged }: { campaign: Detail; onChanged: () =
 export default function CampaignsPage() {
   useStyleSheet('CampaignsPage', styleText);
   return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', minHeight: '1100px' }}>
-      <div style={{ flex: '0 0 232px' }}>
-        <Sidebar active="campaigns" />
-      </div>
-      <main style={{ flex: '999 1 640px', minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-        <Topbar crumb="파트너 센터 / 캠페인 관리" />
-        <PinGate id="campaigns" title="캠페인 관리">
-          <Body />
-        </PinGate>
-      </main>
-    </div>
+    <>
+      <PinGate id="campaigns" title="캠페인 관리">
+        <Body />
+      </PinGate>
+    </>
   );
 }
