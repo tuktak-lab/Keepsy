@@ -2,20 +2,41 @@
 // 날짜는 `YYYY-MM-DD`(Asia/Seoul) 문자열로만 다루고, 시각은 `startAt`(ISO 8601, 오프셋 포함)에서 서울 기준으로 읽는다 (CONTRACTS 3장, NFR-12).
 
 export type DateStr = string;
+import { t } from './i18n.ts';
+import type { MessageKey } from './messages/ko.ts';
 
 /** CONTRACTS 3장 「예약 상태」 · 「예약 경로」 */
 export type ReservationStatus = 'CONFIRMED' | 'COMPLETED' | 'CANCELED' | 'NO_SHOW';
 export type Channel = 'NAVER' | 'KAKAO' | 'PHONE' | 'STORE' | 'ETC';
 
+// 문구는 읽을 때 정한다 (언어가 모듈을 불러온 뒤에 정해지므로 값 대신 getter를 둔다)
 export const CHANNEL_LABEL: Record<Channel, string> = {
-  NAVER: '네이버 예약',
-  KAKAO: '카카오톡',
-  PHONE: '전화',
-  STORE: '매장 직접',
-  ETC: '기타',
+  get NAVER() {
+    return t('reservation.channel.naver');
+  },
+  get KAKAO() {
+    return t('reservation.channel.kakao');
+  },
+  get PHONE() {
+    return t('reservation.channel.phone');
+  },
+  get STORE() {
+    return t('reservation.channel.store');
+  },
+  get ETC() {
+    return t('reservation.channel.etc');
+  },
 };
 
-export const DOW_LABEL = ['월', '화', '수', '목', '금', '토', '일'];
+const DOW_KEYS: MessageKey[] = ['reservation.dow.mon', 'reservation.dow.tue', 'reservation.dow.wed', 'reservation.dow.thu', 'reservation.dow.fri', 'reservation.dow.sat', 'reservation.dow.sun'];
+/** 월~일 요일 이름 (0 = 월) */
+export const dowLabel = (i: number): string => t(DOW_KEYS[i]);
+export const dowLabels = (): string[] => DOW_KEYS.map((k) => t(k));
+
+/** '11월 27일' */
+export const monthDayText = (d: DateStr): string => t('reservation.date.monthDay', { month: Number(d.slice(5, 7)), day: Number(d.slice(8, 10)) });
+/** '2026년 11월 27일' */
+export const fullDateText = (d: DateStr): string => t('reservation.date.full', { year: d.slice(0, 4), month: Number(d.slice(5, 7)), day: Number(d.slice(8, 10)) });
 export const DAY_OF_WEEK = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
 
 const seoul = new Intl.DateTimeFormat('en-CA', {

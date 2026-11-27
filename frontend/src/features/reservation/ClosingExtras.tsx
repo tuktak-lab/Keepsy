@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { toast } from '@/components/common/Toast';
 import { ApiError, api } from '@/lib/api';
 import { CONSENT_REQUEST_LABEL, PHOTO_MAX, validatePhotos } from '@/lib/closing';
+import { t } from '@/lib/i18n';
 import { CONSENT_METHODS, type ConsentMethod } from '@/lib/newCustomer';
 
 // 시술 마감 카드의 동의 받기 · 사진 (FR-PAY-04, FR-CUS-08 · 09). 고객이 있는 마감에서만 쓴다 (고객 없음 마감은 없음, E3).
@@ -21,10 +22,10 @@ export function ConsentRequests(props: { customerId: number; items: string[]; on
     setError('');
     try {
       await api(`/api/customers/${props.customerId}/consents`, { method: 'POST', body: { item, agreed: true, method }, silent: true });
-      toast(`${CONSENT_REQUEST_LABEL[item]?.label ?? item} 동의를 받았어요`);
+      toast(t('reservation.closing.consentGiven', { item: CONSENT_REQUEST_LABEL[item]?.label ?? item }));
       props.onAgreed(item);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : '잠시 후 다시 시도해 주세요');
+      setError(err instanceof ApiError ? err.message : t('common.pin.tryLater'));
     } finally {
       setBusy(null);
     }
@@ -32,8 +33,8 @@ export function ConsentRequests(props: { customerId: number; items: string[]; on
 
   return (
     <div>
-      <span className="lbl">동의 받기 (아직 동의하지 않은 항목)</span>
-      <div className="pills" role="group" aria-label="동의 받은 방법" style={{ marginBottom: 8 }}>
+      <span className="lbl">{t('reservation.closing.consentCollect')}</span>
+      <div className="pills" role="group" aria-label={t('reservation.newCustomer.method')} style={{ marginBottom: 8 }}>
         {CONSENT_METHODS.map(([value, label]) => (
           <button key={value} type="button" className="pill" aria-pressed={method === value} onClick={() => setMethod(value)}>
             {label}
@@ -50,14 +51,14 @@ export function ConsentRequests(props: { customerId: number; items: string[]; on
                 <span className="meta">{info.desc}</span>
               </span>
               <button type="button" className="btn btn-sm" disabled={busy !== null} onClick={() => void agree(item)}>
-                {busy === item ? '저장 중…' : '동의 받음'}
+                {busy === item ? t('common.saving') : t('reservation.closing.consentReceived')}
               </button>
             </li>
           );
         })}
       </ul>
       <p className="meta" style={{ marginTop: 6 }}>
-        손님에게 내용을 안내하고 동의를 받은 항목만 누르세요. 누르면 바로 저장돼요.
+        {t('reservation.closing.consentHelp')}
       </p>
       {error ? (
         <span className="err" role="alert">
@@ -87,19 +88,19 @@ export function PhotoPicker(props: { files: File[]; onChange: (files: File[]) =>
   return (
     <div>
       <span className="lbl">
-        시술 사진 (선택, JPG · PNG · {PHOTO_MAX}장까지)
+        {t('reservation.closing.photoLabel', { max: PHOTO_MAX })}
       </span>
       {props.files.length > 0 ? (
         <ul style={{ display: 'flex', flexWrap: 'wrap', gap: 8, listStyle: 'none', margin: '0 0 8px', padding: 0 }}>
           {props.files.map((f, i) => (
             <li key={`${f.name}-${i}`} style={{ position: 'relative' }}>
               {/* eslint-disable-next-line @next/next/no-img-element -- 로컬 미리보기(blob URL)라 next/image를 쓰지 않는다 */}
-              <img src={previews[i]} alt={`고른 사진 ${i + 1}`} style={{ width: 88, height: 88, objectFit: 'cover', borderRadius: 12, display: 'block', background: 'rgba(255,255,255,.55)', fontSize: 11, overflow: 'hidden' }}
+              <img src={previews[i]} alt={t('reservation.closing.pickedPhoto', { n: i + 1 })} style={{ width: 88, height: 88, objectFit: 'cover', borderRadius: 12, display: 'block', background: 'rgba(255,255,255,.55)', fontSize: 11, overflow: 'hidden' }}
               />
               <button
                 type="button"
                 className="ib"
-                aria-label={`사진 ${i + 1} 빼기`}
+                aria-label={t('reservation.closing.removePhoto', { n: i + 1 })}
                 disabled={props.disabled}
                 style={{ position: 'absolute', top: 4, right: 4, width: 24, height: 24, padding: 0 }}
                 onClick={() => {
@@ -114,7 +115,7 @@ export function PhotoPicker(props: { files: File[]; onChange: (files: File[]) =>
         </ul>
       ) : null}
       <label className="btn btn-sm" style={{ cursor: props.disabled ? 'default' : 'pointer' }}>
-        사진 고르기
+        {t('reservation.closing.pickPhotos')}
         <input
           type="file"
           accept="image/jpeg,image/png"
@@ -128,7 +129,7 @@ export function PhotoPicker(props: { files: File[]; onChange: (files: File[]) =>
         />
       </label>
       <p className="meta" style={{ marginTop: 6 }}>
-        사진은 시술 마감을 저장한 뒤에 올라가요.
+        {t('reservation.closing.photosAfterSave')}
       </p>
       {error ? (
         <span className="err" role="alert">
@@ -148,7 +149,7 @@ export async function uploadPhotos(visitId: number, files: File[]): Promise<{ fi
     try {
       await api(`/api/visits/${visitId}/photos`, { method: 'POST', body: form, silent: true });
     } catch (err) {
-      failed.push({ file, reason: err instanceof ApiError ? err.message : '잠시 후 다시 시도해 주세요' });
+      failed.push({ file, reason: err instanceof ApiError ? err.message : t('common.pin.tryLater') });
     }
   }
   return failed;

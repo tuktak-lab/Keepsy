@@ -1,6 +1,7 @@
 import { AppLink } from '@/components/common/AppLink';
 import { useLoad } from '@/hooks/useLoad';
 import { api, type Page } from '@/lib/api';
+import { t } from '@/lib/i18n';
 import { CATEGORY_LABEL, dotDate } from '@/lib/customerDetail';
 import type { HistoryVisit } from '../customer/types';
 
@@ -16,16 +17,16 @@ export function PastVisits({ customerId }: { customerId: number }) {
   return (
     <section className="card detail-card past-visits" aria-labelledby="past-visits-title">
       <div className="pv-head">
-        <h2 id="past-visits-title">지난 방문</h2>
-        {data && data.totalElements > 0 ? <span className="meta num">총 {data.totalElements}회</span> : null}
+        <h2 id="past-visits-title">{t('reservation.past.title')}</h2>
+        {data && data.totalElements > 0 ? <span className="meta num">{t('reservation.past.total', { n: data.totalElements })}</span> : null}
       </div>
 
       {error ? (
-        <p className="meta">지난 방문을 불러오지 못했어요. 고객 정보 보기 권한(PIN)이 필요할 수 있어요.</p>
+        <p className="meta">{t('reservation.past.loadFailed')}</p>
       ) : !data ? (
-        <p className="meta">불러오는 중…</p>
+        <p className="meta">{t('common.loading')}</p>
       ) : data.items.length === 0 ? (
-        <p className="meta">아직 방문 기록이 없어요.</p>
+        <p className="meta">{t('reservation.past.empty')}</p>
       ) : (
         <ul className="pv-list">
           {data.items.map((v) => (
@@ -49,7 +50,7 @@ export function PastVisits({ customerId }: { customerId: number }) {
       )}
 
       <p className="pv-foot">
-        <AppLink href={`/customers/detail?id=${customerId}`}>전체 이력 보기 ›</AppLink>
+        <AppLink href={`/customers/detail?id=${customerId}`}>{t('reservation.past.all')}</AppLink>
       </p>
     </section>
   );

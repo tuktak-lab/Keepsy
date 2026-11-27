@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { toast } from '@/components/common/Toast';
 import { api, type Page } from '@/lib/api';
+import { t } from '@/lib/i18n';
 import { nameFromSearch } from '@/lib/newCustomer';
 import { NewCustomerForm } from './NewCustomerForm';
 
@@ -46,7 +47,7 @@ export function CustomerSearch(props: {
     <>
       <input
         className="inp"
-        placeholder="이름 또는 휴대폰 뒷 4자리로 검색"
+        placeholder={t('reservation.search.placeholder')}
         value={search}
         disabled={disabled || creating}
         onChange={(e) => setSearch(e.target.value)}
@@ -72,12 +73,12 @@ export function CustomerSearch(props: {
       ) : null}
       {!creating && search.trim() && results.length === 0 ? (
         <p className="meta" style={{ marginTop: 6 }}>
-          검색 결과가 없어요.
+          {t('reservation.search.empty')}
         </p>
       ) : null}
       {!disabled && !creating ? (
         <button type="button" className="linkbtn" onClick={() => setCreating(true)}>
-          + 신규 고객 등록
+          {t('reservation.search.new')}
         </button>
       ) : null}
       {!disabled && creating ? (
@@ -86,7 +87,7 @@ export function CustomerSearch(props: {
           onCreated={(c) => {
             setCreating(false);
             reset();
-            toast('고객을 등록했어요.');
+            toast(t('reservation.search.registered'));
             onPick(c, true);
           }}
           onCancel={() => setCreating(false)}

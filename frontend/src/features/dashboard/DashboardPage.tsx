@@ -6,7 +6,7 @@ import { useStyleSheet } from '@/hooks/useStyleSheet';
 import { CountUp } from '@/components/common/CountUp';
 import { api, type Page } from '@/lib/api';
 import { PERIODS, type Period } from '@/lib/analytics';
-import { CHANNEL_LABEL, DOW_LABEL, hmOf, type Channel } from '@/lib/calendar';
+import { CHANNEL_LABEL, dowLabel, hmOf, type Channel } from '@/lib/calendar';
 import { rateText } from '@/lib/campaignResult';
 import { bookedCount, isActive, ratioText } from '@/lib/dashboard';
 import { nextActionLabel, STATUS_TABS } from '@/lib/insights';
@@ -325,7 +325,7 @@ export default function DashboardPage() {
                       <b className="num" style={{ fontSize: 14 }}>{n}</b>
                       <span style={{ width: '60%', height: `${(n / weekMax) * 90}px`, minHeight: 3, borderRadius: 6, background: '#7A4450' }} aria-hidden="true" />
                       <span style={{ fontSize: 12.5, color: '#6B605B' }}>
-                        {DOW_LABEL[i]} <span className="num">{md(d.date)}</span>
+                        {dowLabel(i)} <span className="num">{md(d.date)}</span>
                       </span>
                     </div>
                   );

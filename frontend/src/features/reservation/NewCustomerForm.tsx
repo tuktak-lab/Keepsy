@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ApiError, api } from '@/lib/api';
+import { t } from '@/lib/i18n';
 import { CONSENT_METHODS, toNewCustomerRequest, validateNewCustomer, type ConsentMethod } from '@/lib/newCustomer';
 import { detailsText } from '@/lib/reservationForm';
 
@@ -29,10 +30,10 @@ export function NewCustomerForm(props: {
       props.onCreated({ id: res.customerId, name: name.trim() });
     } catch (err) {
       if (err instanceof ApiError) {
-        if (err.code === 'duplicate') setError('이미 등록된 휴대폰 번호예요. 위에서 검색해 선택해 주세요');
+        if (err.code === 'duplicate') setError(t('reservation.newCustomer.duplicate'));
         else setError(err.code === 'invalid' ? (detailsText(err.details) ?? err.message) : err.message);
       } else {
-        setError('잠시 후 다시 시도해 주세요');
+        setError(t('common.pin.tryLater'));
       }
     } finally {
       setBusy(false);
@@ -50,13 +51,13 @@ export function NewCustomerForm(props: {
         }
       }}
     >
-      <span className="lbl">신규 고객 등록</span>
+      <span className="lbl">{t('reservation.newCustomer.title')}</span>
       <div className="grid2">
-        <input className="inp" placeholder="이름" aria-label="이름" maxLength={50} value={name} autoFocus onChange={(e) => setName(e.target.value)} />
+        <input className="inp" placeholder={t('reservation.newCustomer.name')} aria-label={t('reservation.newCustomer.name')} maxLength={50} value={name} autoFocus onChange={(e) => setName(e.target.value)} />
         <input
           className="inp"
-          placeholder="휴대폰 010-0000-0000"
-          aria-label="휴대폰"
+          placeholder={t('reservation.newCustomer.phonePlaceholder')}
+          aria-label={t('reservation.newCustomer.phone')}
           inputMode="tel"
           maxLength={13}
           value={phone}
@@ -65,10 +66,10 @@ export function NewCustomerForm(props: {
       </div>
       <label className="chk">
         <input type="checkbox" checked={privacyAgreed} onChange={(e) => setPrivacyAgreed(e.target.checked)} />
-        <span>개인정보 수집 · 이용에 동의를 받았어요 (필수)</span>
+        <span>{t('reservation.newCustomer.privacy')}</span>
       </label>
       <div className="newcust-method">
-        <span className="meta">동의 받은 방법</span>
+        <span className="meta">{t('reservation.newCustomer.method')}</span>
         <div className="pills">
           {CONSENT_METHODS.map(([value, label]) => (
             <button key={value} type="button" className="pill" aria-pressed={method === value} onClick={() => setMethod(value)}>
@@ -84,10 +85,10 @@ export function NewCustomerForm(props: {
       ) : null}
       <div className="newcust-actions">
         <button type="button" className="btn btn-sm" disabled={busy} onClick={props.onCancel}>
-          취소
+          {t('common.cancel')}
         </button>
         <button type="button" className="btn btn-sm btn-p" disabled={busy} onClick={() => void create()}>
-          {busy ? '등록 중…' : '고객 등록'}
+          {busy ? t('reservation.newCustomer.registering') : t('reservation.newCustomer.submit')}
         </button>
       </div>
     </div>

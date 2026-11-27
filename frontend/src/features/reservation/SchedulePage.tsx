@@ -3,6 +3,8 @@ import { AppLink } from '@/components/common/AppLink';
 import styleText from './SchedulePage.css?inline';
 import { ReservationForm } from './ReservationForm';
 import { useStyleSheet } from '@/hooks/useStyleSheet';
+import { t } from '@/lib/i18n';
+import type { MessageKey } from '@/lib/messages/ko';
 import { api } from '@/lib/api';
 import { useNowMs } from '@/lib/clock';
 import {
@@ -13,13 +15,15 @@ import {
   dayIndex,
   dayOfMonth,
   dayOffOn,
-  DOW_LABEL,
+  dowLabel,
+  dowLabels,
   endMs,
   formatMinutes,
   hoursOfDay,
   isDateStr,
   layout,
   monthCells,
+  monthDayText,
   seoulParts,
   staffColumns,
   toneOf,
@@ -56,12 +60,12 @@ type View = 'week' | 'day';
 type Block = { id: number; r: Reservation; tone: Tone; col: number; date: DateStr; start: number; end: number };
 
 const HH = 56; // 1시간 높이(px)
-const STATES: [Tone, string][] = [
-  ['booked', '예약 확정'],
-  ['done', '시술 완료'],
-  ['unclosed', '종료 시각 지남 · 마감 필요'], // 캘린더 · 예약 상세는 시술 종료 시각 기준 (calendar.ts toneOf)
+const STATES: [Tone, MessageKey][] = [
+  ['booked', 'reservation.state.booked'],
+  ['done', 'reservation.state.done'],
+  ['unclosed', 'reservation.state.unclosed'], // 캘린더 · 예약 상세는 시술 종료 시각 기준 (calendar.ts toneOf)
 ];
-const TONE_LABEL = Object.fromEntries(STATES) as Record<Tone, string>;
+const toneLabel = (tone: Tone): string => t(STATES.find(([x]) => x === tone)![1]);
 
 // 주소의 `?date=YYYY-MM-DD`: 예약 상세의 「예약 캘린더로」가 그 예약의 날짜로 돌아오게 한다.
 // 서버 렌더(정적 빌드)에는 주소가 없어 null이고, 하이드레이션이 끝난 뒤 브라우저 값으로 바뀐다 (첫 렌더가 서버 HTML과 어긋나지 않게)
@@ -71,7 +75,7 @@ const readDateParam = (): DateStr | null => {
   return isDateStr(value) ? value : null;
 };
 
-const monthDay = (d: DateStr) => `${Number(d.slice(5, 7))}월 ${dayOfMonth(d)}일`;
+const monthDay = (d: DateStr) => monthDayText(d);
 
 export default function SchedulePage() {
   useStyleSheet('SchedulePage', styleText);
@@ -200,10 +204,10 @@ export default function SchedulePage() {
 
   const title = (() => {
     if (!from) return '';
-    if (isDay) return `${anchor.slice(0, 4)}년 ${monthDay(anchor)} (${DOW_LABEL[dayIndex(anchor)]})`;
+    if (isDay) return t('reservation.date.dayTitle', { year: anchor.slice(0, 4), date: monthDay(anchor), dow: dowLabel(dayIndex(anchor)) });
     const end = addDays(from, 6);
     const sameMonth = from.slice(5, 7) === end.slice(5, 7);
-    return `${from.slice(0, 4)}년 ${monthDay(from)} – ${sameMonth ? '' : Number(end.slice(5, 7)) + '월 '}${dayOfMonth(end)}일`;
+    return t('reservation.date.weekTitle', { year: from.slice(0, 4), from: monthDay(from), to: sameMonth ? t('reservation.date.day', { day: dayOfMonth(end) }) : monthDay(end) });
   })();
 
   // 줄 우선순위: 고객명(없으면 예약 경로) → 시간 → 시술명 → 상태. 카드 높이(=예약 시간)가 모자라면 아래 줄부터 잘린다.
@@ -213,16 +217,16 @@ export default function SchedulePage() {
     const lines = Math.min(3, Math.max(0, Math.floor((h - 8 - 17.5) / 16.2)));
     const route = CHANNEL_LABEL[r.channel] ?? r.channel;
     const treat = r.services.map((s) => s.name).join(' + ');
-    const label = r.consultFirst ? `${TONE_LABEL[tone]} · 상담 후 진행` : TONE_LABEL[tone];
+    const label = r.consultFirst ? `${toneLabel(tone)} · ${t('reservation.consultFirst')}` : toneLabel(tone);
     // 카드 안은 폭이 좁아 보이는 글자는 짧게 (범례 · 요약 · 접근성 이름은 전체 문구)
-    const shortTone = tone === 'unclosed' ? '마감 필요' : TONE_LABEL[tone];
-    const cardLabel = r.consultFirst ? `${shortTone} · 상담 후 진행` : shortTone;
-    const who = r.customer ? (r.customer.name ?? '이름 없음') : route; // 고객 없는 예약은 이름 대신 예약 경로 (E3)
+    const shortTone = tone === 'unclosed' ? t('reservation.state.unclosedShort') : toneLabel(tone);
+    const cardLabel = r.consultFirst ? `${shortTone} · ${t('reservation.consultFirst')}` : shortTone;
+    const who = r.customer ? (r.customer.name ?? t('reservation.noName')) : route; // 고객 없는 예약은 이름 대신 예약 경로 (E3)
     const range = `${formatMinutes(b.start)}–${formatMinutes(b.end)}`;
     // 모든 예약 카드는 예약 상세로 간다. 일정 변경 · 취소 · 노쇼 · 고객 연결은 거기서 한다 (#128)
     const props = {
       className: `blk s-${tone} l${lines}${r.customer ? '' : ' nocust'}${h < 44 ? ' short' : ''}${over ? ' over' : ''}`,
-      'aria-label': `${r.customer ? who : `고객 없는 예약 ${route}`} · ${treat} · ${range} · ${label} · ${r.staff.name} · 눌러서 예약 상세`,
+      'aria-label': t('reservation.block.aria', { who: r.customer ? who : t('reservation.block.noCustomer', { route }), treat, range, label, staff: r.staff.name }),
       title: `${r.staff.name} · ${range}`,
       style: {
         top: topOf(b.start) + 2,
@@ -254,11 +258,11 @@ export default function SchedulePage() {
       <div className="wrap">
         <header className="head">
           <div>
-            <h1 className="h1">예약 · 일정 관리</h1>
-            <p className="sub">날짜를 고르면 그 날짜의 예약을 볼 수 있어요. 일간은 스탭별, 주간은 요일별이에요. 예약을 누르면 상세를 볼 수 있어요.</p>
+            <h1 className="h1">{t('reservation.schedule.title')}</h1>
+            <p className="sub">{t('reservation.schedule.sub')}</p>
           </div>
           <button type="button" className="btn btn-p" onClick={() => setCreating(true)} disabled={staff.length === 0}>
-            + 예약 등록
+            {t('reservation.schedule.new')}
           </button>
         </header>
 
@@ -269,19 +273,19 @@ export default function SchedulePage() {
               <section className="mini">
                 <div className="mini-h">
                   <b className="serif">
-                    {miniMonth.y}년 {miniMonth.m + 1}월
+                    {t('reservation.date.yearMonth', { year: miniMonth.y, month: miniMonth.m + 1 })}
                   </b>
                   <div>
-                    <button type="button" className="ib" aria-label="이전 달" onClick={() => shiftMini(-1)}>
+                    <button type="button" className="ib" aria-label={t('reservation.schedule.prevMonth')} onClick={() => shiftMini(-1)}>
                       ‹
                     </button>
-                    <button type="button" className="ib" aria-label="다음 달" onClick={() => shiftMini(1)}>
+                    <button type="button" className="ib" aria-label={t('reservation.schedule.nextMonth')} onClick={() => shiftMini(1)}>
                       ›
                     </button>
                   </div>
                 </div>
                 <div className="mini-g">
-                  {DOW_LABEL.map((d) => (
+                  {dowLabels().map((d) => (
                     <span key={d} className="mini-w">
                       {d}
                     </span>
@@ -302,39 +306,39 @@ export default function SchedulePage() {
               </section>
 
               <section className="daysum">
-                <span className="meta">선택한 날짜</span>
+                <span className="meta">{t('reservation.schedule.selected')}</span>
                 <b className="ds-date">
-                  {monthDay(anchor)} ({DOW_LABEL[dates.indexOf(anchor)]}){anchor === today ? <em>오늘</em> : null}
+                  {monthDay(anchor)} ({dowLabel(dates.indexOf(anchor))}){anchor === today ? <em>{t('reservation.today')}</em> : null}
                 </b>
                 {data ? (
                   dayBlocks.length ? (
                     <>
                       <p className="ds-n">
-                        예약 <b className="num">{dayBlocks.length}</b>건
+                        {t('reservation.schedule.booking')} <b className="num">{dayBlocks.length}</b>{t('reservation.schedule.countUnit')}
                       </p>
                       <ul className="ds-list">
                         {STATES.map(([tone, text]) => (
                           <li key={tone}>
                             <span className={'sw s-' + tone}></span>
-                            {text}
+                            {t(text)}
                             <b className="num">{countOf(tone)}</b>
                           </li>
                         ))}
                       </ul>
                     </>
                   ) : (
-                    <p className="meta">예약이 없는 날이에요.</p>
+                    <p className="meta">{t('reservation.schedule.emptyDay')}</p>
                   )
                 ) : (
-                  <p className="meta">{loadFailed ? '불러오지 못했어요.' : '불러오는 중…'}</p>
+                  <p className="meta">{loadFailed ? t('common.loadFailed') : t('common.loading')}</p>
                 )}
               </section>
 
               <section className="staffbox">
-                <span className="lbl">담당 스탭</span>
-                <div className="staff" role="group" aria-label="담당 스탭">
+                <span className="lbl">{t('common.staff')}</span>
+                <div className="staff" role="group" aria-label={t('common.staff')}>
                   <button type="button" aria-pressed={staffId === null} onClick={() => setStaffId(null)}>
-                    전체
+                    {t('reservation.all')}
                   </button>
                   {staff.map((s) => (
                     <button key={s.id} type="button" aria-pressed={staffId === s.id} onClick={() => setStaffId(s.id)}>
@@ -350,23 +354,23 @@ export default function SchedulePage() {
               <div className="c-head">
                 <div className="c-nav">
                   <button type="button" className="btn btn-sm" onClick={() => goTo(today)}>
-                    오늘
+                    {t('reservation.today')}
                   </button>
-                  <button type="button" className="ib" aria-label={isDay ? '이전 날' : '이전 주'} onClick={() => goTo(addDays(anchor, isDay ? -1 : -7))}>
+                  <button type="button" className="ib" aria-label={isDay ? t('reservation.schedule.prevDay') : t('reservation.schedule.prevWeek')} onClick={() => goTo(addDays(anchor, isDay ? -1 : -7))}>
                     ‹
                   </button>
-                  <button type="button" className="ib" aria-label={isDay ? '다음 날' : '다음 주'} onClick={() => goTo(addDays(anchor, isDay ? 1 : 7))}>
+                  <button type="button" className="ib" aria-label={isDay ? t('reservation.schedule.nextDay') : t('reservation.schedule.nextWeek')} onClick={() => goTo(addDays(anchor, isDay ? 1 : 7))}>
                     ›
                   </button>
                   <b className="c-title serif num">{title}</b>
                 </div>
-                <div className="seg" role="group" aria-label="보기 단위">
+                <div className="seg" role="group" aria-label={t('reservation.schedule.viewUnit')}>
                   <span className="seg-ind" style={{ transform: `translateX(${isDay ? 0 : 100}%)` }} aria-hidden="true"></span>
                   <button type="button" aria-pressed={isDay} onClick={() => changeView('day')}>
-                    일
+                    {t('reservation.view.day')}
                   </button>
                   <button type="button" aria-pressed={!isDay} onClick={() => changeView('week')}>
-                    주
+                    {t('reservation.view.week')}
                   </button>
                 </div>
               </div>
@@ -374,14 +378,14 @@ export default function SchedulePage() {
                 {STATES.map(([tone, text]) => (
                   <span key={tone}>
                     <i className={'sw s-' + tone}></i>
-                    {text}
+                    {t(text)}
                   </span>
                 ))}
                 <span>
-                  <i className="sw nocust"></i>고객 없는 예약
+                  <i className="sw nocust"></i>{t('reservation.legend.noCustomer')}
                 </span>
                 <span>
-                  <i className="sw off"></i>영업시간 밖 · 휴무
+                  <i className="sw off"></i>{t('reservation.legend.off')}
                 </span>
               </div>
 
@@ -393,7 +397,7 @@ export default function SchedulePage() {
                       ? staffCols.map((s, i) => (
                           <div key={s.id} className="col-h static">
                             <b>{s.name}</b>
-                            <span className="num">{blocks.filter((b) => b.col === i).length}건</span>
+                            <span className="num">{t('reservation.count', { n: blocks.filter((b) => b.col === i).length })}</span>
                           </div>
                         ))
                       : dates.map((d, i) => (
@@ -403,10 +407,10 @@ export default function SchedulePage() {
                             className={'col-h' + (d === today ? ' today' : '') + (d === anchor ? ' on' : '')}
                             onClick={() => goTo(d)}
                             onDoubleClick={() => changeView('day', d)}
-                            title="누르면 선택, 두 번 누르면 일간 보기"
-                            aria-label={`${monthDay(d)} (${DOW_LABEL[i]})`}
+                            title={t('reservation.schedule.dblClick')}
+                            aria-label={`${monthDay(d)} (${dowLabel(i)})`}
                           >
-                            <span className="ch-w">{DOW_LABEL[i]}</span>
+                            <span className="ch-w">{dowLabel(i)}</span>
                             <span className="ch-d num">{dayOfMonth(d)}</span>
                           </button>
                         ))}
@@ -434,10 +438,10 @@ export default function SchedulePage() {
                           <div
                             key={`${c.key}-${k}`}
                             className="off"
-                            title={off !== null ? `휴무${off ? ' · ' + off : ''}` : '영업시간 밖'}
+                            title={off !== null ? `${t('reservation.dayOff')}${off ? ' · ' + off : ''}` : t('reservation.outOfHours')}
                             style={{ top: topOf(a), height: topOf(b) - topOf(a), left: `${i * gW}%`, width: `${gW}%` }}
                           >
-                            {off !== null && k === 0 ? <span>휴무{off ? ` · ${off}` : ''}</span> : null}
+                            {off !== null && k === 0 ? <span>{t('reservation.dayOff')}{off ? ` · ${off}` : ''}</span> : null}
                           </div>
                         ));
                       })}
@@ -459,8 +463,8 @@ export default function SchedulePage() {
                         return (
                           <div key={d} className="gf-cell">
                             {n > 0 ? (
-                              <button type="button" className="more-btn" onClick={() => changeView('day', d)} title={`겹쳐서 숨긴 예약 ${n}건이 더 있어요. 누르면 그날 일간 보기에서 모두 봐요`}>
-                                {n}건 더보기
+                              <button type="button" className="more-btn" onClick={() => changeView('day', d)} title={t('reservation.moreTitle', { n })}>
+                                {t('reservation.more', { n })}
                               </button>
                             ) : null}
                           </div>
@@ -468,22 +472,22 @@ export default function SchedulePage() {
                       })}
                     </div>
                   ) : null}
-                  {!data && !loadFailed ? <p className="empty-note">불러오는 중…</p> : null}
+                  {!data && !loadFailed ? <p className="empty-note">{t('common.loading')}</p> : null}
                   {loadFailed ? (
                     <p className="empty-note">
-                      예약을 불러오지 못했어요.{' '}
+                      {t('reservation.loadFailed')}{' '}
                       <button type="button" className="btn btn-sm" onClick={retry}>
-                        다시 시도
+                        {t('common.retry')}
                       </button>
                     </p>
                   ) : null}
-                  {data && isDay && staffCols.length === 0 ? <p className="empty-note">등록된 스탭이 없어요.</p> : null}
+                  {data && isDay && staffCols.length === 0 ? <p className="empty-note">{t('reservation.schedule.noStaff')}</p> : null}
                   {data && (!isDay || staffCols.length > 0) && blocks.length === 0 ? (
-                    <p className="empty-note">{isDay ? '이 날에는 예약이 없어요.' : '이 기간에는 예약이 없어요.'}</p>
+                    <p className="empty-note">{isDay ? t('reservation.schedule.emptyOnDay') : t('reservation.schedule.emptyInPeriod')}</p>
                   ) : null}
                 </div>
               </div>
-              <p className="meta foot">같은 스탭의 예약 시간은 겹치지 않도록 제한됩니다. 취소 · 노쇼 예약은 시간을 차지하지 않아 표시하지 않아요.</p>
+              <p className="meta foot">{t('reservation.schedule.foot')}</p>
             </section>
           </div>
         ) : null}
