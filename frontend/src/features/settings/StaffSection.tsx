@@ -255,6 +255,13 @@ function NewStaffForm(props: { onAdded: () => void }) {
   const [values, setValues] = useState<NewStaffValues>(empty);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  // 입력 칸은 [스탭 등록]을 눌러야 펼친다. 등록하거나 취소하면 다시 접는다
+  const [open, setOpen] = useState(false);
+  const close = () => {
+    setOpen(false);
+    setValues(empty);
+    setError('');
+  };
   const edit = (patch: Partial<NewStaffValues>) => {
     setError('');
     setValues({ ...values, ...patch });
@@ -268,13 +275,23 @@ function NewStaffForm(props: { onAdded: () => void }) {
     try {
       await api('/api/staff', { method: 'POST', body: toNewStaffRequest(values), silent: true });
       toast(`${values.name.trim()} 님을 등록했어요`);
-      setValues(empty);
+      close();
       props.onAdded();
     } catch (err) {
       setError(errorText(err));
     } finally {
       setBusy(false);
     }
+  }
+
+  if (!open) {
+    return (
+      <div>
+        <button type="button" className="st-btn p" onClick={() => setOpen(true)}>
+          + 스탭 등록
+        </button>
+      </div>
+    );
   }
 
   return (
@@ -285,7 +302,7 @@ function NewStaffForm(props: { onAdded: () => void }) {
           <label className="st-lbl" htmlFor="staff-new-name">
             이름
           </label>
-          <input id="staff-new-name" className="st-fld" maxLength={NAME_MAX} value={values.name} onChange={(e) => edit({ name: e.target.value })} />
+          <input id="staff-new-name" className="st-fld" maxLength={NAME_MAX} value={values.name} onChange={(e) => edit({ name: e.target.value })} autoFocus />
         </div>
         <div className="st-field" style={{ flex: '0 1 180px' }}>
           <label className="st-lbl" htmlFor="staff-new-pin">
@@ -310,7 +327,12 @@ function NewStaffForm(props: { onAdded: () => void }) {
         </div>
         <div className="st-field" style={{ flex: '0 0 auto' }}>
           <button type="button" className="st-btn p" disabled={busy} onClick={() => void add()}>
-            {busy ? '등록 중…' : '스탭 등록'}
+            {busy ? '등록 중…' : '등록'}
+          </button>
+        </div>
+        <div className="st-field" style={{ flex: '0 0 auto' }}>
+          <button type="button" className="st-btn" disabled={busy} onClick={close}>
+            취소
           </button>
         </div>
       </div>
