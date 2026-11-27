@@ -28,7 +28,7 @@ class ShopTest {
     }
 
     @Test
-    void PIN은_매장_단위_5회_연속_실패하면_5분_막는다() {
+    void PIN은_매장_단위로_5회_실패가_쌓이면_5분_막는다() {
         for (int i = 0; i < 4; i++) {
             shop.pinFailed(NOW);
         }
