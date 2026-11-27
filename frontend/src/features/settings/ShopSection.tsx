@@ -37,7 +37,15 @@ export function ShopSection({ onIndustries }: { onIndustries?: (list: string[] |
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [pushed, setPushed] = useState<PushedReservation[]>([]);
-  const [confirming, setConfirming] = useState(false); // 업종을 바꾼 저장은 한 번 더 확인한다
+  const [confirming, setConfirming] = useState(false); // 「변경사항을 저장하시겠습니까?」 팝업
+
+  // 저장 확인 팝업은 Esc로 닫는다 (저장하는 중에는 닫지 않는다)
+  useEffect(() => {
+    if (!confirming) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && !busy && setConfirming(false);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [confirming, busy]);
 
   useEffect(() => {
     let cancelled = false;
@@ -102,8 +110,8 @@ export function ShopSection({ onIndustries }: { onIndustries?: (list: string[] |
     if (!values) return;
     const problem = validateShop(values);
     if (problem) return setError(problem);
-    // 업종이 바뀌었으면 처음 누를 때는 바뀌는 내용을 보여 주고, 「예, 저장」을 눌러야 저장한다
-    if (industryChanged && !confirming) {
+    // 처음 누를 때는 확인 팝업을 띄우고, 팝업에서 「저장」을 눌러야 저장한다
+    if (!confirming) {
       setConfirming(true);
       return;
     }
@@ -221,25 +229,38 @@ export function ShopSection({ onIndustries }: { onIndustries?: (list: string[] |
           {error}
         </p>
       ) : null}
-      {confirming && industryChanged ? (
-        <div className="st-note" role="alert">
-          <b>매장 업종을 바꿀까요?</b>
-          {change.off.length > 0 ? <> 꺼지는 업종: {change.off.map((c) => CATEGORY_LABEL[c as keyof typeof CATEGORY_LABEL]).join(' · ')}.</> : null}
-          {change.on.length > 0 ? <> 켜지는 업종: {change.on.map((c) => CATEGORY_LABEL[c as keyof typeof CATEGORY_LABEL]).join(' · ')}.</> : null} 꺼 둔 업종은 시술 메뉴 · 기본 주기, 예약 · 시술 마감의 시술 선택, 새 캠페인의 시술 카테고리에서 숨겨져요. 기존 메뉴 · 예약 · 고객 기록은 그대로이고 다시 켜면 돌아와요.
-        </div>
-      ) : null}
       <PushedReservations items={pushed} onDismiss={() => setPushed([])} />
       <div className="st-savebar">
         <span className="st-meta">{dirty ? '저장되지 않은 변경 사항이 있어요' : '변경 사항 없음'}</span>
-        {confirming ? (
-          <button type="button" className="st-btn" disabled={busy} onClick={() => setConfirming(false)}>
-            취소
-          </button>
-        ) : null}
         <button type="button" className="st-btn p" disabled={!dirty || busy} onClick={() => void save()}>
-          {busy ? '저장 중…' : confirming ? '예, 저장' : '매장 정보 저장'}
+          {busy ? '저장 중…' : '매장 정보 저장'}
         </button>
       </div>
+
+      {confirming ? (
+        <div className="st-overlay" onClick={() => !busy && setConfirming(false)}>
+          <div className="st-dialog" role="dialog" aria-modal="true" aria-labelledby="shop-confirm-title" onClick={(e) => e.stopPropagation()}>
+            <h3 id="shop-confirm-title">변경사항을 저장하시겠습니까?</h3>
+            {industryChanged ? (
+              <p>
+                {change.off.length > 0 ? <>꺼지는 업종: <b>{change.off.map((c) => CATEGORY_LABEL[c as keyof typeof CATEGORY_LABEL]).join(' · ')}</b>. </> : null}
+                {change.on.length > 0 ? <>켜지는 업종: <b>{change.on.map((c) => CATEGORY_LABEL[c as keyof typeof CATEGORY_LABEL]).join(' · ')}</b>. </> : null}
+                꺼 둔 업종은 시술 메뉴 · 기본 주기, 예약 · 시술 마감의 시술 선택, 새 캠페인의 시술 카테고리에서 숨겨져요. 기존 메뉴 · 예약 · 고객 기록은 그대로이고 다시 켜면 돌아와요.
+              </p>
+            ) : (
+              <p>바꾼 매장 정보 · 영업시간을 저장해요. 바뀐 영업시간은 바로 예약 가능 시간에 반영돼요.</p>
+            )}
+            <div className="st-dialog-acts">
+              <button type="button" className="st-btn" disabled={busy} onClick={() => setConfirming(false)}>
+                취소
+              </button>
+              <button type="button" className="st-btn p" disabled={busy} onClick={() => void save()} autoFocus>
+                {busy ? '저장 중…' : '저장'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }
