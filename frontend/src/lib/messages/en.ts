@@ -1295,7 +1295,7 @@ export const en: Record<MessageKey, string> = {
   'settings.shop.unsub': 'Unsubscribe number',
   'settings.shop.numbersNote': 'The phone, sender and unsubscribe numbers appear in ad messages. You can leave them blank.',
   'settings.shop.industries': 'Business types',
-  'settings.shop.industryNote': 'Only the enabled types appear in "Treatment menus · default cycles" below, in treatment choices for bookings and closing, and in treatment categories for new campaigns.\nTurning one off keeps existing menus, bookings and customer records, and turning it back on restores them.\nAt least one must stay on.',
+  'settings.shop.industryNote': 'Only the enabled types appear in "Treatment menus · default cycles" below, in treatment choices for bookings and closing, and in treatment categories for new campaigns.\nTurning one off keeps existing menus, bookings and customer records, and turning it back on restores them. At least one must stay on.',
   'settings.shop.hoursLabel': 'Business hours by weekday (30-minute steps)',
   'settings.shop.openAria': '{day} opening time',
   'settings.shop.closeAria': '{day} closing time',
