@@ -73,11 +73,10 @@ a{color:inherit;text-decoration:none}a:hover{text-decoration:none}
 .kp-stack{display:flex;flex-direction:column;gap:20px;min-width:0;align-self:start}
 .kp-span{grid-column:1/-1}
 @media (max-width:980px){.kp-grid{grid-template-columns:1fr}}
-/* 이번 주 예약 꺾은선: 카드 높이를 채운다. 선 · 면은 SVG(비율 좌표), 점 · 값 · 날짜는 HTML이라 늘어나도 찌그러지지 않는다 */
+/* 이번 주 예약 꺾은선: 카드 높이를 채운다. 선은 SVG(비율 좌표), 점 · 값 · 날짜는 HTML이라 늘어나도 찌그러지지 않는다 */
 .kp-line{flex:1;min-height:180px;display:flex;flex-direction:column;margin-top:auto;padding-top:14px}
 .kp-line-plot{position:relative;flex:1;min-height:130px;border-bottom:1px solid #E6DDD5;background:repeating-linear-gradient(to bottom,transparent 0,transparent calc(25% - 1px),#F4ECE8 calc(25% - 1px),#F4ECE8 25%)}
 .kp-line-plot svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
-.kp-line-area{fill:rgba(122,68,80,.08)}
 .kp-line-path{fill:none;stroke:#7A4450;stroke-width:2.5;stroke-linejoin:round;stroke-linecap:round;vector-effect:non-scaling-stroke}
 .kp-line-pt{position:absolute;width:10px;height:10px;margin:-5px 0 0 -5px;border-radius:50%;background:#fff;border:2px solid #7A4450;box-sizing:border-box}
 .kp-line-pt.today{width:14px;height:14px;margin:-7px 0 0 -7px;background:#7A4450;box-shadow:0 0 0 4px rgba(122,68,80,.15)}

@@ -159,7 +159,6 @@ export default function DashboardPage() {
     return { date: d.date, n, x: ((i + 0.5) / 7) * 100, y: 88 - (n / weekMax) * 70, today: d.date === seoulToday() };
   });
   const weekLine = weekPts.map((p, i) => `${i ? 'L' : 'M'}${p.x} ${p.y}`).join(' ');
-  const weekArea = weekPts.length ? `${weekLine} L${weekPts[weekPts.length - 1].x} 100 L${weekPts[0].x} 100 Z` : '';
   const latest = recent?.[0];
 
   // 도넛 (관리 상태별 고객 × 시술 행)
@@ -221,7 +220,6 @@ export default function DashboardPage() {
               <div className="kp-line" role="img" aria-label={weekPts.map((p, i) => `${dowLabel(i)} ${md(p.date)} ${p.n}`).join(', ')}>
                 <div className="kp-line-plot" aria-hidden="true">
                   <svg viewBox="0 0 100 100" preserveAspectRatio="none">
-                    <path className="kp-line-area" d={weekArea} />
                     <path className="kp-line-path" d={weekLine} />
                   </svg>
                   {weekPts.map((p) => (
