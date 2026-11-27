@@ -48,7 +48,7 @@ export function StaffSection() {
     <section id="st-staff" className="st-card">
       <h2 data-guide="settings-staff">스탭 · PIN</h2>
       <p className="st-meta">
-        스탭마다 PIN으로 근무를 시작해요. 「잠긴 기능 사용 허용」을 켠 스탭만 PIN으로 잠긴 기능을 열 수 있어요. 비활성 스탭은 근무 시작 · PIN 사용을 할 수 없고, 작성한 기록 · 메모는
+        스탭마다 PIN으로 지금 근무자를 확인해요. 「잠긴 기능 사용 허용」을 켠 스탭만 PIN으로 잠긴 기능을 열 수 있어요. 비활성 스탭은 근무자 확인 · PIN 사용을 할 수 없고, 작성한 기록 · 메모는
         그대로 남아요.
       </p>
 
@@ -207,7 +207,7 @@ function StaffRow(props: { staff: Staff; onChanged: (patch: Partial<Staff>) => v
         />
       ) : null}
 
-      {mode === 'deactivate' && active ? <span className="st-meta">비활성화하면 근무 시작 · PIN 사용을 할 수 없어요. 다시 켜는 기능은 없어요.</span> : null}
+      {mode === 'deactivate' && active ? <span className="st-meta">비활성화하면 근무자 확인 · PIN 사용을 할 수 없어요. 다시 켜는 기능은 없어요.</span> : null}
 
       <span style={{ display: 'inline-flex', gap: 8 }}>
         {mode === 'view' && active ? (
