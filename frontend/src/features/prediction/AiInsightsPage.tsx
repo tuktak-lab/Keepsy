@@ -215,10 +215,10 @@ export default function AiInsightsPage() {
                           <button
                             key={m}
                             type="button"
-                            className="btn btn-sm"
+                            // 선택된 표시는 공통 주 버튼(btn-p)으로. 유리 버튼 위에 색만 덮으면 흰 테두리 · 윗줄이 남아 어긋나 보인다
+                            className={'btn btn-sm' + (r.handlingMark === m ? ' btn-p' : '')}
                             aria-pressed={r.handlingMark === m}
                             disabled={busyKey === key}
-                            style={r.handlingMark === m ? { background: '#7A4450', borderColor: '#7A4450', color: '#fff' } : undefined}
                             onClick={() => void mark(r, m)}
                           >
                             {label}
