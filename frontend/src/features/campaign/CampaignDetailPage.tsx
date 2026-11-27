@@ -3,14 +3,17 @@ import { useSearchParams } from 'next/navigation';
 import { AppLink } from '@/components/common/AppLink';
 import { useStyleSheet } from '@/hooks/useStyleSheet';
 import { ApiError, api, type Page } from '@/lib/api';
-import { CAMPAIGN_STATUS_LABEL, SEND_STATUS_LABEL, rateText } from '@/lib/campaignResult';
+import { CAMPAIGN_STATUS_LABEL, SEND_STATUS_LABEL, rateText, revenuePath } from '@/lib/campaignResult';
+import { RESERVATION_STATUS_LABEL, dotDate } from '@/lib/customerDetail';
 import { formatDateTime, formatWon } from '@/lib/format';
 import { CATEGORY_LABEL, type Category } from '@/lib/menus';
+import type { ReservationStatus } from '../customer/types';
 import styleText from '../reservation/SchedulePage.css?inline';
 import { t } from '@/lib/i18n';
 
 // 캠페인 결과 (FR-ANL-01 · 04 · 09, FR-CMP-10). 경로: /campaigns/detail?id=
-// API (docs CONTRACTS 4장): GET /api/campaigns/{id} (고객별 발송 결과) · …/funnel · …/control-comparison (CAMPAIGN_VIEW), …/revenue (SALES_ANALYTICS)
+// API (docs CONTRACTS 4장): GET /api/campaigns/{id} (고객별 발송 결과 · 귀속 예약 · 방문) · …/funnel · …/control-comparison (CAMPAIGN_VIEW), …/revenue (SALES_ANALYTICS)
+// 고객별 연결 기록 (FR-ANL-04): 예약 · 방문은 캠페인 조회 권한으로, 금액은 매출 분석 권한으로 따로 받는다 (명세서 2장). 매출이 잠기면 그 열만 비운다
 // 결과는 모의 데이터로 만든 값임을 화면에 밝힌다 (E9).
 
 type Message = {
@@ -22,7 +25,12 @@ type Message = {
   sendStatus: string | null;
   failureReason: string | null;
   resultAt: string | null;
+  /** 발송 기록 ID. 대조군이면 null */
+  messageId: number | null;
+  reservations: { id: number; startAt: string; status: ReservationStatus }[];
+  visits: { id: number; visitDate: string }[];
 };
+type Revenue = { revenue: number; customers?: { customerId: number; revenue: number }[] };
 type Campaign = {
   id: number;
   name: string;
@@ -62,6 +70,8 @@ export default function CampaignDetailPage() {
   const [moreError, setMoreError] = useState('');
   // 연결 매출은 「매출 · 성과 분석」 기능 키라 따로 읽는다. PIN을 취소하면 이 칸만 비운다
   const [revenue, setRevenue] = useState<{ id: number; value: number | null; error?: string } | null>(null);
+  // 고객별 연결 매출 (FR-ANL-04). 받은 페이지만큼 쌓는다
+  const [byCustomer, setByCustomer] = useState<{ id: number; won: Map<number, number> } | null>(null);
   const [reload, setReload] = useState(0);
 
   useEffect(() => {
@@ -76,11 +86,16 @@ export default function CampaignDetailPage() {
         if (cancelled) return;
         setLoaded({ id, campaign, funnel, control });
         setMessages(campaign.messages.items);
+        // 연결 매출은 첫 페이지 고객의 값과 함께 받는다
+        return api<Revenue>(revenuePath(id, campaign.messages.items.map((m) => m.customerId)), { silent: true })
+          .then((r) => {
+            if (cancelled) return;
+            setRevenue({ id, value: r.revenue });
+            setByCustomer({ id, won: new Map((r.customers ?? []).map((x) => [x.customerId, x.revenue])) });
+          })
+          .catch((err) => !cancelled && setRevenue({ id, value: null, error: errorText(err) }));
       })
       .catch((err) => !cancelled && setLoaded({ id, error: err instanceof ApiError && err.code === 'not_found' ? 'notfound' : errorText(err) }));
-    api<{ revenue: number }>(`/api/campaigns/${id}/revenue`, { silent: true })
-      .then((r) => !cancelled && setRevenue({ id, value: r.revenue }))
-      .catch((err) => !cancelled && setRevenue({ id, value: null, error: errorText(err) }));
     return () => {
       cancelled = true;
     };
@@ -89,6 +104,7 @@ export default function CampaignDetailPage() {
   const current = loaded?.id === id ? loaded : null;
   const c = current?.campaign;
   const rev = revenue?.id === id ? revenue : null;
+  const won = byCustomer?.id === id ? byCustomer.won : null;
 
   async function loadMore() {
     if (!c) return;
@@ -97,6 +113,18 @@ export default function CampaignDetailPage() {
     try {
       const next = await api<Campaign>(`/api/campaigns/${id}?page=${Math.ceil(messages.length / 20)}&size=20`, { silent: true });
       setMessages((cur) => [...cur, ...next.messages.items]);
+      // 매출을 볼 수 있을 때만 새 페이지 고객의 연결 매출을 더 받는다. 실패하면 그 칸만 '-'로 둔다
+      if (rev?.value != null && next.messages.items.length) {
+        api<Revenue>(revenuePath(id, next.messages.items.map((m) => m.customerId)), { silent: true })
+          .then((r) =>
+            setByCustomer((cur) => {
+              const map = new Map(cur?.id === id ? cur.won : []);
+              (r.customers ?? []).forEach((x) => map.set(x.customerId, x.revenue));
+              return { id, won: map };
+            }),
+          )
+          .catch(() => undefined);
+      }
     } catch (err) {
       // 실패를 흘리지 않고 버튼 옆에 사유를 보인다 (#344). 이미 받은 결과는 그대로 둔다
       setMoreError(errorText(err));
@@ -183,6 +211,8 @@ export default function CampaignDetailPage() {
                         <th style={{ padding: '6px 4px', fontWeight: 500 }}>{t('campaign.detail.colPhone')}</th>
                         <th style={{ padding: '6px 4px', fontWeight: 500 }}>{t('campaign.detail.colResult')}</th>
                         <th style={{ padding: '6px 4px', fontWeight: 500 }}>{t('campaign.detail.colTime')}</th>
+                        <th style={{ padding: '6px 4px', fontWeight: 500 }}>{t('campaign.detail.colLinks')}</th>
+                        <th style={{ padding: '6px 4px', fontWeight: 500, textAlign: 'right' }}>{t('campaign.detail.colRevenue')}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -206,6 +236,27 @@ export default function CampaignDetailPage() {
                           </td>
                           <td className="num meta" style={{ padding: '8px 4px' }}>
                             {m.resultAt ? formatDateTime(m.resultAt) : '-'}
+                          </td>
+                          <td style={{ padding: '8px 4px' }}>
+                            {m.reservations.length + m.visits.length === 0 ? (
+                              <span className="meta">-</span>
+                            ) : (
+                              <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                {m.reservations.map((r) => (
+                                  <AppLink key={`r${r.id}`} href={`/reservations/detail?id=${r.id}`} className="p-link num">
+                                    {t('customer.messages.resv', { date: formatDateTime(r.startAt), status: RESERVATION_STATUS_LABEL[r.status] })}
+                                  </AppLink>
+                                ))}
+                                {m.visits.map((v) => (
+                                  <span key={`v${v.id}`} className="num">
+                                    {t('customer.messages.visit', { date: dotDate(v.visitDate) })}
+                                  </span>
+                                ))}
+                              </span>
+                            )}
+                          </td>
+                          <td className="num" style={{ padding: '8px 4px', textAlign: 'right' }}>
+                            {m.messageId !== null && won?.has(m.customerId) ? formatWon(won.get(m.customerId)!) : '-'}
                           </td>
                         </tr>
                       ))}
