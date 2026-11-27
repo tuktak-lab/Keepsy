@@ -210,6 +210,35 @@ public class CampaignResultQuery {
     }
 
     /**
+     * 고객별 연결 매출 (FR-ANL-04 · 02). 규칙은 {@link #revenue}와 같다. (고객, 방문) 쌍을 먼저 중복 없이 고른 뒤 결제를 더해 한 방문을
+     * 한 번만 센다. 한 고객에 이 캠페인 메시지는 하나고 방문은 한 고객 것이라, 고객별 값을 모두 더하면 {@link #revenue}가 된다.
+     *
+     * @return 고객 ID → 매출. 귀속 방문이 없는 고객은 빠진다
+     */
+    @Transactional(readOnly = true)
+    public Map<Long, Long> customerRevenues(long shopId, long campaignId, List<Long> customerIds) {
+        if (customerIds.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, Object> p = new java.util.HashMap<>(params(shopId, campaignId));
+        p.put("customerIds", customerIds);
+        Map<Long, Long> result = new java.util.HashMap<>();
+        jdbc.query(
+                "SELECT cv.customer_id, COALESCE(SUM(pay.amount), 0) AS revenue"
+                        + " FROM (SELECT DISTINCT cm.customer_id, vs.visit_id"
+                        + ATTRIBUTED_VISIT_SERVICE
+                        + " AND cm.customer_id IN (:customerIds)) cv"
+                        + " JOIN payment pay ON pay.visit_id = cv.visit_id"
+                        + " AND pay.shop_id = :shopId AND pay.canceled = FALSE"
+                        + " GROUP BY cv.customer_id",
+                p,
+                rs -> {
+                    result.put(rs.getLong("customer_id"), rs.getLong("revenue"));
+                });
+        return result;
+    }
+
+    /**
      * 발송군(도달 고객, 퍼널과 같은 재예약)과 대조군의 재예약 (FR-ANL-09, 결정 F36). 대조군 재예약은 캠페인 발송 시각 이후 생성됐고 생성일이 발송일 +
      * 귀속 기간(지금 매장 설정) 이내인 같은 카테고리 예약이다. 날짜로 세는 방식은 귀속 판정과 같고(MySQL {@code DATEDIFF}는 날짜만 본다), 취소 ·
      * 노쇼 예약도 센다. 아직 발송하지 않은 캠페인은 {@code sent_at}이 없어 0이다. 주기 내 재방문율은 F24 · F36으로 미뤘다.

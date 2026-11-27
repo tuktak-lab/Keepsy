@@ -1,5 +1,6 @@
 package com.tuktaklab.keepsy.analytics;
 
+import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -51,6 +52,10 @@ class CampaignResultTest {
     private long campaignX;
     private long campaignY;
     private long otherShopCampaign;
+    // 캠페인 상세 고객별 연결 기록 · 고객별 매출 확인용 (FR-ANL-04)
+    private long a, c, d, g, h, i;
+    private long mA, mD, mH;
+    private long rA1, rA2, rB, rH, vA, vH;
 
     @BeforeEach
     void seed() {
@@ -67,33 +72,33 @@ class CampaignResultTest {
         campaignX = campaign(shop, "NAIL", template);
         campaignY = campaign(shop, "WAXING", template);
 
-        long a = data.customer(shop, false, null);
+        a = data.customer(shop, false, null);
         long b = data.customer(shop, false, null);
-        long c = data.customer(shop, false, null);
-        long d = data.customer(shop, false, null);
+        c = data.customer(shop, false, null);
+        d = data.customer(shop, false, null);
         long e = data.customer(shop, false, null);
         long f = data.customer(shop, false, null);
-        long g = data.customer(shop, false, null);
-        long h = data.customer(shop, false, null);
-        long i = data.customer(shop, false, null);
+        g = data.customer(shop, false, null);
+        h = data.customer(shop, false, null);
+        i = data.customer(shop, false, null);
 
-        long mA = message(campaignX, a, "NAIL", false, "SENT");
+        mA = message(campaignX, a, "NAIL", false, "SENT");
         long mB = message(campaignX, b, "NAIL", false, "SENT");
         message(campaignX, c, "NAIL", false, "SENT");
-        long mD = message(campaignX, d, "NAIL", false, "FAILED");
+        mD = message(campaignX, d, "NAIL", false, "FAILED");
         message(campaignX, e, "NAIL", false, "PENDING");
         long mF = message(campaignX, f, "NAIL", true, null);
         long mG = message(campaignX, g, "NAIL", false, "SENT");
-        long mH = message(campaignX, h, "NAIL", false, "SENT");
+        mH = message(campaignX, h, "NAIL", false, "SENT");
         long mI = message(campaignX, i, "NAIL", false, "SENT");
         long mHy = message(campaignY, h, "WAXING", false, "SENT");
 
         // A: 취소된 예약과 승계 예약이 같은 발송을 갖는다 → 재예약 고객당 1 (FR-ANL-03). 방문은 귀속 기간(14일) 밖 (F33)
-        long rA1 = reservation(a, "CANCELED");
+        rA1 = reservation(a, "CANCELED");
         reservationService(rA1, nail, mA);
-        long rA2 = reservation(a, "COMPLETED");
+        rA2 = reservation(a, "COMPLETED");
         reservationService(rA2, nail, mA);
-        long vA = visit(a, "2026-11-20", "NORMAL");
+        vA = visit(a, "2026-11-20", "NORMAL");
         visitService(vA, rA2, nail, "NAIL", mA);
         payment(rA2, a, vA, 30_000, false);
         payment(rA2, a, vA, 20_000, false); // 한 방문에 결제 여러 건 → 전액 합산 (A13)
@@ -101,7 +106,8 @@ class CampaignResultTest {
         jdbc.update("UPDATE customer SET status = 'DELETED' WHERE id = ?", a); // 삭제된 고객도 센다 (C12)
 
         // B: 노쇼, 이어받은 예약 없음 → 재예약에는 남고 재방문에서는 빠진다 (FR-ANL-01)
-        reservationService(reservation(b, "NO_SHOW"), nail, mB);
+        rB = reservation(b, "NO_SHOW");
+        reservationService(rB, nail, mB);
 
         // D(실패) · F(대조군)에 귀속이 잘못 들어가 있어도 세지 않는다 (명세서 5장 campaign_message, E2)
         long rD = reservation(d, "COMPLETED");
@@ -119,10 +125,10 @@ class CampaignResultTest {
         payment(rG, g, vG, 11_000, false);
 
         // H: 네일 두 개는 X, 왁싱은 Y에 귀속된 방문 → 두 캠페인에 각각 전액, X에는 한 번만 (FR-ANL-02)
-        long rH = reservation(h, "COMPLETED");
+        rH = reservation(h, "COMPLETED");
         reservationService(rH, nail, mH);
         reservationService(rH, waxing, mHy);
-        long vH = visit(h, "2026-10-10", "NORMAL");
+        vH = visit(h, "2026-10-10", "NORMAL");
         visitService(vH, rH, nail, "NAIL", mH);
         visitService(vH, rH, nail, "NAIL", mH);
         visitService(vH, rH, waxing, "WAXING", mHy);
@@ -236,6 +242,114 @@ class CampaignResultTest {
                 .andExpect(jsonPath("$.error.code").value("pin_required"));
         mvc.perform(get("/api/campaigns/{id}/revenue", campaignX).session(s))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    void 캠페인_상세는_발송마다_귀속된_예약_방문을_고객_상세와_같은_규칙으로_보인다() throws Exception {
+        MockHttpSession s = session(true);
+        // 고객 ID 순: A B C D E F G H I
+        mvc.perform(get("/api/campaigns/{id}", campaignX).param("size", "100").session(s))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.messages.items.length()").value(9))
+                // A: 취소 예약 + 승계 예약, 귀속 기간 밖 방문 (F33). 삭제된 고객도 보인다 (C12)
+                .andExpect(jsonPath("$.messages.items[0].messageId").value(mA))
+                .andExpect(jsonPath("$.messages.items[0].reservations.length()").value(2))
+                .andExpect(jsonPath("$.messages.items[0].reservations[0].id").value(rA1))
+                .andExpect(jsonPath("$.messages.items[0].reservations[0].status").value("CANCELED"))
+                .andExpect(jsonPath("$.messages.items[0].reservations[1].id").value(rA2))
+                .andExpect(jsonPath("$.messages.items[0].visits.length()").value(1))
+                .andExpect(jsonPath("$.messages.items[0].visits[0].id").value(vA))
+                .andExpect(jsonPath("$.messages.items[0].visits[0].visitDate").value("2026-11-20"))
+                // B: 노쇼 예약만
+                .andExpect(jsonPath("$.messages.items[1].reservations.length()").value(1))
+                .andExpect(jsonPath("$.messages.items[1].reservations[0].id").value(rB))
+                .andExpect(jsonPath("$.messages.items[1].reservations[0].status").value("NO_SHOW"))
+                .andExpect(jsonPath("$.messages.items[1].visits.length()").value(0))
+                // C: 도달만
+                .andExpect(jsonPath("$.messages.items[2].reservations.length()").value(0))
+                .andExpect(jsonPath("$.messages.items[2].visits.length()").value(0))
+                // D(실패): 발송 ID는 있고, 잘못 들어간 귀속은 보이지 않는다
+                .andExpect(jsonPath("$.messages.items[3].messageId").value(mD))
+                .andExpect(jsonPath("$.messages.items[3].reservations.length()").value(0))
+                .andExpect(jsonPath("$.messages.items[3].visits.length()").value(0))
+                // F(대조군): 발송 ID 없음
+                .andExpect(jsonPath("$.messages.items[5].messageId").value(nullValue()))
+                .andExpect(jsonPath("$.messages.items[5].reservations.length()").value(0))
+                // G: 다른 카테고리 시술의 귀속은 뺀다 (E7)
+                .andExpect(jsonPath("$.messages.items[6].reservations.length()").value(0))
+                .andExpect(jsonPath("$.messages.items[6].visits.length()").value(0))
+                // H: 네일 귀속 시술이 둘이어도 예약 · 방문은 한 번씩. 왁싱(Y) 귀속은 X에 나오지 않는다
+                .andExpect(jsonPath("$.messages.items[7].messageId").value(mH))
+                .andExpect(jsonPath("$.messages.items[7].reservations.length()").value(1))
+                .andExpect(jsonPath("$.messages.items[7].reservations[0].id").value(rH))
+                .andExpect(jsonPath("$.messages.items[7].visits.length()").value(1))
+                .andExpect(jsonPath("$.messages.items[7].visits[0].id").value(vH))
+                // I: 가져온 방문은 뺀다 (FR-CUS-13)
+                .andExpect(jsonPath("$.messages.items[8].visits.length()").value(0));
+
+        // 같은 발송을 고객 상세 수신 이력에서 봐도 같은 예약 · 방문 (CONTRACTS 6장). H는 Y(나중 ID) → X 순
+        mvc.perform(get("/api/customers/{id}/messages", h).session(s))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[1].messageId").value(mH))
+                .andExpect(jsonPath("$.items[1].reservations.length()").value(1))
+                .andExpect(jsonPath("$.items[1].reservations[0].id").value(rH))
+                .andExpect(jsonPath("$.items[1].visits.length()").value(1))
+                .andExpect(jsonPath("$.items[1].visits[0].id").value(vH));
+    }
+
+    @Test
+    void 고객별_연결_매출은_보낸_순서대로_없으면_0이고_합은_캠페인_매출과_같다() throws Exception {
+        MockHttpSession s = session(true);
+        long notTarget = data.customer(shop, false, null);
+        String ids = h + "," + a + "," + d + "," + g + "," + i + "," + c + "," + notTarget;
+        mvc.perform(
+                        get("/api/campaigns/{id}/revenue", campaignX)
+                                .param("customerIds", ids)
+                                .session(s))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.revenue").value(100_000))
+                .andExpect(jsonPath("$.customers.length()").value(7))
+                .andExpect(jsonPath("$.customers[0].customerId").value(h))
+                .andExpect(jsonPath("$.customers[0].revenue").value(50_000)) // 네일 둘이어도 한 번
+                .andExpect(jsonPath("$.customers[1].customerId").value(a))
+                .andExpect(
+                        jsonPath("$.customers[1].revenue").value(50_000)) // 취소 결제 제외, 삭제 고객 (C12)
+                .andExpect(jsonPath("$.customers[2].revenue").value(0)) // D 실패
+                .andExpect(jsonPath("$.customers[3].revenue").value(0)) // G 다른 카테고리
+                .andExpect(jsonPath("$.customers[4].revenue").value(0)) // I 가져온 방문
+                .andExpect(jsonPath("$.customers[5].revenue").value(0)) // C 귀속 없음
+                .andExpect(jsonPath("$.customers[6].customerId").value(notTarget))
+                .andExpect(jsonPath("$.customers[6].revenue").value(0)); // 대상 아님
+        // 보내지 않으면 customers 칸이 없다
+        mvc.perform(get("/api/campaigns/{id}/revenue", campaignX).session(s))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.customers").doesNotExist());
+    }
+
+    @Test
+    void 고객별_연결_매출의_고객_ID가_틀리거나_100개를_넘으면_invalid() throws Exception {
+        MockHttpSession s = session(true);
+        for (String bad : List.of("", "abc", "1,,2", "0", "-3", ids(101))) {
+            mvc.perform(
+                            get("/api/campaigns/{id}/revenue", campaignX)
+                                    .param("customerIds", bad)
+                                    .session(s))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.error.code").value("invalid"));
+        }
+        mvc.perform(
+                        get("/api/campaigns/{id}/revenue", campaignX)
+                                .param("customerIds", ids(100))
+                                .session(s))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.customers.length()").value(100));
+    }
+
+    /** 1부터 n까지 쉼표로 이은 ID */
+    private static String ids(int n) {
+        return String.join(
+                ",",
+                java.util.stream.IntStream.rangeClosed(1, n).mapToObj(Integer::toString).toList());
     }
 
     @Test
