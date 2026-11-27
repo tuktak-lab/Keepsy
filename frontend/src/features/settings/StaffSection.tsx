@@ -4,6 +4,7 @@ import { ApiError, api } from '@/lib/api';
 import { detailsText } from '@/lib/reservationForm';
 import { NAME_MAX, toNewStaffRequest, validateNewStaff, validatePin, validateStaffName, type NewStaffValues } from '@/lib/staff';
 import { PushedReservations, type PushedReservation } from './PushedReservations';
+import { t } from '@/lib/i18n';
 
 // 스탭 · PIN (FR-SET-05, FR-ACC-03 · 04). 모두 원장 PIN 기능이다 (OWNER_PIN, api.ts가 PIN 창을 띄움). docs CONTRACTS 4장 ACC
 // - 목록: GET /api/staff?includeInactive=true (비활성 포함, 활성 먼저)
@@ -18,9 +19,9 @@ const errorText = (err: unknown): string =>
     ? err.code === 'invalid'
       ? (detailsText(err.details) ?? err.message)
       : err.code === 'duplicate'
-        ? '이 매장의 다른 스탭이 이미 쓰는 PIN이에요. 다른 PIN을 정해 주세요'
+        ? t('settings.staff.dupPin')
         : err.message
-    : '잠시 후 다시 시도해 주세요';
+    : t('common.pin.tryLater');
 
 export function StaffSection() {
   const [staff, setStaff] = useState<Staff[] | null>(null);
@@ -46,23 +47,22 @@ export function StaffSection() {
 
   return (
     <section id="st-staff" className="st-card">
-      <h2 data-guide="settings-staff">스탭 · PIN</h2>
+      <h2 data-guide="settings-staff">{t('settings.staff.title')}</h2>
       <p className="st-meta">
-        스탭마다 PIN으로 근무를 시작해요. 「잠긴 기능 사용 허용」을 켠 스탭만 PIN으로 잠긴 기능을 열 수 있어요. 비활성 스탭은 근무 시작 · PIN 사용을 할 수 없고, 작성한 기록 · 메모는
-        그대로 남아요.
+        {t('settings.staff.intro')}
       </p>
 
-      {blocked ? <PushedReservations title={`${blocked.name} 님에게 남은`} items={blocked.items} onDismiss={() => setBlocked(null)} /> : null}
+      {blocked ? <PushedReservations title={t('settings.staff.remaining', { name: blocked.name })} items={blocked.items} onDismiss={() => setBlocked(null)} /> : null}
 
       {failed ? (
         <p className="st-meta">
-          불러오지 못했어요.{' '}
+          {t('settings.loadFailedDot')}{' '}
           <button type="button" className="st-btn" onClick={refresh}>
-            다시 시도
+            {t('common.retry')}
           </button>
         </p>
       ) : !staff ? (
-        <p className="st-meta">불러오는 중…</p>
+        <p className="st-meta">{t('common.loading')}</p>
       ) : (
         <div>
           {staff.map((s) => (
@@ -110,7 +110,7 @@ function StaffRow(props: { staff: Staff; onChanged: (patch: Partial<Staff>) => v
     } catch (err) {
       if (err instanceof ApiError && err.code === 'conflict' && Array.isArray(err.details)) {
         props.onBlocked(err.details as PushedReservation[]);
-        setError('남은 확정 예약이 있어 비활성화하지 않았어요. 위 목록의 예약을 옮기거나 마감 · 취소해 주세요');
+        setError(t('settings.staff.blocked'));
         setMode('view');
       } else setError(errorText(err));
     } finally {
@@ -122,7 +122,7 @@ function StaffRow(props: { staff: Staff; onChanged: (patch: Partial<Staff>) => v
     run(async () => {
       await api(`/api/staff/${s.id}`, { method: 'PATCH', body: { name: name.trim() }, silent: true });
       props.onChanged({ name: name.trim() });
-      toast('이름을 바꿨어요');
+      toast(t('settings.staff.renamed'));
       setMode('view');
     });
 
@@ -130,20 +130,20 @@ function StaffRow(props: { staff: Staff; onChanged: (patch: Partial<Staff>) => v
     run(async () => {
       await api(`/api/staff/${s.id}`, { method: 'PATCH', body: { lockedFeatureAllowed: allowed }, silent: true });
       props.onChanged({ lockedFeatureAllowed: allowed });
-      toast(allowed ? `${s.name} 님이 잠긴 기능을 열 수 있어요` : `${s.name} 님의 잠긴 기능 사용을 껐어요`);
+      toast(allowed ? t('settings.staff.allowedOn', { name: s.name }) : t('settings.staff.allowedOff', { name: s.name }));
     });
 
   const savePin = () =>
     run(async () => {
       await api(`/api/staff/${s.id}/pin`, { method: 'PUT', body: { pin }, silent: true });
-      toast(`${s.name} 님의 PIN을 바꿨어요`);
+      toast(t('settings.staff.pinChanged', { name: s.name }));
       setMode('view');
     });
 
   const deactivate = () =>
     run(async () => {
       await api(`/api/staff/${s.id}/deactivate`, { method: 'POST', silent: true });
-      toast(`${s.name} 님을 비활성화했어요`);
+      toast(t('settings.staff.deactivated', { name: s.name }));
       setMode('view');
       props.onDeactivated();
     });
@@ -165,7 +165,7 @@ function StaffRow(props: { staff: Staff; onChanged: (patch: Partial<Staff>) => v
       {mode === 'name' ? (
         <input
           className="st-fld grow"
-          aria-label={`${s.name} 새 이름`}
+          aria-label={t('settings.staff.newNameAria', { name: s.name })}
           maxLength={NAME_MAX}
           value={name}
           autoFocus
@@ -177,14 +177,14 @@ function StaffRow(props: { staff: Staff; onChanged: (patch: Partial<Staff>) => v
         />
       ) : (
         <span className="nm grow">
-          {s.name} {s.owner ? <span className="st-tag">원장</span> : null} {active ? null : <span className="st-tag w">비활성</span>}
+          {s.name} {s.owner ? <span className="st-tag">{t('settings.staff.owner')}</span> : null} {active ? null : <span className="st-tag w">{t('settings.staff.inactive')}</span>}
         </span>
       )}
 
       {mode === 'view' && active ? (
-        <label className="st-chk" title={s.owner ? '원장은 항상 잠긴 기능을 열 수 있어요' : undefined}>
+        <label className="st-chk" title={s.owner ? t('settings.staff.ownerAlways') : undefined}>
           <input type="checkbox" checked={s.lockedFeatureAllowed} disabled={s.owner || busy} onChange={(e) => void toggleLocked(e.target.checked)} />
-          잠긴 기능 사용 허용
+          {t('settings.staff.allowLocked')}
         </label>
       ) : null}
 
@@ -195,8 +195,8 @@ function StaffRow(props: { staff: Staff; onChanged: (patch: Partial<Staff>) => v
           inputMode="numeric"
           autoComplete="new-password"
           maxLength={6}
-          placeholder="새 PIN"
-          aria-label={`${s.name} 새 PIN`}
+          placeholder={t('settings.staff.newPin')}
+          aria-label={t('settings.staff.newPinAria', { name: s.name })}
           value={pin}
           autoFocus
           onChange={(e) => {
@@ -207,21 +207,21 @@ function StaffRow(props: { staff: Staff; onChanged: (patch: Partial<Staff>) => v
         />
       ) : null}
 
-      {mode === 'deactivate' && active ? <span className="st-meta">비활성화하면 근무 시작 · PIN 사용을 할 수 없어요. 다시 켜는 기능은 없어요.</span> : null}
+      {mode === 'deactivate' && active ? <span className="st-meta">{t('settings.staff.deactivateNote')}</span> : null}
 
       <span style={{ display: 'inline-flex', gap: 8 }}>
         {mode === 'view' && active ? (
           <>
             <button type="button" className="st-btn" onClick={() => open('name')}>
-              이름 수정
+              {t('settings.staff.rename')}
             </button>
             {s.owner ? null : (
               <>
                 <button type="button" className="st-btn" onClick={() => open('pin')}>
-                  PIN 재설정
+                  {t('settings.staff.resetPin')}
                 </button>
                 <button type="button" className="st-btn" onClick={() => open('deactivate')}>
-                  비활성화
+                  {t('settings.staff.deactivate')}
                 </button>
               </>
             )}
@@ -230,10 +230,10 @@ function StaffRow(props: { staff: Staff; onChanged: (patch: Partial<Staff>) => v
         {mode !== 'view' && active ? (
           <>
             <button type="button" className="st-btn" disabled={busy} onClick={() => open('view')}>
-              취소
+              {t('common.cancel')}
             </button>
             <button type="button" className="st-btn p" disabled={busy} onClick={() => void (mode === 'name' ? onNameSave() : mode === 'pin' ? onPinSave() : deactivate())}>
-              {busy ? '저장 중…' : mode === 'deactivate' ? '비활성화' : '저장'}
+              {busy ? t('common.saving') : mode === 'deactivate' ? t('settings.staff.deactivate') : t('customer.save')}
             </button>
           </>
         ) : null}
@@ -274,7 +274,7 @@ function NewStaffForm(props: { onAdded: () => void }) {
     setError('');
     try {
       await api('/api/staff', { method: 'POST', body: toNewStaffRequest(values), silent: true });
-      toast(`${values.name.trim()} 님을 등록했어요`);
+      toast(t('settings.staff.addedToast', { name: values.name.trim() }));
       close();
       props.onAdded();
     } catch (err) {
@@ -288,7 +288,7 @@ function NewStaffForm(props: { onAdded: () => void }) {
     return (
       <div>
         <button type="button" className="st-btn p" onClick={() => setOpen(true)}>
-          + 스탭 등록
+          {t('settings.staff.addBtn')}
         </button>
       </div>
     );
@@ -296,17 +296,17 @@ function NewStaffForm(props: { onAdded: () => void }) {
 
   return (
     <div>
-      <div className="st-lbl">스탭 등록</div>
+      <div className="st-lbl">{t('settings.staff.addTitle')}</div>
       <div className="st-grid" style={{ marginTop: 10, alignItems: 'flex-end' }}>
         <div className="st-field">
           <label className="st-lbl" htmlFor="staff-new-name">
-            이름
+            {t('settings.staff.name')}
           </label>
           <input id="staff-new-name" className="st-fld" maxLength={NAME_MAX} value={values.name} onChange={(e) => edit({ name: e.target.value })} autoFocus />
         </div>
         <div className="st-field" style={{ flex: '0 1 180px' }}>
           <label className="st-lbl" htmlFor="staff-new-pin">
-            PIN (숫자 4~6자리)
+            {t('settings.staff.pinLabel')}
           </label>
           <input
             id="staff-new-pin"
@@ -322,17 +322,17 @@ function NewStaffForm(props: { onAdded: () => void }) {
         <div className="st-field" style={{ flex: '0 0 auto', justifyContent: 'center', minHeight: 44 }}>
           <label className="st-chk">
             <input type="checkbox" checked={values.lockedFeatureAllowed} onChange={(e) => edit({ lockedFeatureAllowed: e.target.checked })} />
-            잠긴 기능 사용 허용
+            {t('settings.staff.allowLocked')}
           </label>
         </div>
         <div className="st-field" style={{ flex: '0 0 auto' }}>
           <button type="button" className="st-btn p" disabled={busy} onClick={() => void add()}>
-            {busy ? '등록 중…' : '등록'}
+            {busy ? t('settings.dayoff.registering') : t('settings.staff.register')}
           </button>
         </div>
         <div className="st-field" style={{ flex: '0 0 auto' }}>
           <button type="button" className="st-btn" disabled={busy} onClick={close}>
-            취소
+            {t('common.cancel')}
           </button>
         </div>
       </div>

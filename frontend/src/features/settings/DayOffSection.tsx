@@ -15,8 +15,10 @@ import {
   type DayOffValues,
 } from '@/lib/dayOffs';
 import { detailsText } from '@/lib/reservationForm';
-import { DAYS, DAY_LABEL } from '@/lib/settings';
+import { dowLabel } from '@/lib/calendar';
+import { DAYS } from '@/lib/settings';
 import { PushedReservations, type PushedReservation } from './PushedReservations';
+import { t } from '@/lib/i18n';
 
 // 휴무일 (FR-SET-07, C7). 매장 · 스탭 임시 휴무일과 스탭 정기 휴무 요일. 변경은 원장 PIN이 필요하다 (api.ts가 PIN 창을 띄움).
 // - 임시 휴무일: GET · POST /api/day-offs, DELETE /api/day-offs/{dayOffId} (docs CONTRACTS 4장). 조회는 최대 31일이라 달 단위로 본다
@@ -26,7 +28,7 @@ import { PushedReservations, type PushedReservation } from './PushedReservations
 type Staff = { id: number; name: string; owner: boolean; regularDaysOff: string[]; status: 'ACTIVE' | 'INACTIVE' };
 
 const errorText = (err: unknown): string =>
-  err instanceof ApiError ? (err.code === 'invalid' ? (detailsText(err.details) ?? err.message) : err.message) : '잠시 후 다시 시도해 주세요';
+  err instanceof ApiError ? (err.code === 'invalid' ? (detailsText(err.details) ?? err.message) : err.message) : t('common.pin.tryLater');
 
 export function DayOffSection() {
   const now = useNowMs();
@@ -82,19 +84,19 @@ export function DayOffSection() {
   };
 
   const active = (staff ?? []).filter((s) => s.status === 'ACTIVE');
-  const staffName = (id: number | null) => (id === null ? null : ((staff ?? []).find((s) => s.id === id)?.name ?? `스탭 ${id}`));
+  const staffName = (id: number | null) => (id === null ? null : ((staff ?? []).find((s) => s.id === id)?.name ?? t('settings.dayoff.staffFallback', { id })));
 
   return (
     <section id="st-dayoff" className="st-card">
-      <h2>휴무일</h2>
-      <p className="st-meta">휴무인 날은 예약 시간을 고를 수 없어요. 이미 확정 예약이 있는 날을 휴무로 정하면 그 예약 목록을 보여 드려요. 예약은 자동으로 취소하지 않아요.</p>
+      <h2>{t('settings.dayoff.title')}</h2>
+      <p className="st-meta">{t('settings.dayoff.note')}</p>
 
       {today && staff ? (
         <DayOffForm
           today={today}
           staff={active}
           onAdded={(items, date) => {
-            setPushed({ title: '휴무일에 걸린', items });
+            setPushed({ title: t('settings.dayoff.onDay'), items });
             // 등록한 날의 달로 옮겨 바로 보이게 한다
             const y = Number(date.slice(0, 4));
             const m0 = Number(date.slice(5, 7)) - 1;
@@ -108,16 +110,16 @@ export function DayOffSection() {
 
       <div>
         <div className="st-row" style={{ borderTop: 0, paddingTop: 0 }}>
-          <span className="st-lbl grow">임시 휴무일</span>
+          <span className="st-lbl grow">{t('settings.dayoff.temp')}</span>
           {month ? (
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-              <button type="button" className="st-btn" aria-label="이전 달" onClick={() => setMonth(shiftMonth(month.year, month.month0, -1))}>
+              <button type="button" className="st-btn" aria-label={t('settings.dayoff.prevMonth')} onClick={() => setMonth(shiftMonth(month.year, month.month0, -1))}>
                 ‹
               </button>
               <span className="num" style={{ minWidth: 92, textAlign: 'center', fontWeight: 600 }}>
-                {month.year}년 {month.month0 + 1}월
+                {t('settings.dayoff.monthLabel', { year: month.year, month: month.month0 + 1 })}
               </span>
-              <button type="button" className="st-btn" aria-label="다음 달" onClick={() => setMonth(shiftMonth(month.year, month.month0, 1))}>
+              <button type="button" className="st-btn" aria-label={t('settings.dayoff.nextMonth')} onClick={() => setMonth(shiftMonth(month.year, month.month0, 1))}>
                 ›
               </button>
             </span>
@@ -125,15 +127,15 @@ export function DayOffSection() {
         </div>
         {listFailed ? (
           <p className="st-meta">
-            불러오지 못했어요.{' '}
+            {t('settings.loadFailedDot')}{' '}
             <button type="button" className="st-btn" onClick={retryList}>
-              다시 시도
+              {t('common.retry')}
             </button>
           </p>
         ) : !dayOffs ? (
-          <p className="st-meta">불러오는 중…</p>
+          <p className="st-meta">{t('common.loading')}</p>
         ) : dayOffs.length === 0 ? (
-          <p className="st-meta">이 달에 등록된 휴무일이 없어요.</p>
+          <p className="st-meta">{t('settings.dayoff.emptyMonth')}</p>
         ) : (
           dayOffs.map((d) => (
             <DayOffRow
@@ -148,19 +150,19 @@ export function DayOffSection() {
       </div>
 
       <div>
-        <div className="st-lbl">스탭 정기 휴무 요일</div>
-        <p className="st-meta">요일을 눌러 켜고 끈 뒤 저장해요. 매장 전체가 쉬는 요일은 위 「매장 정보 · 영업시간」에서 정기 휴무로 정해요.</p>
+        <div className="st-lbl">{t('settings.dayoff.staffRegular')}</div>
+        <p className="st-meta">{t('settings.dayoff.staffNote')}</p>
         {staffFailed ? (
           <p className="st-meta">
-            스탭 목록을 불러오지 못했어요.{' '}
+            {t('settings.dayoff.staffFailed')}{' '}
             <button type="button" className="st-btn" onClick={loadStaff}>
-              다시 시도
+              {t('common.retry')}
             </button>
           </p>
         ) : !staff ? (
-          <p className="st-meta">불러오는 중…</p>
+          <p className="st-meta">{t('common.loading')}</p>
         ) : active.length === 0 ? (
-          <p className="st-meta">활성 스탭이 없어요.</p>
+          <p className="st-meta">{t('settings.dayoff.noActiveStaff')}</p>
         ) : (
           active.map((s) => (
             <RegularDaysRow
@@ -168,7 +170,7 @@ export function DayOffSection() {
               staff={s}
               onSaved={(days, items) => {
                 setStaff((list) => (list ?? []).map((x) => (x.id === s.id ? { ...x, regularDaysOff: days } : x)));
-                setPushed({ title: `${s.name} 님의 정기 휴무 요일에 걸린`, items });
+                setPushed({ title: t('settings.dayoff.staffRegularOn', { name: s.name }), items });
               }}
             />
           ))
@@ -196,11 +198,11 @@ function DayOffForm(props: { today: string; staff: Staff[]; onAdded: (pushed: Pu
     setError('');
     try {
       const res = await api<{ id: number; pushedReservations: PushedReservation[] }>('/api/day-offs', { method: 'POST', body: toDayOffRequest(values), silent: true });
-      toast('휴무일을 등록했어요');
+      toast(t('settings.dayoff.addedToast'));
       props.onAdded(res?.pushedReservations ?? [], values.date);
       setValues(empty);
     } catch (err) {
-      setError(err instanceof ApiError && err.code === 'duplicate' ? '같은 날 같은 대상의 휴무가 이미 있어요' : errorText(err));
+      setError(err instanceof ApiError && err.code === 'duplicate' ? t('settings.dayoff.duplicate') : errorText(err));
     } finally {
       setBusy(false);
     }
@@ -211,16 +213,16 @@ function DayOffForm(props: { today: string; staff: Staff[]; onAdded: (pushed: Pu
       <div className="st-grid">
         <div className="st-field" style={{ flex: '0 1 180px' }}>
           <label className="st-lbl" htmlFor="dayoff-date">
-            날짜
+            {t('settings.dayoff.date')}
           </label>
           <input id="dayoff-date" type="date" className="st-fld num" min={props.today} value={values.date} onChange={(e) => edit({ date: e.target.value })} />
         </div>
         <div className="st-field" style={{ flex: '0 1 200px' }}>
           <label className="st-lbl" htmlFor="dayoff-target">
-            대상
+            {t('settings.dayoff.target')}
           </label>
           <select id="dayoff-target" className="st-fld" value={values.target} onChange={(e) => edit({ target: e.target.value })}>
-            <option value="SHOP">매장 전체</option>
+            <option value="SHOP">{t('settings.dayoff.wholeShop')}</option>
             {props.staff.map((s) => (
               <option key={s.id} value={String(s.id)}>
                 {s.name}
@@ -230,13 +232,13 @@ function DayOffForm(props: { today: string; staff: Staff[]; onAdded: (pushed: Pu
         </div>
         <div className="st-field">
           <label className="st-lbl" htmlFor="dayoff-reason">
-            사유 (선택)
+            {t('settings.dayoff.reason')}
           </label>
-          <input id="dayoff-reason" className="st-fld" maxLength={REASON_MAX} placeholder="예: 내부 교육" value={values.reason} onChange={(e) => edit({ reason: e.target.value })} />
+          <input id="dayoff-reason" className="st-fld" maxLength={REASON_MAX} placeholder={t('settings.dayoff.reasonPlaceholder')} value={values.reason} onChange={(e) => edit({ reason: e.target.value })} />
         </div>
         <div className="st-field" style={{ flex: '0 0 auto', justifyContent: 'flex-end' }}>
           <button type="button" className="st-btn p" disabled={busy} onClick={() => void add()}>
-            {busy ? '등록 중…' : '휴무일 등록'}
+            {busy ? t('settings.dayoff.registering') : t('settings.dayoff.registerBtn')}
           </button>
         </div>
       </div>
@@ -261,7 +263,7 @@ function DayOffRow(props: { dayOff: DayOff; staffName: string | null; past: bool
     setError('');
     try {
       await api<void>(`/api/day-offs/${d.id}`, { method: 'DELETE', silent: true });
-      toast('휴무일을 삭제했어요');
+      toast(t('settings.dayoff.deletedToast'));
       props.onDeleted();
     } catch (err) {
       setError(errorText(err));
@@ -274,7 +276,7 @@ function DayOffRow(props: { dayOff: DayOff; staffName: string | null; past: bool
       <span className="nm num" style={{ width: 120, color: props.past ? '#6B605B' : undefined }}>
         {formatDayOffDate(d.date)}
       </span>
-      <span className={props.staffName ? 'st-tag w' : 'st-tag'}>{props.staffName ?? '매장 휴무'}</span>
+      <span className={props.staffName ? 'st-tag w' : 'st-tag'}>{props.staffName ?? t('settings.dayoff.shopOff')}</span>
       <span className="grow st-meta">{d.reason ?? ''}</span>
       {error ? (
         <span className="st-err" role="alert">
@@ -283,17 +285,17 @@ function DayOffRow(props: { dayOff: DayOff; staffName: string | null; past: bool
       ) : null}
       {confirm ? (
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-          <span className="st-meta">삭제하면 그날 다시 예약을 받아요.</span>
+          <span className="st-meta">{t('settings.dayoff.deleteNote')}</span>
           <button type="button" className="st-btn" disabled={busy} onClick={() => setConfirm(false)}>
-            취소
+            {t('common.cancel')}
           </button>
           <button type="button" className="st-btn p" disabled={busy} onClick={() => void remove()}>
-            {busy ? '삭제 중…' : '삭제'}
+            {busy ? t('customer.deleting') : t('customer.delete')}
           </button>
         </span>
       ) : (
         <button type="button" className="st-btn" onClick={() => setConfirm(true)}>
-          삭제
+          {t('customer.delete')}
         </button>
       )}
     </div>
@@ -313,7 +315,7 @@ function RegularDaysRow(props: { staff: Staff; onSaved: (days: string[], pushed:
     setError('');
     try {
       const res = await api<{ pushedReservations: PushedReservation[] }>(`/api/staff/${s.id}`, { method: 'PATCH', body: { regularDaysOff: days }, silent: true });
-      toast(`${s.name} 님의 정기 휴무 요일을 저장했어요`);
+      toast(t('settings.dayoff.staffSaved', { name: s.name }));
       props.onSaved(days, res?.pushedReservations ?? []);
     } catch (err) {
       setError(errorText(err));
@@ -326,16 +328,16 @@ function RegularDaysRow(props: { staff: Staff; onSaved: (days: string[], pushed:
     <div className="st-row">
       <span className="nm" style={{ width: 96 }}>
         {s.name}
-        {s.owner ? <span className="st-meta"> · 원장</span> : null}
+        {s.owner ? <span className="st-meta">{t('settings.dayoff.owner')}</span> : null}
       </span>
-      <span className="st-seg" role="group" aria-label={`${s.name} 정기 휴무 요일`}>
+      <span className="st-seg" role="group" aria-label={t('settings.dayoff.staffAria', { name: s.name })}>
         {DAYS.map((day, i) => (
           <button key={day} type="button" aria-pressed={days.includes(day)} onClick={() => (setError(''), setDays(toggleDay(days, day)))}>
-            {DAY_LABEL[i]}
+            {dowLabel(i)}
           </button>
         ))}
       </span>
-      <span className="grow st-meta">{days.length === 0 ? '정기 휴무 없음' : `매주 ${days.map((d) => DAY_LABEL[DAYS.indexOf(d as (typeof DAYS)[number])]).join(' · ')} 휴무`}</span>
+      <span className="grow st-meta">{days.length === 0 ? t('settings.dayoff.none') : t('settings.dayoff.weekly', { days: days.map((d) => dowLabel(DAYS.indexOf(d as (typeof DAYS)[number]))).join(' · ') })}</span>
       {error ? (
         <span className="st-err" role="alert">
           {error}
@@ -344,10 +346,10 @@ function RegularDaysRow(props: { staff: Staff; onSaved: (days: string[], pushed:
       {dirty ? (
         <span style={{ display: 'inline-flex', gap: 8 }}>
           <button type="button" className="st-btn" disabled={busy} onClick={() => (setError(''), setDays(s.regularDaysOff))}>
-            되돌리기
+            {t('settings.revert')}
           </button>
           <button type="button" className="st-btn p" disabled={busy} onClick={() => void save()}>
-            {busy ? '저장 중…' : '저장'}
+            {busy ? t('common.saving') : t('customer.save')}
           </button>
         </span>
       ) : null}

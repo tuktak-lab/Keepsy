@@ -4,8 +4,10 @@ import { ApiError, api } from '@/lib/api';
 import type { OpeningHour } from '@/lib/calendar';
 import { detailsText } from '@/lib/reservationForm';
 import { CATEGORIES, CATEGORY_LABEL } from '@/lib/menus';
-import { DAY_LABEL, DEFAULT_CLOSE, DEFAULT_OPEN, toRows, industryChange, toShopRequest, toggleIndustry, validateShop, type ShopValues } from '@/lib/settings';
+import { DEFAULT_CLOSE, DEFAULT_OPEN, toRows, industryChange, toShopRequest, toggleIndustry, validateShop, type ShopValues } from '@/lib/settings';
 import { PushedReservations, type PushedReservation } from './PushedReservations';
+import { t } from '@/lib/i18n';
+import { dowLabel } from '@/lib/calendar';
 
 // 매장 정보 · 영업시간 (FR-SET-01). GET · PUT /api/shop (docs CONTRACTS 6장 「매장 설정 (SET)」). 변경은 원장 PIN이 필요하다 (api.ts가 PIN 창을 띄움).
 // 매장 업종 켜기 · 끄기(CONTRACTS 3절 「매장 업종」)도 이 저장에 같이 보낸다. 켜 둔 업종은 `onIndustries`로 알려 시술 메뉴 · 기본 주기 구역이 그것만 보여 준다.
@@ -70,9 +72,9 @@ export function ShopSection({ onIndustries }: { onIndustries?: (list: string[] |
   if (loadFailed && !values) {
     return (
       <section id="st-shop" className="st-card">
-        <h2 data-guide="settings-shop">매장 정보 · 영업시간</h2>
+        <h2 data-guide="settings-shop">{t('settings.shop.title')}</h2>
         <p className="st-meta">
-          불러오지 못했어요.{' '}
+          {t('settings.loadFailedDot')}{' '}
           <button
             type="button"
             className="st-btn"
@@ -81,7 +83,7 @@ export function ShopSection({ onIndustries }: { onIndustries?: (list: string[] |
               setReload((n) => n + 1);
             }}
           >
-            다시 시도
+            {t('common.retry')}
           </button>
         </p>
       </section>
@@ -90,8 +92,8 @@ export function ShopSection({ onIndustries }: { onIndustries?: (list: string[] |
   if (!values || !saved) {
     return (
       <section id="st-shop" className="st-card">
-        <h2 data-guide="settings-shop">매장 정보 · 영업시간</h2>
-        <p className="st-meta">불러오는 중…</p>
+        <h2 data-guide="settings-shop">{t('settings.shop.title')}</h2>
+        <p className="st-meta">{t('common.loading')}</p>
       </section>
     );
   }
@@ -122,9 +124,9 @@ export function ShopSection({ onIndustries }: { onIndustries?: (list: string[] |
       setSaved(values);
       onIndustries?.(values.industries);
       setPushed(res?.pushedReservations ?? []);
-      toast('매장 정보를 저장했어요');
+      toast(t('settings.shop.saved'));
     } catch (err) {
-      setError(err instanceof ApiError ? (err.code === 'invalid' ? (detailsText(err.details) ?? err.message) : err.message) : '잠시 후 다시 시도해 주세요');
+      setError(err instanceof ApiError ? (err.code === 'invalid' ? (detailsText(err.details) ?? err.message) : err.message) : t('common.pin.tryLater'));
     } finally {
       setBusy(false);
       setConfirming(false);
@@ -133,38 +135,38 @@ export function ShopSection({ onIndustries }: { onIndustries?: (list: string[] |
 
   return (
     <section id="st-shop" className="st-card">
-      <h2 data-guide="settings-shop">매장 정보 · 영업시간</h2>
+      <h2 data-guide="settings-shop">{t('settings.shop.title')}</h2>
       <div className="st-grid">
         <div className="st-field">
           <label className="st-lbl" htmlFor="shop-name">
-            매장명
+            {t('settings.shop.name')}
           </label>
           <input id="shop-name" className="st-fld" maxLength={100} value={values.name} onChange={(e) => edit({ name: e.target.value })} />
         </div>
         <div className="st-field">
           <label className="st-lbl" htmlFor="shop-phone">
-            매장 연락처
+            {t('settings.shop.phone')}
           </label>
           <input id="shop-phone" className="st-fld num" inputMode="tel" placeholder="02-000-0000" value={values.phone} onChange={(e) => edit({ phone: e.target.value })} />
         </div>
         <div className="st-field">
           <label className="st-lbl" htmlFor="shop-sender">
-            발신번호
+            {t('settings.shop.sender')}
           </label>
           <input id="shop-sender" className="st-fld num" inputMode="tel" placeholder="010-0000-0000" value={values.senderNumber} onChange={(e) => edit({ senderNumber: e.target.value })} />
         </div>
         <div className="st-field">
           <label className="st-lbl" htmlFor="shop-unsub">
-            수신 거부 번호
+            {t('settings.shop.unsub')}
           </label>
           <input id="shop-unsub" className="st-fld num" inputMode="tel" placeholder="080-000-0000" value={values.unsubscribeNumber} onChange={(e) => edit({ unsubscribeNumber: e.target.value })} />
         </div>
       </div>
-      <p className="st-meta">연락처 · 발신번호 · 수신 거부 번호는 광고 메시지 표기에 쓰여요. 비워 둘 수 있어요.</p>
+      <p className="st-meta">{t('settings.shop.numbersNote')}</p>
 
       <div>
         <div className="st-lbl" id="shop-industries-label">
-          매장 업종
+          {t('settings.shop.industries')}
         </div>
         <div className="st-chips" role="group" aria-labelledby="shop-industries-label">
           {CATEGORIES.map((c) => {
@@ -183,14 +185,14 @@ export function ShopSection({ onIndustries }: { onIndustries?: (list: string[] |
           })}
         </div>
       </div>
-      <p className="st-meta">켜 둔 업종만 아래 「시술 메뉴 · 기본 주기」, 예약 · 시술 마감의 시술 선택, 새 캠페인의 시술 카테고리에 보여요. 꺼도 기존 메뉴 · 예약 · 고객 기록은 그대로이고, 다시 켜면 돌아와요. 하나는 켜 두어야 해요.</p>
+      <p className="st-meta">{t('settings.shop.industryNote')}</p>
 
       <div>
-        <div className="st-lbl">요일별 영업시간 (30분 단위)</div>
+        <div className="st-lbl">{t('settings.shop.hoursLabel')}</div>
         {values.hours.map((h, i) => (
           <div className="st-row" key={h.dayOfWeek}>
             <span className="nm" style={{ width: 28, fontWeight: 600 }}>
-              {DAY_LABEL[i]}
+              {dowLabel(i)}
             </span>
             <input
               type="time"
@@ -198,7 +200,7 @@ export function ShopSection({ onIndustries }: { onIndustries?: (list: string[] |
               className="st-time num"
               value={h.off ? '' : h.open}
               disabled={h.off}
-              aria-label={`${DAY_LABEL[i]}요일 여는 시각`}
+              aria-label={t('settings.shop.openAria', { day: dowLabel(i) })}
               onChange={(e) => editRow(i, { open: e.target.value })}
             />
             <span>~</span>
@@ -208,7 +210,7 @@ export function ShopSection({ onIndustries }: { onIndustries?: (list: string[] |
               className="st-time num"
               value={h.off ? '' : h.close}
               disabled={h.off}
-              aria-label={`${DAY_LABEL[i]}요일 닫는 시각`}
+              aria-label={t('settings.shop.closeAria', { day: dowLabel(i) })}
               onChange={(e) => editRow(i, { close: e.target.value })}
             />
             <label className="st-chk">
@@ -217,12 +219,12 @@ export function ShopSection({ onIndustries }: { onIndustries?: (list: string[] |
                 checked={h.off}
                 onChange={(e) => editRow(i, e.target.checked ? { off: true } : { off: false, open: h.open || DEFAULT_OPEN, close: h.close || DEFAULT_CLOSE })}
               />
-              정기 휴무
+              {t('settings.shop.regularOff')}
             </label>
           </div>
         ))}
       </div>
-      <p className="st-meta">바꾼 영업시간은 바로 예약 가능 시간에 반영돼요. 이미 잡힌 확정 예약이 영업시간 밖으로 밀리면 저장 뒤에 목록을 보여 드려요.</p>
+      <p className="st-meta">{t('settings.shop.hoursNote')}</p>
 
       {error ? (
         <p className="st-err" role="alert">
@@ -231,31 +233,31 @@ export function ShopSection({ onIndustries }: { onIndustries?: (list: string[] |
       ) : null}
       <PushedReservations items={pushed} onDismiss={() => setPushed([])} />
       <div className="st-savebar">
-        <span className="st-meta">{dirty ? '저장되지 않은 변경 사항이 있어요' : '변경 사항 없음'}</span>
+        <span className="st-meta">{dirty ? t('settings.unsaved') : t('settings.noChange')}</span>
         <button type="button" className="st-btn p" disabled={!dirty || busy} onClick={() => void save()}>
-          {busy ? '저장 중…' : '매장 정보 저장'}
+          {busy ? t('common.saving') : t('settings.shop.saveBtn')}
         </button>
       </div>
 
       {confirming ? (
         <div className="st-overlay" onClick={() => !busy && setConfirming(false)}>
           <div className="st-dialog" role="dialog" aria-modal="true" aria-labelledby="shop-confirm-title" onClick={(e) => e.stopPropagation()}>
-            <h3 id="shop-confirm-title">변경사항을 저장하시겠습니까?</h3>
+            <h3 id="shop-confirm-title">{t('settings.shop.confirmTitle')}</h3>
             {industryChanged ? (
               <p>
-                {change.off.length > 0 ? <>꺼지는 업종: <b>{change.off.map((c) => CATEGORY_LABEL[c as keyof typeof CATEGORY_LABEL]).join(' · ')}</b>. </> : null}
-                {change.on.length > 0 ? <>켜지는 업종: <b>{change.on.map((c) => CATEGORY_LABEL[c as keyof typeof CATEGORY_LABEL]).join(' · ')}</b>. </> : null}
-                꺼 둔 업종은 시술 메뉴 · 기본 주기, 예약 · 시술 마감의 시술 선택, 새 캠페인의 시술 카테고리에서 숨겨져요. 기존 메뉴 · 예약 · 고객 기록은 그대로이고 다시 켜면 돌아와요.
+                {change.off.length > 0 ? <>{t('settings.shop.confirmOff')}<b>{change.off.map((c) => CATEGORY_LABEL[c as keyof typeof CATEGORY_LABEL]).join(' · ')}</b>. </> : null}
+                {change.on.length > 0 ? <>{t('settings.shop.confirmOn')}<b>{change.on.map((c) => CATEGORY_LABEL[c as keyof typeof CATEGORY_LABEL]).join(' · ')}</b>. </> : null}
+                {t('settings.shop.confirmHidden')}
               </p>
             ) : (
-              <p>바꾼 매장 정보 · 영업시간을 저장해요. 바뀐 영업시간은 바로 예약 가능 시간에 반영돼요.</p>
+              <p>{t('settings.shop.confirmPlain')}</p>
             )}
             <div className="st-dialog-acts">
               <button type="button" className="st-btn" disabled={busy} onClick={() => setConfirming(false)}>
-                취소
+                {t('common.cancel')}
               </button>
               <button type="button" className="st-btn p" disabled={busy} onClick={() => void save()} autoFocus>
-                {busy ? '저장 중…' : '저장'}
+                {busy ? t('common.saving') : t('customer.save')}
               </button>
             </div>
           </div>

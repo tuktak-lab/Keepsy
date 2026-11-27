@@ -4,6 +4,7 @@ import { ApiError, api } from '@/lib/api';
 import { detailsText } from '@/lib/reservationForm';
 import { refreshSession, useSession, type Access } from '@/lib/session';
 import { ACCESS_LABEL, FEATURES, changedFeatures, validateOwnerPin, type OwnerPinValues } from '@/lib/staff';
+import { t } from '@/lib/i18n';
 
 // 기능 잠금 · 원장 PIN 재설정 (FR-SET-05, FR-ACC-05 · 09). docs CONTRACTS 4장 ACC
 // - 기능별 공용/PIN: 지금 값은 GET /api/session의 features, 바꾸기는 PUT /api/feature-locks (OWNER_PIN). 바꾼 키만 보낸다 (F38)
@@ -11,7 +12,7 @@ import { ACCESS_LABEL, FEATURES, changedFeatures, validateOwnerPin, type OwnerPi
 // - 원장 PIN 재설정: PUT /api/owner-pin. 매장 계정 비밀번호로 본인 확인 (F11 · F14). 비밀번호 실패는 로그인 실패 횟수에 들어간다
 
 const errorText = (err: unknown): string =>
-  err instanceof ApiError ? (err.code === 'invalid' ? (detailsText(err.details) ?? err.message) : err.message) : '잠시 후 다시 시도해 주세요';
+  err instanceof ApiError ? (err.code === 'invalid' ? (detailsText(err.details) ?? err.message) : err.message) : t('common.pin.tryLater');
 
 export function FeatureLockSection() {
   const session = useSession();
@@ -31,7 +32,7 @@ export function FeatureLockSection() {
       await api('/api/feature-locks', { method: 'PUT', body: { features: changes }, silent: true });
       await refreshSession();
       setEdited(null);
-      toast('기능별 공용 / PIN 설정을 저장했어요');
+      toast(t('settings.lock.savedToast'));
     } catch (err) {
       setError(errorText(err));
     } finally {
@@ -41,10 +42,10 @@ export function FeatureLockSection() {
 
   return (
     <section id="st-lock" className="st-card">
-      <h2 data-guide="settings-lock">기능별 공용 / PIN</h2>
-      <p className="st-meta">「공용」은 근무 중인 스탭 누구나 쓰고, 「PIN」은 잠긴 기능 사용이 허용된 스탭이 PIN을 넣어야 열려요. 고정 항목은 바꿀 수 없어요. 저장하면 바로 적용돼요.</p>
+      <h2 data-guide="settings-lock">{t('settings.lock.title')}</h2>
+      <p className="st-meta">{t('settings.lock.note')}</p>
       {!values ? (
-        <p className="st-meta">불러오는 중…</p>
+        <p className="st-meta">{t('common.loading')}</p>
       ) : (
         <div>
           {FEATURES.map((f) => {
@@ -53,11 +54,11 @@ export function FeatureLockSection() {
               <div className="st-def" key={f.key} style={{ gridTemplateColumns: '1fr auto', alignItems: 'center' }}>
                 <span>{f.label}</span>
                 {f.fixed ? (
-                  <span className="st-tag w" title="고정 항목은 바꿀 수 없어요">
-                    {v ? ACCESS_LABEL[v] : '-'} · 고정
+                  <span className="st-tag w" title={t('settings.lock.fixedTitle')}>
+                    {v ? ACCESS_LABEL[v] : '-'} · {t('settings.lock.fixed')}
                   </span>
                 ) : (
-                  <span className="st-seg" role="group" aria-label={`${f.label} 공용 또는 PIN`}>
+                  <span className="st-seg" role="group" aria-label={t('settings.lock.groupAria', { label: f.label })}>
                     {(['PUBLIC', 'PIN'] as const).map((a) => (
                       <button
                         key={a}
@@ -84,14 +85,14 @@ export function FeatureLockSection() {
         </p>
       ) : null}
       <div className="st-savebar">
-        <span className="st-meta">{dirty ? `바꾼 항목 ${Object.keys(changes).length}개` : '변경 사항 없음'}</span>
+        <span className="st-meta">{dirty ? t('settings.lock.changed', { n: Object.keys(changes).length }) : t('settings.noChange')}</span>
         {dirty ? (
           <button type="button" className="st-btn" disabled={busy} onClick={() => setEdited(null)}>
-            되돌리기
+            {t('settings.revert')}
           </button>
         ) : null}
         <button type="button" className="st-btn p" disabled={!dirty || busy} onClick={() => void save()}>
-          {busy ? '저장 중…' : '공용 / PIN 저장'}
+          {busy ? t('common.saving') : t('settings.lock.saveBtn')}
         </button>
       </div>
     </section>
@@ -124,9 +125,9 @@ export function OwnerPinSection() {
     try {
       await api('/api/owner-pin', { method: 'PUT', body: { password: values.password, pin: values.pin }, silent: true });
       close();
-      toast('원장 PIN을 바꿨어요. 다음 PIN 입력부터 새 PIN을 써요');
+      toast(t('settings.owner.pinChanged'));
     } catch (err) {
-      setError(err instanceof ApiError && err.code === 'duplicate' ? '이 매장의 다른 스탭이 이미 쓰는 PIN이에요. 다른 PIN을 정해 주세요' : errorText(err));
+      setError(err instanceof ApiError && err.code === 'duplicate' ? t('settings.staff.dupPin') : errorText(err));
       setValues({ ...values, password: '' });
     } finally {
       setBusy(false);
@@ -135,12 +136,12 @@ export function OwnerPinSection() {
 
   return (
     <section id="st-owner-pin" className="st-card">
-      <h2>원장 PIN 재설정</h2>
-      <p className="st-meta">원장 PIN을 잊었을 때 매장 계정 비밀번호로 본인을 확인하고 새 PIN을 정해요. 비밀번호를 5번 연속 틀리면 15분 동안 잠겨요.</p>
+      <h2>{t('settings.owner.title')}</h2>
+      <p className="st-meta">{t('settings.owner.note')}</p>
       {!expanded ? (
         <div>
           <button type="button" className="st-btn" onClick={() => setExpanded(true)}>
-            원장 PIN을 잊었어요
+            {t('settings.owner.forgot')}
           </button>
         </div>
       ) : (
@@ -153,13 +154,13 @@ export function OwnerPinSection() {
           <div className="st-grid" style={{ alignItems: 'flex-end' }}>
             <div className="st-field">
               <label className="st-lbl" htmlFor="owner-password">
-                매장 계정 비밀번호
+                {t('settings.owner.password')}
               </label>
               <input id="owner-password" className="st-fld" type="password" autoComplete="current-password" value={values.password} onChange={(e) => edit({ password: e.target.value })} />
             </div>
             <div className="st-field" style={{ flex: '0 1 180px' }}>
               <label className="st-lbl" htmlFor="owner-pin">
-                새 원장 PIN
+                {t('settings.owner.newPin')}
               </label>
               <input
                 id="owner-pin"
@@ -174,7 +175,7 @@ export function OwnerPinSection() {
             </div>
             <div className="st-field" style={{ flex: '0 1 180px' }}>
               <label className="st-lbl" htmlFor="owner-pin-confirm">
-                새 PIN 확인
+                {t('settings.owner.newPinConfirm')}
               </label>
               <input
                 id="owner-pin-confirm"
@@ -189,10 +190,10 @@ export function OwnerPinSection() {
             </div>
             <div className="st-field" style={{ flex: '0 0 auto', flexDirection: 'row' }}>
               <button type="button" className="st-btn" disabled={busy} onClick={close}>
-                취소
+                {t('common.cancel')}
               </button>
               <button type="submit" className="st-btn p" disabled={busy}>
-                {busy ? '확인 중…' : '원장 PIN 바꾸기'}
+                {busy ? t('account.shift.checking') : t('settings.owner.changeBtn')}
               </button>
             </div>
           </div>

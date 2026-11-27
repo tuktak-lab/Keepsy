@@ -1,10 +1,10 @@
 // 휴무일 화면 계산 (순수 함수). 규칙은 docs CONTRACTS 4장 「GET · POST /api/day-offs」 · 「PATCH /api/staff/{staffId}」 (FR-SET-07, F32)
 // 서버가 다시 검사한다 (NFR-08).
-import type { DateStr } from './calendar';
+import { dowLabel, monthDayText, type DateStr } from './calendar.ts';
+import { t } from './i18n.ts';
 
 // 요일 순서는 서버와 같다: MONDAY부터 SUNDAY (lib/settings.ts DAYS와 같은 값)
 const DAYS = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
-const DOW = ['월', '화', '수', '목', '금', '토', '일'];
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
@@ -24,7 +24,7 @@ export function shiftMonth(year: number, month0: number, delta: number): { year:
 export function formatDayOffDate(date: DateStr): string {
   const [y, m, d] = date.split('-').map(Number);
   const dow = (new Date(Date.UTC(y, m - 1, d)).getUTCDay() + 6) % 7;
-  return `${m}월 ${d}일 (${DOW[dow]})`;
+  return t('settings.dayoff.dateFormat', { date: monthDayText(date), dow: dowLabel(dow) });
 }
 
 /** 등록 칸. `target`은 'SHOP'(매장 휴무) 또는 스탭 ID 문자열 */
@@ -34,10 +34,10 @@ export const REASON_MAX = 100;
 
 /** 첫 번째 입력 오류 사유. 없으면 null. 지난 날짜는 서버도 거부한다 (F32) */
 export function validateDayOff(v: DayOffValues, today: DateStr): string | null {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(v.date)) return '휴무 날짜를 골라 주세요';
-  if (v.date < today) return '오늘이나 그 뒤 날짜만 휴무로 정할 수 있어요';
-  if (v.target !== 'SHOP' && !/^\d+$/.test(v.target)) return '매장 휴무인지 스탭 휴무인지 골라 주세요';
-  if (v.reason.trim().length > REASON_MAX) return `사유는 ${REASON_MAX}자 이하로 적어 주세요`;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(v.date)) return t('settings.dayoff.vDate');
+  if (v.date < today) return t('settings.dayoff.vPast');
+  if (v.target !== 'SHOP' && !/^\d+$/.test(v.target)) return t('settings.dayoff.vTarget');
+  if (v.reason.trim().length > REASON_MAX) return t('settings.dayoff.vReason', { max: REASON_MAX });
   return null;
 }
 
