@@ -6,6 +6,7 @@ import { CATEGORY_LABEL, dotDate } from '@/lib/customerDetail';
 import { formatDateTime } from '@/lib/format';
 import type { HistoryVisit } from '../types';
 import { AreaError, errorText } from './common';
+import { t } from '@/lib/i18n';
 
 // 시술 히스토리북 (FR-CUS-07 · 08, C6, A13). 방문별 시술 · 담당 · 사진 · 메모를 최신순으로, 사진만 모아 보는 갤러리 보기.
 // 사진은 사진 동의 고객만 올린다 (서버가 consent_required). JPG · PNG, 장당 10MB, 방문당 10장은 서버가 다시 검사한다.
@@ -43,7 +44,7 @@ export function HistoryTab(props: { customerId: number; photoAgreed: boolean }) 
     if (!files?.length) return;
     const list = [...files];
     const wrong = list.find((f) => !/\.(jpe?g|png)$/i.test(f.name) || f.size > MAX_BYTES);
-    if (wrong) return setActionError(`${wrong.name}: JPG · PNG, 장당 10MB 이하만 올릴 수 있어요`);
+    if (wrong) return setActionError(t('customer.history.wrongFile', { name: wrong.name }));
     setUploading(visitId);
     setActionError('');
     let done = 0;
@@ -54,9 +55,9 @@ export function HistoryTab(props: { customerId: number; photoAgreed: boolean }) 
         await api(`/api/visits/${visitId}/photos`, { method: 'POST', body: form, silent: true });
         done++;
       }
-      toast(`사진 ${done}장을 올렸어요`);
+      toast(t('customer.history.uploaded', { n: done }));
     } catch (err) {
-      setActionError(`${done ? `${done}장 올린 뒤 ` : ''}${errorText(err)}`);
+      setActionError(`${done ? t('customer.history.uploadedThen', { n: done }) : ''}${errorText(err)}`);
     } finally {
       setUploading(null);
       await load(Math.ceil(visits.length / PAGE) || 1);
@@ -68,29 +69,29 @@ export function HistoryTab(props: { customerId: number; photoAgreed: boolean }) 
   return (
     <section className="card col">
       <div className="row between" style={{ paddingBottom: 8 }}>
-        <h2 className="h2">시술 히스토리북 · 방문 {total}회</h2>
-        <div className="tabs" role="tablist" aria-label="히스토리 보기">
+        <h2 className="h2">{t('customer.history.title', { n: total })}</h2>
+        <div className="tabs" role="tablist" aria-label={t('customer.history.viewLabel')}>
           <button type="button" role="tab" aria-selected={!gallery} onClick={() => setGallery(false)}>
-            방문별
+            {t('customer.history.byVisit')}
           </button>
           <button type="button" role="tab" aria-selected={gallery} onClick={() => setGallery(true)}>
-            사진 갤러리
+            {t('customer.history.gallery')}
           </button>
         </div>
       </div>
-      {!props.photoAgreed && <p className="meta">사진 동의를 받지 않은 고객이라 사진은 보이지 않고 올릴 수 없어요.</p>}
+      {!props.photoAgreed && <p className="meta">{t('customer.history.noPhotoConsent')}</p>}
       <AreaError text={error} />
-      {loaded && visits.length === 0 && !error && <p className="meta">아직 방문 기록이 없어요.</p>}
+      {loaded && visits.length === 0 && !error && <p className="meta">{t('customer.history.noVisits')}</p>}
 
       {gallery ? (
         photos.length === 0 ? (
-          loaded && <p className="meta">올린 사진이 없어요.</p>
+          loaded && <p className="meta">{t('customer.history.noPhotos')}</p>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(140px,1fr))', gap: 12 }}>
             {photos.map((p) => (
               <figure key={p.photoId} style={{ margin: 0 }} className="col">
                 {/* eslint-disable-next-line @next/next/no-img-element -- 서명 URL을 그대로 쓴다 (CONTRACTS 6장) */}
-                <img src={p.url} onLoad={shown} alt={`${p.visitDate} 시술 사진`} style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: 12 }} />
+                <img src={p.url} onLoad={shown} alt={t('customer.history.photoAlt', { date: p.visitDate })} style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: 12 }} />
                 <figcaption className="meta num" style={{ paddingTop: 6 }}>
                   {dotDate(p.visitDate)}
                 </figcaption>
@@ -103,10 +104,10 @@ export function HistoryTab(props: { customerId: number; photoAgreed: boolean }) 
           <div className="trow" key={v.visitId} style={{ gridTemplateColumns: '96px 1fr' }}>
             <strong className="num">{dotDate(v.visitDate)}</strong>
             <span className="col" style={{ gap: 8 }}>
-              <span className="meta">방문 1회 · 시술 {v.serviceCount}건</span>
+              <span className="meta">{t('customer.history.visitLine', { n: v.serviceCount })}</span>
               {v.services.map((s, i) => (
                 <span key={i}>
-                  <strong style={{ fontSize: 14.5 }}>{s.menuName ?? '메뉴 미상'}</strong>{' '}
+                  <strong style={{ fontSize: 14.5 }}>{s.menuName ?? t('customer.history.unknownMenu')}</strong>{' '}
                   <span className="meta">
                     · {CATEGORY_LABEL[s.category]}
                     {s.staff && ` · ${s.staff.name}`}
@@ -122,13 +123,13 @@ export function HistoryTab(props: { customerId: number; photoAgreed: boolean }) 
                 <span className="row" style={{ gap: 8 }}>
                   {v.photos.map((p) => (
                     // eslint-disable-next-line @next/next/no-img-element -- 서명 URL을 그대로 쓴다 (CONTRACTS 6장)
-                    <img key={p.photoId} src={p.url} onLoad={shown} alt={`${v.visitDate} 시술 사진`} style={{ width: 88, height: 88, objectFit: 'cover', borderRadius: 10 }} />
+                    <img key={p.photoId} src={p.url} onLoad={shown} alt={t('customer.history.photoAlt', { date: v.visitDate })} style={{ width: 88, height: 88, objectFit: 'cover', borderRadius: 10 }} />
                   ))}
                 </span>
               )}
               {props.photoAgreed && (
                 <label className="lk" style={{ alignSelf: 'flex-start' }}>
-                  {uploading === v.visitId ? '올리는 중…' : '+ 사진 올리기'}
+                  {uploading === v.visitId ? t('customer.history.uploading') : t('customer.history.upload')}
                   <input
                     type="file"
                     accept="image/jpeg,image/png"
@@ -148,7 +149,7 @@ export function HistoryTab(props: { customerId: number; photoAgreed: boolean }) 
       )}
       {visits.length < total && (
         <button type="button" className="btn" style={{ alignSelf: 'center', marginTop: 12 }} onClick={() => load(Math.ceil(visits.length / PAGE) + 1)}>
-          더 보기
+          {t('customer.moreBtn')}
         </button>
       )}
     </section>

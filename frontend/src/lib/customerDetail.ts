@@ -7,36 +7,63 @@ import type {
   ReceivedMessage,
   ReservationStatus,
 } from '../features/customer/types';
+import { t } from './i18n.ts';
+import type { MessageKey } from './messages/ko.ts';
 
+// 문구는 읽을 때 정한다 (언어가 모듈을 불러온 뒤에 정해지므로 값 대신 getter를 둔다)
 export const CATEGORY_LABEL: Record<Category, string> = {
-  NAIL: '네일',
-  LASH: '속눈썹',
-  WAXING: '왁싱',
-  SEMI_PERMANENT: '반영구',
-  ETC: '기타',
+  get NAIL() {
+    return t('category.nail');
+  },
+  get LASH() {
+    return t('category.lash');
+  },
+  get WAXING() {
+    return t('category.waxing');
+  },
+  get SEMI_PERMANENT() {
+    return t('category.semi');
+  },
+  get ETC() {
+    return t('category.etc');
+  },
 };
 export const CATEGORIES = Object.keys(CATEGORY_LABEL) as Category[];
 
 /** 예측 상태 칩: [이름, 배경, 글자색] */
-export const STATUS_CHIP: Record<PredictionStatus, [string, string, string]> = {
-  SCHEDULED: ['예정', '#F3EEEE', '#4A3F3B'],
-  DUE: ['주기 도래', '#F9EBE8', '#7A4450'],
-  CHURN_SIGNAL: ['이탈 신호', '#F6E3DF', '#8A2F3F'],
-  LONG_ABSENT: ['장기 미방문', '#EFE7E3', '#5B4D47'],
-  NO_PREDICTION: ['예측 없음', '#F3EEEE', '#6B605B'],
+export const STATUS_CHIP: Record<PredictionStatus, [MessageKey, string, string]> = {
+  SCHEDULED: ['dashboard.seg.scheduled', '#F3EEEE', '#4A3F3B'],
+  DUE: ['prediction.status.due', '#F9EBE8', '#7A4450'],
+  CHURN_SIGNAL: ['prediction.status.churn', '#F6E3DF', '#8A2F3F'],
+  LONG_ABSENT: ['prediction.status.long', '#EFE7E3', '#5B4D47'],
+  NO_PREDICTION: ['customer.status.none', '#F3EEEE', '#6B605B'],
 };
 
 export const RESERVATION_STATUS_LABEL: Record<ReservationStatus, string> = {
-  CONFIRMED: '확정',
-  COMPLETED: '완료',
-  CANCELED: '취소',
-  NO_SHOW: '노쇼',
+  get CONFIRMED() {
+    return t('customer.rstatus.confirmed');
+  },
+  get COMPLETED() {
+    return t('customer.rstatus.completed');
+  },
+  get CANCELED() {
+    return t('customer.rstatus.canceled');
+  },
+  get NO_SHOW() {
+    return t('customer.rstatus.noShow');
+  },
 };
 
 export const MESSAGE_KIND_LABEL: Record<ReceivedMessage['kind'], string> = {
-  AD: '광고',
-  UNSUBSCRIBE_NOTICE: '수신 거부 처리 안내',
-  CONSENT_RECONFIRM: '동의 재확인 안내',
+  get AD() {
+    return t('customer.msgKind.ad');
+  },
+  get UNSUBSCRIBE_NOTICE() {
+    return t('customer.msgKind.unsubscribe');
+  },
+  get CONSENT_RECONFIRM() {
+    return t('customer.msgKind.reconfirm');
+  },
 };
 
 /** `2026-10-24` → `2026.10.24` (서버 날짜는 이미 Asia/Seoul) */
@@ -50,13 +77,13 @@ export const shortDate = (date: string): string => date.slice(5).replace('-', '.
  * 주 단위는 예측 기간 시작 · 끝까지 남은 날로 셈한다.
  */
 export function predictionText(p: CategoryPrediction, today: string): string {
-  if (p.status === 'NO_PREDICTION' || !p.startDate || !p.endDate) return '예측 없음';
-  if (p.endSignal) return `종료 신호 (${shortDate(p.startDate)})`;
-  const basis = p.defaultCycleBased ? '시술 평균 주기 기준' : `평균 ${p.averageIntervalDays}일 · 방문 ${p.basisVisitCount}회`;
+  if (p.status === 'NO_PREDICTION' || !p.startDate || !p.endDate) return t('customer.status.none');
+  if (p.endSignal) return t('customer.predict.endSignal', { date: shortDate(p.startDate) });
+  const basis = p.defaultCycleBased ? t('customer.predict.defaultBasis') : t('customer.predict.basis', { days: p.averageIntervalDays ?? '', visits: p.basisVisitCount });
   const from = Math.round(daysBetween(today, p.startDate) / 7);
   const to = Math.round(daysBetween(today, p.endDate) / 7);
-  const when = to <= 0 ? '예측 기간 지남' : from <= 0 ? `약 ${to}주 안` : `약 ${from}~${to}주 후`;
-  return `${when} (${basis})`;
+  const when = to <= 0 ? t('customer.predict.past') : from <= 0 ? t('customer.predict.within', { to }) : t('customer.predict.range', { from, to });
+  return t('customer.predict.line', { when, basis });
 }
 
 function daysBetween(a: string, b: string): number {

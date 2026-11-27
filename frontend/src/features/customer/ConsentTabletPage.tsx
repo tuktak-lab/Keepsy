@@ -2,11 +2,12 @@ import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { AppLink } from '@/components/common/AppLink';
 import { api, ApiError } from '@/lib/api';
-import { consentChanges, OPTIONAL_CONSENTS, PRIVACY_LABEL, privacyDesc, type ConsentChange, type ConsentState } from '@/lib/consents';
+import { consentChanges, consentLabel, OPTIONAL_CONSENTS, privacyDesc, privacyLabel, type ConsentChange, type ConsentState } from '@/lib/consents';
 import { useShop } from '@/hooks/useIndustries';
 import type { ConsentItem } from './types';
 import logoImg from '@/assets/images/keepsy-logo-thin.png';
 import styles from './ConsentTabletPage.module.css';
+import { t } from '@/lib/i18n';
 
 // 태블릿 본인 체크 (FR-CUS-09). 직원이 태블릿을 건네면 고객이 항목을 읽고 직접 체크한다.
 // GET /api/customers/{id} · /consents로 지금 상태를 보여 주고, 바뀐 항목만 POST /api/customers/{id}/consents에 한 건씩 보낸다
@@ -16,16 +17,11 @@ import styles from './ConsentTabletPage.module.css';
 type Consents = { current: ConsentState[] };
 type Step = 'loading' | 'form' | 'saving' | 'done' | 'error';
 
-const LABEL: Record<ConsentItem, string> = {
-  PRIVACY: PRIVACY_LABEL,
-  ...(Object.fromEntries(OPTIONAL_CONSENTS.map(([item, label]) => [item, label])) as Record<Exclude<ConsentItem, 'PRIVACY'>, string>),
-};
-
 export default function ConsentTabletPage() {
   const customerId = Number(useSearchParams().get('customerId'));
   const valid = Number.isInteger(customerId) && customerId > 0;
   const [step, setStep] = useState<Step>(valid ? 'loading' : 'error');
-  const [error, setError] = useState(valid ? '' : '고객 정보가 없어요. 직원에게 태블릿을 돌려주세요.');
+  const [error, setError] = useState(valid ? '' : t('customer.tablet.noInfo'));
   const [name, setName] = useState('');
   const [current, setCurrent] = useState<ConsentState[]>([]);
   const [chosen, setChosen] = useState<Partial<Record<ConsentItem, boolean>>>({});
@@ -44,7 +40,7 @@ export default function ConsentTabletPage() {
         setStep('form');
       })
       .catch((err) => {
-        setError(err instanceof ApiError ? err.message : '잠시 후 다시 시도해 주세요');
+        setError(err instanceof ApiError ? err.message : t('common.pin.tryLater'));
         setStep('error');
       });
   }, [customerId, valid]);
@@ -59,7 +55,7 @@ export default function ConsentTabletPage() {
   async function submit() {
     const changes = consentChanges(current, chosen);
     if (!privacyText && changes.some((c) => c.item === 'PRIVACY')) {
-      setError('매장의 보관 기간을 불러오지 못해 개인정보 동의를 받을 수 없어요. 다시 시도해 주세요.');
+      setError(t('customer.tablet.retentionRetry'));
       return;
     }
     setError('');
@@ -86,8 +82,8 @@ export default function ConsentTabletPage() {
         }),
       );
       setError(
-        (err instanceof ApiError ? err.message : '잠시 후 다시 시도해 주세요') +
-          (done.length ? ` (${done.map((d) => LABEL[d.item]).join(', ')}은 저장했어요)` : ''),
+        (err instanceof ApiError ? err.message : t('common.pin.tryLater')) +
+          (done.length ? t('customer.tablet.partialSaved', { items: done.map((d) => consentLabel(d.item)).join(', ') }) : ''),
       );
       setStep('form');
     }
@@ -98,7 +94,7 @@ export default function ConsentTabletPage() {
       <div className={styles.card}>
         <img className={styles.logo} src={logoImg.src} alt="Keepsy" />
 
-        {step === 'loading' && <p className={styles.sub}>불러오는 중…</p>}
+        {step === 'loading' && <p className={styles.sub}>{t('common.loading')}</p>}
 
         {step === 'error' && (
           <>
@@ -106,18 +102,18 @@ export default function ConsentTabletPage() {
               {error}
             </p>
             <AppLink href="/customers" className={styles.staffLink}>
-              직원: 고객 목록으로
+              {t('customer.tablet.staffToList')}
             </AppLink>
           </>
         )}
 
         {(step === 'form' || step === 'saving') && (
           <>
-            <h1 className={styles.title}>{name} 고객님, 동의 항목을 확인해 주세요</h1>
+            <h1 className={styles.title}>{t('customer.tablet.title', { name })}</h1>
             <p className={styles.sub}>
-              원하시는 항목만 체크해 주세요.
+              {t('customer.tablet.pick')}
               <br />
-              선택 항목은 동의하지 않아도 시술을 받으실 수 있고, 언제든 바꾸실 수 있어요.
+              {t('customer.tablet.optionalNote')}
             </p>
 
             <div className={styles.items}>
@@ -130,17 +126,17 @@ export default function ConsentTabletPage() {
                 />
                 <span>
                   <b>
-                    {PRIVACY_LABEL} <em>필수</em>
+                    {privacyLabel()} <em>{t('customer.required')}</em>
                   </b>
                   <span className={styles.desc}>
                     {privacyText ??
                       (shop === undefined ? (
-                        '매장의 보관 기간을 불러오는 중이에요.'
+                        t('customer.new.retentionLoading')
                       ) : (
                         <>
-                          매장의 보관 기간을 불러오지 못했어요. 직원에게 알려 주세요.{' '}
+                          {t('customer.tablet.retentionFailedShort')}{' '}
                           <button type="button" className={styles.staffLink} onClick={() => setShopTry((n) => n + 1)}>
-                            다시 시도
+                            {t('common.retry')}
                           </button>
                         </>
                       ))}
@@ -153,14 +149,14 @@ export default function ConsentTabletPage() {
                   <input type="checkbox" checked={Boolean(chosen[item])} disabled={step === 'saving'} onChange={() => toggle(item)} />
                   <span>
                     <b>
-                      {label} <em className={styles.optional}>선택</em>
+                      {t(label)} <em className={styles.optional}>{t('customer.optional')}</em>
                     </b>
-                    <span className={styles.desc}>{desc}</span>
+                    <span className={styles.desc}>{t(desc)}</span>
                     {item === 'PHOTO' && current.some((c) => c.item === 'PHOTO' && c.agreed) && !chosen.PHOTO && (
-                      <span className={styles.warn}>체크를 풀면 저장된 시술 사진이 바로 삭제돼요.</span>
+                      <span className={styles.warn}>{t('customer.tablet.warnPhoto')}</span>
                     )}
                     {item === 'HEALTH' && current.some((c) => c.item === 'HEALTH' && c.agreed) && !chosen.HEALTH && (
-                      <span className={styles.warn}>체크를 풀면 기록된 건강 주의사항이 바로 삭제돼요.</span>
+                      <span className={styles.warn}>{t('customer.tablet.warnHealth')}</span>
                     )}
                   </span>
                 </label>
@@ -174,28 +170,28 @@ export default function ConsentTabletPage() {
             )}
 
             <button type="button" className={styles.submit} onClick={submit} disabled={step === 'saving'}>
-              {step === 'saving' ? '저장 중…' : '확인했어요'}
+              {step === 'saving' ? t('common.saving') : t('customer.tablet.confirmBtn')}
             </button>
           </>
         )}
 
         {step === 'done' && (
           <>
-            <h1 className={styles.title}>확인해 주셔서 감사해요</h1>
+            <h1 className={styles.title}>{t('customer.tablet.thanks')}</h1>
             {saved.length > 0 ? (
               <ul className={styles.summary}>
                 {saved.map((s) => (
                   <li key={s.item}>
-                    {LABEL[s.item]} <b>{s.agreed ? '동의' : '철회'}</b>
+                    {consentLabel(s.item)} <b>{s.agreed ? t('customer.agreed') : t('customer.withdrawn')}</b>
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className={styles.sub}>바뀐 내용 없이 그대로 두었어요.</p>
+              <p className={styles.sub}>{t('customer.tablet.noChange')}</p>
             )}
-            <p className={styles.sub}>태블릿을 직원에게 돌려주세요.</p>
+            <p className={styles.sub}>{t('customer.tablet.handBack')}</p>
             <AppLink href={`/customers/detail?id=${customerId}`} className={styles.staffLink}>
-              직원: 고객 상세로
+              {t('customer.tablet.staffToDetail')}
             </AppLink>
           </>
         )}

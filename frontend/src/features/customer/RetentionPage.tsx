@@ -5,6 +5,7 @@ import { api, ApiError, type Page } from '@/lib/api';
 import { dotDate, seoulToday } from '@/lib/customerDetail';
 import { BASE_KIND_LABEL, elapsedText, type RetentionBaseKind } from '@/lib/retention';
 import styles from './RetentionPage.module.css';
+import { t } from '@/lib/i18n';
 
 // 파기 대상 목록 (FR-CUS-12, D3 · B6 · C12). GET /api/customers/retention-expired.
 // 원장 PIN(OWNER_PIN)은 서버가 검사하고, owner_pin_required는 api.ts가 원장 PIN 창을 띄워 다시 부른다 (NFR-04).
@@ -13,7 +14,7 @@ import styles from './RetentionPage.module.css';
 type Row = { customerId: number; name: string; phone: string; baseDate: string; baseKind: RetentionBaseKind };
 
 const SIZE = 20;
-const errorText = (err: unknown) => (err instanceof ApiError ? err.message : '잠시 후 다시 시도해 주세요');
+const errorText = (err: unknown) => (err instanceof ApiError ? err.message : t('common.pin.tryLater'));
 
 export default function RetentionPage() {
   const [rows, setRows] = useState<Row[] | null>(null);
@@ -75,7 +76,7 @@ export default function RetentionPage() {
     setRowError('');
     try {
       await api(`/api/customers/${row.customerId}`, { method: 'DELETE', silent: true });
-      toast(`${row.name} 고객 정보를 삭제했어요`, 'warn');
+      toast(t('customer.retention.toast', { name: row.name }), 'warn');
       setConfirm(null);
       await load(Math.max(rows?.length ?? SIZE, SIZE));
     } catch (err) {
@@ -90,29 +91,29 @@ export default function RetentionPage() {
       <div className={styles.wrap}>
         <div className={styles.head}>
           <div>
-            <h1 className={styles.title}>파기 대상 고객</h1>
+            <h1 className={styles.title}>{t('customer.retention.title')}</h1>
             <p className={styles.sub}>
-              마지막 방문 후 보관 기간이 지난 고객이에요. 자동으로 지워지지 않아요.
+              {t('customer.retention.note1')}
               <br />
-              원장이 한 명씩 확인한 뒤 삭제해 주세요.
+              {t('customer.retention.note2')}
             </p>
           </div>
           <div className={styles.headActions}>
             <AppLink href="/settings#st-privacy" className={styles.secondary}>
-              보관 기간 설정
+              {t('customer.retention.setting')}
             </AppLink>
             <AppLink href="/customers" className={styles.secondary}>
-              고객 목록으로
+              {t('customer.toList')}
             </AppLink>
           </div>
         </div>
 
-        <section className={styles.card} aria-label="파기 대상 목록">
+        <section className={styles.card} aria-label={t('customer.retention.listLabel')}>
           <div className={styles.cardHead}>
             <h2 className={styles.cardTitle}>
-              대상 <span className="num">{total}</span>명
+              {t('customer.retention.targets')} <span className="num">{total}</span>{t('customer.retention.targetsUnit')}
             </h2>
-            <span className={styles.meta}>기준일이 오래된 순</span>
+            <span className={styles.meta}>{t('customer.retention.sortNote')}</span>
           </div>
 
           {error && (
@@ -120,17 +121,17 @@ export default function RetentionPage() {
               {error}
             </p>
           )}
-          {rows === null && !error && <p className={styles.empty}>불러오는 중…</p>}
-          {rows?.length === 0 && <p className={styles.empty}>보관 기간이 지난 고객이 없어요.</p>}
+          {rows === null && !error && <p className={styles.empty}>{t('common.loading')}</p>}
+          {rows?.length === 0 && <p className={styles.empty}>{t('customer.retention.empty')}</p>}
 
           {rows && rows.length > 0 && (
             <div className={styles.table} role="table">
               <div className={styles.headRow} role="row">
-                <span role="columnheader">고객</span>
-                <span role="columnheader">기준일</span>
-                <span role="columnheader">지난 기간</span>
+                <span role="columnheader">{t('common.customer')}</span>
+                <span role="columnheader">{t('customer.retention.colBase')}</span>
+                <span role="columnheader">{t('customer.retention.colElapsed')}</span>
                 <span role="columnheader" className={styles.right}>
-                  처리
+                  {t('customer.retention.colAction')}
                 </span>
               </div>
               {rows.map((r) => (
@@ -150,7 +151,7 @@ export default function RetentionPage() {
                   </span>
                   <span role="cell" className={styles.right}>
                     <button type="button" className={styles.deleteButton} disabled={busy} onClick={() => ask(r)}>
-                      삭제
+                      {t('customer.delete')}
                     </button>
                   </span>
 
@@ -161,7 +162,7 @@ export default function RetentionPage() {
 
           {rows && rows.length < total && (
             <button type="button" className={styles.more} disabled={loading} onClick={() => load(rows.length + SIZE)}>
-              더 보기
+              {t('customer.moreBtn')}
             </button>
           )}
         </section>
@@ -176,17 +177,17 @@ export default function RetentionPage() {
         >
           <div className={styles.modal} role="alertdialog" aria-modal="true" aria-labelledby="retention-confirm-title">
             <h2 id="retention-confirm-title" className={styles.modalTitle}>
-              {confirm.row.name} 고객을 삭제할까요?
+              {t('customer.retention.confirmTitle', { name: confirm.row.name })}
             </h2>
             {confirm.cancel >= 0 && (
               <p className={styles.modalText}>
-                이름 · 휴대폰 · 주의사항 · 취향 · 상담 메모 · 동의 이력 · 사진이 지워져요.
+                {t('customer.retention.confirmBody1')}
                 <br />
-                되돌릴 수 없고, 방문 · 결제 기록은 통계용으로 남아요.
+                {t('customer.retention.confirmBody2')}
                 {confirm.cancel > 0 && (
                   <>
                     <br />
-                    <b>남아 있는 확정 예약 {confirm.cancel}건은 자동으로 취소돼요.</b>
+                    <b>{t('customer.retention.cancelNote', { n: confirm.cancel })}</b>
                   </>
                 )}
               </p>
@@ -198,11 +199,11 @@ export default function RetentionPage() {
             )}
             <div className={styles.confirmActions}>
               <button type="button" className={styles.secondary} disabled={busy} onClick={close} autoFocus>
-                {confirm.cancel >= 0 ? '그대로 두기' : '닫기'}
+                {confirm.cancel >= 0 ? t('customer.retention.keep') : t('common.close')}
               </button>
               {confirm.cancel >= 0 && (
                 <button type="button" className={styles.danger} disabled={busy} onClick={() => remove(confirm.row)}>
-                  {busy ? '삭제 중…' : '삭제'}
+                  {busy ? t('customer.deleting') : t('customer.delete')}
                 </button>
               )}
             </div>

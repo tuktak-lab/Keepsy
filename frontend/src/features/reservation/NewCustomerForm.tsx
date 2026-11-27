@@ -73,7 +73,7 @@ export function NewCustomerForm(props: {
         <div className="pills">
           {CONSENT_METHODS.map(([value, label]) => (
             <button key={value} type="button" className="pill" aria-pressed={method === value} onClick={() => setMethod(value)}>
-              {label}
+              {t(label)}
             </button>
           ))}
         </div>
