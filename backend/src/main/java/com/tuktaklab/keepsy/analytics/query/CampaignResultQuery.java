@@ -4,6 +4,7 @@ import com.tuktaklab.keepsy.common.time.TimeConfig;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -416,6 +417,47 @@ public class CampaignResultQuery {
 
     private static long count(Map<String, Object> row, String key) {
         return ((Number) row.get(key)).longValue();
+    }
+
+    /** 고객별 연결 매출 (FR-ANL-04). CONTRACTS 6장 `customers` 항목 */
+    public record CustomerRevenue(long customerId, long revenue) {}
+
+    /**
+     * 보낸 고객마다 이 캠페인의 연결 매출, 보낸 순서 (FR-ANL-04). 판정은 {@link #revenue}와 같고(취소 결제 · 가져온 방문 제외, 방문은 한
+     * 번만), 한 고객에 캠페인 메시지는 하나라 모두 더하면 {@code revenue}가 된다. 귀속 방문이 없거나 대상이 아닌 고객은 0
+     *
+     * @return 세션 매장에 그 캠페인이 없으면 비어 있다 (NFR-03)
+     */
+    @Transactional(readOnly = true)
+    public Optional<List<CustomerRevenue>> customerRevenue(
+            long shopId, long campaignId, List<Long> customerIds) {
+        Map<String, Object> p = params(shopId, campaignId);
+        if (!exists(p)) {
+            return Optional.empty();
+        }
+        if (customerIds.isEmpty()) {
+            return Optional.of(List.of());
+        }
+        Map<String, Object> q = new HashMap<>(p);
+        q.put("customerIds", customerIds);
+        Map<Long, Long> byCustomer = new HashMap<>();
+        jdbc.query(
+                "SELECT v.customer_id, COALESCE(SUM(pay.amount), 0) AS revenue"
+                        + " FROM payment pay JOIN visit v ON v.id = pay.visit_id"
+                        + " WHERE pay.shop_id = :shopId AND pay.canceled = FALSE"
+                        + " AND v.customer_id IN (:customerIds)"
+                        + " AND pay.visit_id IN (SELECT vs.visit_id"
+                        + ATTRIBUTED_VISIT_SERVICE
+                        + ")"
+                        + " GROUP BY v.customer_id",
+                q,
+                rs -> {
+                    byCustomer.put(rs.getLong("customer_id"), rs.getLong("revenue"));
+                });
+        return Optional.of(
+                customerIds.stream()
+                        .map(id -> new CustomerRevenue(id, byCustomer.getOrDefault(id, 0L)))
+                        .toList());
     }
 
     private static Map<String, Object> params(long shopId, long campaignId) {
