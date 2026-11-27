@@ -262,19 +262,16 @@ export function Topbar() {
             <button type="button" role="menuitem" style={menuItem} onClick={() => router.push('/shift')}>
               {t('shell.topbar.switchWorker')}
             </button>
-            <button type="button" role="menuitem" style={menuItem} onClick={() => void logout()}>
-              {t('shell.topbar.logout')}
-            </button>
           </span>
         )}
       </span>
       {session && (
         <>
           <span style={{ width: '1px', height: '14px', background: '#D9CBC4' }} />
-          {/* 매장 이름 안내 대신 바로 근무자 PIN 화면으로 가는 버튼 (#403) */}
+          {/* 로그아웃은 근무자 메뉴 대신 상단바에 바로 둔다. 근무자 전환은 근무자 이름을 누른 메뉴에서 */}
           <button
             type="button"
-            onClick={() => router.push('/shift')}
+            onClick={() => void logout()}
             style={{
               border: 0,
               background: 'transparent',
@@ -285,7 +282,7 @@ export function Topbar() {
               whiteSpace: 'nowrap',
             }}
           >
-            {t('shell.topbar.switchWorkerLong')}
+            {t('shell.topbar.logout')}
           </button>
         </>
       )}
