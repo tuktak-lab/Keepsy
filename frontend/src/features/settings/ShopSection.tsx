@@ -70,7 +70,7 @@ export function ShopSection({ onIndustries }: { onIndustries?: (list: string[] |
   if (loadFailed && !values) {
     return (
       <section id="st-shop" className="st-card">
-        <h2>매장 정보 · 영업시간</h2>
+        <h2 data-guide="settings-shop">매장 정보 · 영업시간</h2>
         <p className="st-meta">
           불러오지 못했어요.{' '}
           <button
@@ -90,7 +90,7 @@ export function ShopSection({ onIndustries }: { onIndustries?: (list: string[] |
   if (!values || !saved) {
     return (
       <section id="st-shop" className="st-card">
-        <h2>매장 정보 · 영업시간</h2>
+        <h2 data-guide="settings-shop">매장 정보 · 영업시간</h2>
         <p className="st-meta">불러오는 중…</p>
       </section>
     );
@@ -133,7 +133,7 @@ export function ShopSection({ onIndustries }: { onIndustries?: (list: string[] |
 
   return (
     <section id="st-shop" className="st-card">
-      <h2>매장 정보 · 영업시간</h2>
+      <h2 data-guide="settings-shop">매장 정보 · 영업시간</h2>
       <div className="st-grid">
         <div className="st-field">
           <label className="st-lbl" htmlFor="shop-name">

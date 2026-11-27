@@ -14,6 +14,7 @@
     "test": "node --test src/**/*.test.ts"
   },
   "dependencies": {
+    "driver.js": "1.14.0",
     "next": "16.4.6",
     "react": "19.3.1",
     "react-dom": "19.3.1"

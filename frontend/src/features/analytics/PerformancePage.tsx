@@ -122,7 +122,7 @@ function Body() {
   return (
     <div className="pf-wrap">
       {/* 1줄: 제목 · 기간 버튼 (고정). 2줄: 설명 · 직접 지정 날짜. 날짜가 없을 때도 2줄 높이를 유지해 아무것도 움직이지 않는다 (#424) */}
-      <div className="pf-head">
+      <div className="pf-head" data-guide="analytics-period">
         <h1 className="pf-h1">성과 분석</h1>
         <div className="pf-seg" role="group" aria-label="기간">
           {PERIODS.map(([p, label]) => (
@@ -140,7 +140,7 @@ function Body() {
         </div>
       </div>
 
-      <section className="pf-kpis pf-card" aria-label="매장 기본 지표">
+      <section className="pf-kpis pf-card" aria-label="매장 기본 지표" data-guide="analytics-kpis">
         {!query ? (
           <p className="pf-note" style={{ padding: '12px 24px' }}>시작일과 종료일을 골라 주세요. 시작일은 종료일보다 늦을 수 없어요.</p>
         ) : cur?.error ? (
@@ -163,7 +163,7 @@ function Body() {
         )}
       </section>
 
-      <section className="pf-card" aria-label="주기 내 재방문율">
+      <section className="pf-card" aria-label="주기 내 재방문율" data-guide="analytics-revisit">
         <div>
           <h2>주기 내 재방문율 (시술 카테고리별)</h2>
           <span className="pf-note">이 기간에 이탈 신호 기간이 끝난 예측 중, 그 안에 다시 방문한 비율</span>
@@ -189,7 +189,7 @@ function Body() {
         )}
       </section>
 
-      <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-end', gap: 16 }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-end', gap: 16 }} data-guide="analytics-campaigns">
         <h2 style={{ fontSize: 19, fontWeight: 600 }}>캠페인 성과</h2>
         {camps && camps.length > 0 ? (
           <div className="pf-seg" role="group" aria-label="캠페인 선택">

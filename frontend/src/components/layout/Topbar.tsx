@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { isSearchShortcut, KEYWORDS_URL, matchFeature, type FeatureEntry } from '@/lib/featureSearch';
 import { changeLocale, isLocale, LOCALE_NAMES, LOCALES, locale, t } from '@/lib/i18n';
 import { lockPin, logout, useSession, useWorkerRequired } from '@/lib/session';
+import { UsageGuideButton } from './UsageGuideButton';
 
 // 모든 화면 공통 상단 (docs ARCHITECTURE 4장 「모든 화면에 공통」)
 // - 기능 검색 (FR-SCH-01 · 02): 키워드 사전 public/search-keywords.json, `/` · Ctrl+K로 포커스
@@ -140,6 +141,7 @@ export function Topbar() {
           style={{ flex: 1, minWidth: 0, border: 0, outline: 0, background: 'transparent', font: "400 13px 'Noto Sans KR', sans-serif", color: '#3E3532' }}
         />
       </form>
+      <UsageGuideButton />
       {/* 화면 언어 (FR-I18N-02). 브라우저별 저장, 바꾸면 새로고침 */}
       <select
         aria-label={t('locale.label')}
