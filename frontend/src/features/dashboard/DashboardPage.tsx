@@ -36,6 +36,9 @@ type Recent = { id: number; name: string; category: Category; sentAt: string; re
 type Channels = { from: string; to: string; total: number; channels: { channel: Channel; count: number; ratio: number }[] };
 
 const SEG_COLOR: Record<string, string> = { SCHEDULED: '#F0DAD6', DUE: '#7A4450', CHURN_SIGNAL: '#CC9A9E', LONG_ABSENT: '#C9BDB9' };
+/** 오늘 예약은 처음에 이만큼만 보이고 [모두 보기]로 펼친다 */
+const TODAY_FOLD = 5;
+
 const SEGS: { status: string; label: MessageKey; rule: MessageKey }[] = [
   { status: 'SCHEDULED', label: 'dashboard.seg.scheduled', rule: 'dashboard.seg.ruleScheduled' },
   { status: 'DUE', label: 'prediction.status.due', rule: 'dashboard.seg.ruleDue' },
@@ -86,6 +89,7 @@ export default function DashboardPage() {
   const [segCounts, setSegCounts] = useState<Record<string, number> | null>(null);
   const [recent, setRecent] = useState<Recent[] | null>(null);
   const [period, setPeriod] = useState<Period>('THIS_MONTH');
+  const [todayOpen, setTodayOpen] = useState(false);
   const [channels, setChannels] = useState<{ period: Period; value: Channels } | null>(null);
   const [drawn, setDrawn] = useState(false);
   // 카드별 불러오기 실패 (#346). 실패를 삼키지 않고 그 카드에 「불러오지 못함」을 보인다
@@ -200,48 +204,9 @@ export default function DashboardPage() {
           )}
         </section>
 
-        {/* 두 열을 따로 쌓는다: 열마다 카드 높이가 내용만큼이라, 긴 카드 옆 카드가 빈 채로 늘어나지 않는다 */}
+        {/* 한눈에 보는 그래프를 위에: 이번 주 예약 · 예약 경로 | 고객 재방문 상태 */}
         <div className="kp-cols">
           <div className="kp-col">
-            <Card title={t('dashboard.kpi.today')} sub={t('dashboard.today.sub')} guide="dashboard-today">
-              {!todayList ? (
-                <p className="kp-card-sub">{loadingText('today')}</p>
-              ) : todayList.length === 0 ? (
-                <p className="kp-card-sub">{t('dashboard.today.empty')}</p>
-              ) : (
-                todayList.map((r) => (
-                  <div className="kp-care-row" key={r.id}>
-                    <span className="num" style={{ fontWeight: 600, color: '#8A6F66', fontSize: '13px', width: 44 }}>{hmOf(r.startAt)}</span>
-                    <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-                      <AppLink href={r.customer ? `/customers/detail?id=${r.customer.id}` : `/reservations/detail?id=${r.id}`} style={{ fontWeight: 600, fontSize: '15px' }}>
-                        {r.customer?.hasCaution ? (
-                          <span title={t('dashboard.today.cautionTitle')} aria-label={t('dashboard.today.cautionLabel')} role="img" style={{ display: 'inline-flex', verticalAlign: '-2px', marginRight: 4, color: '#8F2F2F' }}>
-                            {/* 경고 삼각형 (Lucide triangle-alert, ISC) */}
-                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                              <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" />
-                              <path d="M12 9v4" />
-                              <path d="M12 17h.01" />
-                            </svg>
-                          </span>
-                        ) : null}
-                        {resvName(r)}
-                      </AppLink>
-                      <span style={{ fontSize: '12.5px', color: '#6B605B' }}>
-                        {r.services.map((s) => s.name).join(' · ')} · {r.staff.name}
-                        {r.consultFirst ? ` · ${t('dashboard.today.consult')}` : ''}
-                      </span>
-                    </div>
-                    {r.status === 'COMPLETED' ? <span className="kp-tag" style={{ background: '#ECE6E1', color: '#4A3F3B' }}>{t('dashboard.today.done')}</span> : null}
-                    {!r.customer ? (
-                      <AppLink href={`/reservations/detail?id=${r.id}`} className="kp-btn">
-                        {t('dashboard.today.link')}
-                      </AppLink>
-                    ) : null}
-                  </div>
-                ))
-              )}
-            </Card>
-
             <Card title={t('dashboard.week.title')} sub={t('dashboard.week.sub')}>
               {!today ? (
                 <p className="kp-card-sub">{loadingText('today')}</p>
@@ -260,86 +225,6 @@ export default function DashboardPage() {
                     );
                   })}
                 </div>
-              )}
-            </Card>
-          </div>
-          <div className="kp-col">
-            <Card title={t('dashboard.kpi.unclosed')} sub={t('dashboard.unclosed.sub')} className="kp-act" guide="dashboard-unclosed">
-              {!today ? (
-                <p className="kp-card-sub">{loadingText('today')}</p>
-              ) : today.unclosed.length === 0 ? (
-                <p className="kp-card-sub">{t('dashboard.unclosed.empty')}</p>
-              ) : (
-                today.unclosed.map((r) => (
-                  <AppLink href={`/reservations/closing?id=${r.id}`} className="kp-act-row" key={r.id} style={{ color: 'inherit' }}>
-                    <span className="num" style={{ fontWeight: 600, color: '#8A6F66', fontSize: '13px' }}>{md(r.startAt)}</span>
-                    <span style={{ display: 'flex', flexDirection: 'column' }}>
-                      <strong style={{ fontSize: '14px' }}>{resvName(r)}</strong>
-                      <span style={{ fontSize: '13px', color: '#4A3F3B' }}>
-                        {r.services.map((s) => s.name).join(' · ')} · {hmOf(r.startAt)} · {t('dashboard.kpi.unclosedNote')}
-                      </span>
-                    </span>
-                  </AppLink>
-                ))
-              )}
-            </Card>
-
-            <Card
-              title={t('dashboard.care.title')}
-              sub={t('dashboard.care.sub')}
-              guide="dashboard-care"
-              head={insightOpen ? <AppLink href="/insights" className="kp-btn">{t('dashboard.care.all')}</AppLink> : null}
-            >
-              {!insightOpen ? (
-                <Locked what={t('dashboard.locked.insights')} />
-              ) : !care ? (
-                <p className="kp-card-sub">{loadingText('care')}</p>
-              ) : care.length === 0 ? (
-                <p className="kp-card-sub">{t('dashboard.care.empty')}</p>
-              ) : (
-                care.map((c) => {
-                  const tab = STATUS_TABS.find((x) => x.status === c.status);
-                  return (
-                    <div className="kp-care-row" key={`${c.customerId}-${c.category}`}>
-                      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-                        <AppLink href={`/customers/detail?id=${c.customerId}`} style={{ fontWeight: 600, fontSize: '15px' }}>
-                          {c.name}
-                        </AppLink>
-                        <span style={{ fontSize: '12.5px', color: '#6B605B' }}>
-                          {CATEGORY_LABEL[c.category]} · {t('common.elapsedDays', { days: c.elapsedDays })} · {c.marketingConsent ? t('common.consent') : t('common.noConsent')}
-                        </span>
-                      </div>
-                      {tab ? <span className="kp-tag" style={{ background: c.status === 'DUE' ? '#F5EBD3' : '#F4E0DC', color: c.status === 'DUE' ? '#6B4509' : '#8F2F2F' }}>{t(tab.labelKey)}</span> : null}
-                      {c.nextAction && c.nextAction !== 'REQUEST_CONSENT' ? (
-                        <AppLink href="/campaigns" className="kp-btn p">{nextActionLabel(c.nextAction)}</AppLink>
-                      ) : (
-                        <span style={{ fontSize: '12.5px', color: '#6B605B' }}>{c.nextAction ? nextActionLabel('REQUEST_CONSENT') : t('dashboard.care.noAction')}</span>
-                      )}
-                    </div>
-                  );
-                })
-              )}
-            </Card>
-
-            <Card title={t('dashboard.recent.title')} sub={t('dashboard.recent.sub')} className="kp-act">
-              {!campaignOpen ? (
-                <Locked what={t('dashboard.locked.campaigns')} />
-              ) : !recent ? (
-                <p className="kp-card-sub">{loadingText('recent')}</p>
-              ) : recent.length === 0 ? (
-                <p className="kp-card-sub">{t('dashboard.recent.empty')}</p>
-              ) : (
-                recent.map((c) => (
-                  <AppLink href={`/campaigns/detail?id=${c.id}`} className="kp-act-row" key={c.id} style={{ color: 'inherit', gridTemplateColumns: '1fr auto' }}>
-                    <span style={{ display: 'flex', flexDirection: 'column' }}>
-                      <strong style={{ fontSize: '14px' }}>{c.name}</strong>
-                      <span style={{ fontSize: '13px', color: '#4A3F3B' }}>
-                        {t('dashboard.recent.row', { date: md(c.sentAt), category: CATEGORY_LABEL[c.category] ?? c.category, rebooked: c.rebookedCount, reached: c.reachedCount })}
-                      </span>
-                    </span>
-                    <b className="num" style={{ fontSize: '20px', color: '#7A4450' }}>{rateText(c.rebookedCount, c.reachedCount) ?? '-'}</b>
-                  </AppLink>
-                ))
               )}
             </Card>
 
@@ -371,7 +256,8 @@ export default function DashboardPage() {
                 ))
               )}
             </Card>
-
+          </div>
+          <div className="kp-col">
             <section className="kp-card kp-rel" aria-label={t('dashboard.rel.label')}>
               <div className="kp-card-head">
                 <div>
@@ -413,6 +299,137 @@ export default function DashboardPage() {
                 </div>
               )}
             </section>
+          </div>
+        </div>
+
+        {/* 할 일 목록 (왼쪽 예약 · 캠페인, 오른쪽 관리할 고객): 열마다 카드 높이가 내용만큼이라 짧은 카드가 옆 카드 높이로 늘어나지 않는다 */}
+        <div className="kp-cols">
+          <div className="kp-col">
+            <Card title={t('dashboard.kpi.today')} sub={t('dashboard.today.sub')} guide="dashboard-today">
+              {!todayList ? (
+                <p className="kp-card-sub">{loadingText('today')}</p>
+              ) : todayList.length === 0 ? (
+                <p className="kp-card-sub">{t('dashboard.today.empty')}</p>
+              ) : (
+                <>
+                  {(todayOpen ? todayList : todayList.slice(0, TODAY_FOLD)).map((r) => (
+                    <div className="kp-care-row" key={r.id}>
+                      <span className="num" style={{ fontWeight: 600, color: '#8A6F66', fontSize: '13px', width: 44 }}>{hmOf(r.startAt)}</span>
+                      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+                        <AppLink href={r.customer ? `/customers/detail?id=${r.customer.id}` : `/reservations/detail?id=${r.id}`} style={{ fontWeight: 600, fontSize: '15px' }}>
+                          {r.customer?.hasCaution ? (
+                            <span title={t('dashboard.today.cautionTitle')} aria-label={t('dashboard.today.cautionLabel')} role="img" style={{ display: 'inline-flex', verticalAlign: '-2px', marginRight: 4, color: '#8F2F2F' }}>
+                              {/* 경고 삼각형 (Lucide triangle-alert, ISC) */}
+                              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" />
+                                <path d="M12 9v4" />
+                                <path d="M12 17h.01" />
+                              </svg>
+                            </span>
+                          ) : null}
+                          {resvName(r)}
+                        </AppLink>
+                        <span style={{ fontSize: '12.5px', color: '#6B605B' }}>
+                          {r.services.map((s) => s.name).join(' · ')} · {r.staff.name}
+                          {r.consultFirst ? ` · ${t('dashboard.today.consult')}` : ''}
+                        </span>
+                      </div>
+                      {r.status === 'COMPLETED' ? <span className="kp-tag" style={{ background: '#ECE6E1', color: '#4A3F3B' }}>{t('dashboard.today.done')}</span> : null}
+                      {!r.customer ? (
+                        <AppLink href={`/reservations/detail?id=${r.id}`} className="kp-btn">
+                          {t('dashboard.today.link')}
+                        </AppLink>
+                      ) : null}
+                    </div>
+                  ))}
+                  {todayList.length > TODAY_FOLD ? (
+                    <button type="button" className="kp-fold" aria-expanded={todayOpen} onClick={() => setTodayOpen((o) => !o)}>
+                      {todayOpen ? t('dashboard.today.collapse') : t('dashboard.today.expand', { n: todayList.length })}
+                    </button>
+                  ) : null}
+                </>
+              )}
+            </Card>
+
+            <Card title={t('dashboard.kpi.unclosed')} sub={t('dashboard.unclosed.sub')} className="kp-act" guide="dashboard-unclosed">
+              {!today ? (
+                <p className="kp-card-sub">{loadingText('today')}</p>
+              ) : today.unclosed.length === 0 ? (
+                <p className="kp-card-sub">{t('dashboard.unclosed.empty')}</p>
+              ) : (
+                today.unclosed.map((r) => (
+                  <AppLink href={`/reservations/closing?id=${r.id}`} className="kp-act-row" key={r.id} style={{ color: 'inherit' }}>
+                    <span className="num" style={{ fontWeight: 600, color: '#8A6F66', fontSize: '13px' }}>{md(r.startAt)}</span>
+                    <span style={{ display: 'flex', flexDirection: 'column' }}>
+                      <strong style={{ fontSize: '14px' }}>{resvName(r)}</strong>
+                      <span style={{ fontSize: '13px', color: '#4A3F3B' }}>
+                        {r.services.map((s) => s.name).join(' · ')} · {hmOf(r.startAt)} · {t('dashboard.kpi.unclosedNote')}
+                      </span>
+                    </span>
+                  </AppLink>
+                ))
+              )}
+            </Card>
+
+            <Card title={t('dashboard.recent.title')} sub={t('dashboard.recent.sub')} className="kp-act">
+              {!campaignOpen ? (
+                <Locked what={t('dashboard.locked.campaigns')} />
+              ) : !recent ? (
+                <p className="kp-card-sub">{loadingText('recent')}</p>
+              ) : recent.length === 0 ? (
+                <p className="kp-card-sub">{t('dashboard.recent.empty')}</p>
+              ) : (
+                recent.map((c) => (
+                  <AppLink href={`/campaigns/detail?id=${c.id}`} className="kp-act-row" key={c.id} style={{ color: 'inherit', gridTemplateColumns: '1fr auto' }}>
+                    <span style={{ display: 'flex', flexDirection: 'column' }}>
+                      <strong style={{ fontSize: '14px' }}>{c.name}</strong>
+                      <span style={{ fontSize: '13px', color: '#4A3F3B' }}>
+                        {t('dashboard.recent.row', { date: md(c.sentAt), category: CATEGORY_LABEL[c.category] ?? c.category, rebooked: c.rebookedCount, reached: c.reachedCount })}
+                      </span>
+                    </span>
+                    <b className="num" style={{ fontSize: '20px', color: '#7A4450' }}>{rateText(c.rebookedCount, c.reachedCount) ?? '-'}</b>
+                  </AppLink>
+                ))
+              )}
+            </Card>
+          </div>
+          <div className="kp-col">
+            <Card
+              title={t('dashboard.care.title')}
+              sub={t('dashboard.care.sub')}
+              guide="dashboard-care"
+              head={insightOpen ? <AppLink href="/insights" className="kp-btn">{t('dashboard.care.all')}</AppLink> : null}
+            >
+              {!insightOpen ? (
+                <Locked what={t('dashboard.locked.insights')} />
+              ) : !care ? (
+                <p className="kp-card-sub">{loadingText('care')}</p>
+              ) : care.length === 0 ? (
+                <p className="kp-card-sub">{t('dashboard.care.empty')}</p>
+              ) : (
+                care.map((c) => {
+                  const tab = STATUS_TABS.find((x) => x.status === c.status);
+                  return (
+                    <div className="kp-care-row" key={`${c.customerId}-${c.category}`}>
+                      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+                        <AppLink href={`/customers/detail?id=${c.customerId}`} style={{ fontWeight: 600, fontSize: '15px' }}>
+                          {c.name}
+                        </AppLink>
+                        <span style={{ fontSize: '12.5px', color: '#6B605B' }}>
+                          {CATEGORY_LABEL[c.category]} · {t('common.elapsedDays', { days: c.elapsedDays })} · {c.marketingConsent ? t('common.consent') : t('common.noConsent')}
+                        </span>
+                      </div>
+                      {tab ? <span className="kp-tag" style={{ background: c.status === 'DUE' ? '#F5EBD3' : '#F4E0DC', color: c.status === 'DUE' ? '#6B4509' : '#8F2F2F' }}>{t(tab.labelKey)}</span> : null}
+                      {c.nextAction && c.nextAction !== 'REQUEST_CONSENT' ? (
+                        <AppLink href="/campaigns" className="kp-btn p">{nextActionLabel(c.nextAction)}</AppLink>
+                      ) : (
+                        <span style={{ fontSize: '12.5px', color: '#6B605B' }}>{c.nextAction ? nextActionLabel('REQUEST_CONSENT') : t('dashboard.care.noAction')}</span>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </Card>
           </div>
         </div>
 

@@ -5,7 +5,7 @@ a{color:inherit;text-decoration:none}a:hover{text-decoration:none}
 .num{font-variant-numeric:tabular-nums}
 .serif{font-family:'Playfair Display','Noto Serif KR',serif}
 
-.kp-wrap{padding:28px 32px 56px 50px;box-sizing:border-box;width:100%;display:flex;flex-direction:column;gap:20px}
+.kp-wrap{padding:28px 32px 56px 50px;box-sizing:border-box;width:100%;max-width:1480px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
 .kp-hero{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:8px}
 .kp-hello{font-family:'Noto Serif KR','Playfair Display',serif;font-weight:500;font-size:34px;line-height:1.45;color:#221D1B;letter-spacing:-0.03em;word-break:keep-all}
 /* 슬로건 둘째 줄은 와인색 기울임으로 강조, 위에는 작은 영문 라벨 */
@@ -69,6 +69,9 @@ a{color:inherit;text-decoration:none}a:hover{text-decoration:none}
 /* 대시보드 아래쪽: 두 열을 각각 세로로 쌓는다 (왼쪽 1.5 : 오른쪽 1) */
 .kp-cols{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(280px,1fr);gap:16px;align-items:start}
 .kp-col{display:flex;flex-direction:column;gap:16px;min-width:0}
+/* 오늘 예약 [모두 보기 · 접기] */
+.kp-fold{display:block;width:100%;margin-top:6px;padding:10px 0 2px;border:0;border-top:1px solid #F1E4E0;background:transparent;font:500 13px 'Noto Sans KR',sans-serif;color:#7A4450;cursor:pointer}
+.kp-fold:hover{color:#683945;text-decoration:underline;text-underline-offset:3px}
 @media (max-width:980px){.kp-cols{grid-template-columns:1fr}}
 .kp-care{padding:20px 24px}
 .kp-care-row{display:flex;align-items:center;gap:14px;padding:14px 0;border-top:1px solid #F1E4E0}
