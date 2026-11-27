@@ -816,6 +816,12 @@ img[alt='Keepsy'] {
   position: sticky;
   top: 0;
   z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 0 32px 0 50px;
+  height: 92px;
+  box-sizing: border-box;
   background: rgba(255, 255, 255, 0.6);
   -webkit-backdrop-filter: var(--glass-blur);
   backdrop-filter: var(--glass-blur);
@@ -825,4 +831,50 @@ img[alt='Keepsy'] {
 }
 .kp-top.scrolled {
   box-shadow: 0 10px 30px -14px rgba(150, 90, 100, 0.25);
+}
+/* 왼쪽 끝의 기능 검색. 나머지를 오른쪽으로 밀고, 자리가 모자라면 검색부터 줄어든다 */
+.kp-top-search {
+  margin-right: auto;
+  flex: 0 1 300px;
+  min-width: 0;
+}
+/* 오른쪽 끝 프로필 원(장식)과 그 앞 구분선. display를 여기 둬야 좁은 화면에서 숨길 수 있다 */
+.kp-top-avatar {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  flex: none;
+}
+/* 근무자 · PIN 스탭 이름이 길면 말줄임 (전체 이름은 title) */
+.kp-top-name {
+  max-width: 12em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* 태블릿 폭 (NFR-11, #493): 가로 스크롤 없이 로그아웃까지 보이게 간격을 줄이고 장식(프로필 원) · 가이드 글자를 숨긴다 */
+@media (max-width: 1100px) {
+  .kp-top {
+    gap: 12px;
+    padding: 0 20px;
+  }
+  .kp-top-avatar,
+  .kp-guide-label {
+    display: none;
+  }
+}
+/* 태블릿 세로: 검색은 첫 줄 전체, 나머지는 다음 줄 오른쪽 */
+@media (max-width: 900px) {
+  .kp-top {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    height: auto;
+    min-height: 92px;
+    padding: 12px 20px;
+    row-gap: 10px;
+  }
+  .kp-top-search {
+    flex-basis: 100%;
+    margin-right: 0;
+  }
 }
