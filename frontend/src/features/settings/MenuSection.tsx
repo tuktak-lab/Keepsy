@@ -179,7 +179,7 @@ export function MenuSection({ industries }: { industries: string[] | null | unde
           const cycle = cycleOf(cat);
           const newHere = editing !== null && editing.menuId === null && editing.category === cat;
           return (
-            <div key={cat}>
+            <div key={cat} className="st-catbox">
               <div className="st-cat">
                 {CATEGORY_LABEL[cat]} <span className="st-meta num">{t('settings.menu.catDefault', { range: cycle ? t('settings.menu.daysRange', { min: cycle.minDays, max: cycle.maxDays }) : '-' })}</span>
               </div>

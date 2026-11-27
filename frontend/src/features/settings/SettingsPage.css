@@ -170,7 +170,7 @@ html:has(.st-wrap){scroll-behavior:smooth}
 .st-rowgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(420px,100%),1fr));column-gap:40px}
 .st-rowgrid>.st-row{border-top:0;border-bottom:1px solid #F1E4E0}
 /* 시술 메뉴: 카테고리 묶음을 두 열로. 한 묶음 안에서 메뉴 이름과 가격 · 버튼이 너무 멀어지지 않는다 */
-.st-catgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(480px,100%),1fr));gap:4px 40px;align-items:start}
+.st-catgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(480px,100%),1fr));gap:16px;align-items:start}
 /* 매장 정보 · 영업시간: 왼쪽 매장 정보(칸을 세로로), 오른쪽 요일별 영업시간(한 줄에 한 요일). 900px 이하는 위아래 */
 .st-shop-cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px 48px;align-items:stretch}
 .st-shop-col{display:flex;flex-direction:column;gap:12px;min-width:0}
@@ -183,3 +183,11 @@ html:has(.st-wrap){scroll-behavior:smooth}
 .st-lines{white-space:pre-line}
 /* 왼쪽 마지막 안내(업종)가 오른쪽 영업시간 안내와 같은 높이에서 끝나게: 두 열을 같은 높이로 늘리고 왼쪽 업종 묶음을 아래로 붙인다 */
 .st-shop-col:first-child>:nth-last-child(2){margin-top:auto}
+/* 카테고리 묶음 상자: 인사이트 화면 카드와 같은 유리 면(흰 반투명 + 흰 윗선 + 옅은 와인 윤곽). 흰 구역 카드 안이라 옅은 분홍을 깔아 구분한다 */
+.st-catbox{padding:4px 14px 10px;border-radius:18px;background:linear-gradient(180deg,rgba(247,236,236,.92),rgba(243,230,231,.8));border:1px solid var(--glass-border);box-shadow:var(--glass-shadow),0 0 0 1px var(--glass-edge)}
+.st-catbox .st-cat{padding:12px 0 6px;border-bottom:1px solid rgba(122,68,80,.14)}
+.st-catbox .st-row{border-top-color:rgba(122,68,80,.10)}
+.st-catbox .st-cat+.st-row{border-top:0}
+.st-catbox .st-row{gap:8px 12px}
+.st-catbox .st-tag{background:#fff;box-shadow:0 0 0 1px rgba(122,68,80,.12)}
+.st-catbox .st-tag.w{background:#fff;color:#8F2F2F}
