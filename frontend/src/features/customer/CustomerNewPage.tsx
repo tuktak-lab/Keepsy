@@ -18,7 +18,7 @@ import styles from './CustomerNewPage.module.css';
 
 // 고객 등록 (FR-CUS-01). POST /api/customers. 처리 스탭은 서버가 현재 근무자로 남긴다 (FR-ACC-10).
 // 개인정보 수집 · 이용 동의(PRIVACY)가 없으면 고객으로 등록하지 않는다 (E3) — 그런 손님은 고객 없는 예약으로 시간만 막는다.
-// 고객 선호 언어는 받지 않는다 (FR-I18N-01 범위 제외, F75). API 필드는 선택이라 보내지 않아도 된다.
+// 고객 선호 언어는 받지 않는다 (FR-I18N-01 범위 제외, F76). API 필드는 선택이라 보내지 않아도 된다.
 
 const GENDERS: [Gender, string][] = [
   ['FEMALE', '여성'],

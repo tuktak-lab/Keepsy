@@ -26,7 +26,7 @@ public class HistoryQuery {
 
     /**
      * 가져온 방문이면 메뉴 · 스탭이 null (A13). {@code serviceMenuId} · {@code cycleExcluded}는 방문 수정 화면이 방문 전체
-     * 시술을 다시 보낼 때 쓴다 (F76)
+     * 시술을 다시 보낼 때 쓴다 (F77)
      */
     public record Service(
             String category,
@@ -39,7 +39,7 @@ public class HistoryQuery {
 
     public record Note(long noteId, String content, StaffRef staff, OffsetDateTime createdAt) {}
 
-    /** {@code imported}: CSV로 가져온 방문 (FR-CUS-13). 방문 수정은 409라 화면이 수정 버튼을 두지 않는다 (F25, F76) */
+    /** {@code imported}: CSV로 가져온 방문 (FR-CUS-13). 방문 수정은 409라 화면이 수정 버튼을 두지 않는다 (F25, F77) */
     public record Visit(
             long visitId,
             LocalDate visitDate,

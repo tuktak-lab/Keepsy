@@ -167,7 +167,7 @@ class HistoryTest {
 
     @Test
     void 방문_수정에_쓰는_메뉴_ID와_주기_계산_제외를_방문_전체_시술마다_준다() throws Exception {
-        // F76: 방문 수정은 방문 전체 시술을 다시 보내야 한다 (C6)
+        // F77: 방문 수정은 방문 전체 시술을 다시 보내야 한다 (C6)
         jdbc.update(
                 "UPDATE visit_service SET cycle_excluded = TRUE WHERE visit_id = ? AND category = 'LASH'",
                 oct);
