@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import logoImg from '@/assets/images/keepsy-logo-thin.png';
 import styles from './LandingPage.module.css';
@@ -28,7 +28,21 @@ const ICON = {
     'M5 18H3',
   ],
   bell: ['M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9', 'M10.3 21a1.94 1.94 0 0 0 3.4 0'],
+  house: [
+    'M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8',
+    'M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z',
+  ],
+  calendar: ['M8 2v4', 'M16 2v4', 'M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z', 'M3 10h18'],
+  user: ['M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2', 'M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0z'],
+  message: ['M14 9a2 2 0 0 1-2 2H6l-4 4V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2z', 'M18 9h2a2 2 0 0 1 2 2v11l-4-4h-6a2 2 0 0 1-2-2v-1'],
+  chart: ['M12 20V10', 'M18 20V4', 'M6 20v-4'],
+  settings: [
+    'M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z',
+    'M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0z',
+  ],
 };
+// 미리보기 화면 왼쪽 메뉴 (장식). Feature.nav가 이 중 강조할 칸이다
+const NAV_ICONS = [ICON.house, ICON.calendar, ICON.user, ICON.message, ICON.chart, ICON.settings];
 type Feature = {
   id: string;
   label: string;
@@ -36,6 +50,7 @@ type Feature = {
   desc: string;
   steps: string[];
   screen: string;
+  nav: number; // NAV_ICONS 중 강조할 칸
   rows: Row[];
 };
 
@@ -47,6 +62,7 @@ const FEATURES: Feature[] = [
     desc: '고객을 찾으면 방문 이력, 시술 기록, 메모, 수신 동의가 한 번에 보여요.',
     steps: ['이름·연락처로 고객 찾기', '방문·시술 기록 확인', '상담 메모 남기기', '수신 동의 상태 확인'],
     screen: '고객 목록',
+    nav: 2,
     rows: [
       { name: '김○○', meta: '최근 방문 12일 전 · 젤 원컬러', tag: '단골' },
       { name: '이○○', meta: '최근 방문 41일 전 · 프렌치', tag: '이탈 신호' },
@@ -61,6 +77,7 @@ const FEATURES: Feature[] = [
     desc: '시간대별 예약과 담당 디자이너를 보고,\n예약 등록부터 방문 처리까지 이어서 해요.',
     steps: ['오늘 일정 확인', '예약 등록·변경', '방문 완료 처리', '노쇼·취소 기록'],
     screen: '오늘 예약',
+    nav: 1,
     rows: [
       { name: '10:30 김○○', meta: '젤 원컬러 · 디자이너 A', tag: '확정' },
       { name: '13:00 정○○', meta: '연장 · 디자이너 B', tag: '확정' },
@@ -75,6 +92,7 @@ const FEATURES: Feature[] = [
     desc: '목적에 맞는 대상을 고르고,\n수신 동의와 야간 발송 제한을 확인한 뒤 보내요.',
     steps: ['목적과 대상 고르기', '제외 대상 확인', '미리보기 검토', '바로 또는 예약 발송'],
     screen: '캠페인 목록',
+    nav: 3,
     rows: [
       { name: '재방문 안내', meta: '대상 24명 · 발송 완료', tag: '완료', icon: ICON.calendarCheck },
       { name: '생일 쿠폰', meta: '대상 8명 · 내일 10:00', tag: '예약', icon: ICON.gift },
@@ -89,6 +107,7 @@ const FEATURES: Feature[] = [
     desc: '방문 주기가 길어진 고객을 먼저 보여 주고,\n바로 안내 캠페인으로 이어져요.',
     steps: ['이탈 신호 고객 보기', '평소 방문 주기 비교', '대상으로 담기', '캠페인 성과 확인'],
     screen: '이탈 신호',
+    nav: 4,
     rows: [
       { name: '이○○', meta: '평소 21일 → 41일째 미방문', tag: '높음' },
       { name: '윤○○', meta: '평소 28일 → 45일째 미방문', tag: '높음' },
@@ -96,14 +115,6 @@ const FEATURES: Feature[] = [
       { name: '강○○', meta: '평소 25일 → 31일째 미방문', tag: '보통' },
     ],
   },
-];
-
-// 히어로 왼쪽 미리보기: 기능 탭(고객 목록)과 겹치지 않게, 대시보드 상단 요약(KPI 카드)과 같은 항목을 카드로 보여 준다
-const TODAY = [
-  { head: '전체 고객', value: '128', note: '삭제된 고객 제외' },
-  { head: '오늘 예약', value: '6', note: '확정 5 · 상담 후 진행 1' },
-  { head: '마감 안 된 예약', value: '2', note: '시작 시각 지남 · 마감 필요' },
-  { head: '주기 도래 고객', value: '4', note: '예약 없음 · 우선순위 순' },
 ];
 
 // 아이콘은 24×24 선 아이콘 경로 (Sidebar.tsx와 같은 방식)
@@ -144,10 +155,6 @@ const FAQ = [
     a: '매장 계정 하나를 함께 쓰고, 근무자마다 PIN으로 구분해요.\n고객 연락처 전체 보기처럼 민감한 기능은 PIN으로 한 번 더 확인해요.',
   },
   {
-    q: '고객에게 실제로 문자가 가나요?',
-    a: '아니요. Keepsy는 시연용이라 가상 발송기로만 보내요. 보낸 내용은 가상 휴대폰 화면에서 확인할 수 있어요.',
-  },
-  {
     q: '수신을 원하지 않는 고객은 어떻게 하나요?',
     a: '수신 동의가 없거나 수신을 거부한 고객은 캠페인 대상에서 자동으로 빠져요. 야간에는 광고 발송을 막아요.',
   },
@@ -161,18 +168,38 @@ function Logo() {
   return <img className={styles.logo} src={logoImg.src} alt="Keepsy" />;
 }
 
-function Screen({ title, rows, children }: { title: string; rows?: Row[]; children?: ReactNode }) {
+function Icon({ paths }: { paths: string[] }) {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      {paths.map((d) => (
+        <path key={d} d={d} />
+      ))}
+    </svg>
+  );
+}
+
+function Screen({ title, rows, nav }: { title: string; rows: Row[]; nav: number }) {
   return (
     <div className={styles.screen} aria-hidden="true">
-      <div className={styles.screenBar}>
-        <i />
-        <i />
-        <i />
-        <span>{title}</span>
+      <div className={styles.screenNav}>
+        {NAV_ICONS.map((paths, i) => (
+          <span key={paths[0]} className={i === nav ? styles.navOn : undefined}>
+            <Icon paths={paths} />
+          </span>
+        ))}
       </div>
-      {children ?? (
+      <div className={styles.screenMain}>
+        <div className={styles.screenTop}>
+          <i />
+          <Icon paths={ICON.bell} />
+          <Icon paths={ICON.user} />
+        </div>
+        <div className={styles.screenBar}>
+          <span>{title}</span>
+          <small>전체 보기 ›</small>
+        </div>
         <ul className={styles.screenRows}>
-          {rows?.map((r) => (
+          {rows.map((r) => (
             <li key={r.name}>
               <span className={styles.avatar}>
                 {r.icon ? (
@@ -182,7 +209,7 @@ function Screen({ title, rows, children }: { title: string; rows?: Row[]; childr
                     ))}
                   </svg>
                 ) : (
-                  r.name.replace(/^[\d:]+\s/, '').charAt(0)
+                  r.name.replace(/^[d:]+s/, '').charAt(0)
                 )}
               </span>
               <span className={styles.rowText}>
@@ -193,8 +220,62 @@ function Screen({ title, rows, children }: { title: string; rows?: Row[]; childr
             </li>
           ))}
         </ul>
-      )}
+      </div>
     </div>
+  );
+}
+
+// FAQ 한 줄: 버튼으로 열고 닫는다. 높이 · 투명도는 CSS로 움직이고, 항목마다 따로 열린다 (기존 details와 같은 동작)
+function FaqItem({ q, a, index }: { q: string; a: string; index: number }) {
+  const [open, setOpen] = useState(false);
+  const bodyId = `faq-body-${index}`;
+  return (
+    <div className={`${styles.faqItem} ${styles.reveal}`} style={{ '--i': index + 2 } as React.CSSProperties} data-open={open}>
+      <h3 className={styles.faqQ}>
+        <button type="button" aria-expanded={open} aria-controls={bodyId} onClick={() => setOpen((v) => !v)}>
+          {q}
+        </button>
+      </h3>
+      <div id={bodyId} role="region" className={styles.faqBody} aria-hidden={!open}>
+        <div>
+          <p>{a}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// FAQ 섹션: 화면에 처음 들어올 때 한 번만 제목 → 카드 순서로 나타난다 (다시 스크롤해도 반복하지 않는다)
+function FaqSection() {
+  const ref = useRef<HTMLElement>(null);
+  const [shown, setShown] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          setShown(true);
+          io.disconnect();
+        }
+      },
+      { threshold: 0.12 },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+  return (
+    <section ref={ref} className={`${styles.section} ${shown ? styles.revealOn : ''}`} aria-labelledby="faq-title">
+      <p className={styles.eyebrow}>FAQ</p>
+      <h2 id="faq-title" className={`${styles.sectionTitle} ${styles.reveal}`} style={{ '--i': 1 } as React.CSSProperties}>
+        자주 묻는 질문
+      </h2>
+      <div className={styles.faq}>
+        {FAQ.map((x, i) => (
+          <FaqItem key={x.q} q={x.q} a={x.a} index={i} />
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -208,58 +289,62 @@ export default function LandingPage() {
         <Link href="/" aria-label="Keepsy 처음으로">
           <Logo />
         </Link>
-        <nav className={styles.headerNav}>
-          <Link href="/signup" className={styles.ghost}>
-            매장 가입
-          </Link>
-          <Link href="/login" className={styles.primarySm}>
-            로그인
-          </Link>
-        </nav>
+        <p className={styles.tagline}>
+          Beauty Business, Smarter with <em>Keepsy</em>
+        </p>
       </header>
 
       <main>
         <section className={styles.hero}>
-          <p className={styles.badge}>뷰티샵 원장님을 위한 고객 관리</p>
-          <h1 className={styles.heroTitle}>
-            다시 오고 싶은 샵,
-            <br />
-            <img className={styles.heroLogo} src={logoImg.src} alt="Keepsy" />로 시작하세요
-          </h1>
-          <p className={styles.heroSub}>
-            고객 기록부터 예약, 이탈 신호, 재방문 안내까지.
-            <br />
-            흩어진 샵 운영을 한 곳에서 이어 줍니다.
-          </p>
-          <div className={styles.heroCta}>
-            <Link href="/login" className={styles.primary}>
-              로그인하고 시작하기
-            </Link>
-            <Link href="/signup" className={styles.secondary}>
-              매장 가입
-            </Link>
+          <div className={styles.heroText}>
+            <h1 className={styles.heroTitle}>
+              매장의 성장을 위한
+              <br />
+              가장 스마트한 선택,
+              <br />
+              <img className={styles.heroLogo} src={logoImg.src} alt="Keepsy" />
+            </h1>
+            <p className={styles.heroSub}>
+              지금, Keepsy와 함께
+              <br />
+              더 체계적인 매장 관리를 시작해보세요.
+            </p>
+            <div className={styles.heroCta}>
+              <Link href="/login" className={styles.primary}>
+                로그인하기 <span aria-hidden="true">→</span>
+              </Link>
+              <Link href="/signup" className={styles.secondary}>
+                매장 가입
+              </Link>
+            </div>
           </div>
-          <div className={styles.heroPreview}>
-            <Screen title="오늘 한눈에">
-              <div className={styles.kpis}>
-                {TODAY.map((k) => (
-                  <div key={k.head} className={styles.kpi}>
-                    <span>{k.head}</span>
-                    <b>{k.value}</b>
-                    <small>{k.note}</small>
-                  </div>
-                ))}
-              </div>
-            </Screen>
-            <Screen title={FEATURES[3].screen} rows={FEATURES[3].rows} />
-          </div>
+          {/* 유리 대시보드 일러스트 (장식) */}
+          <div className={styles.heroArt} aria-hidden="true" />
         </section>
 
+        <div className={styles.flow}>
+          <svg className={styles.flowBg} viewBox="0 0 1440 1300" preserveAspectRatio="xMidYMin slice" aria-hidden="true">
+            <defs>
+              <linearGradient id="rib-a" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stopColor="#fff" stopOpacity="0.7" />
+                <stop offset="1" stopColor="#e9a9b5" stopOpacity="0.32" />
+              </linearGradient>
+              <linearGradient id="rib-b" x1="1" y1="0" x2="0" y2="1">
+                <stop offset="0" stopColor="#fff" stopOpacity="0.7" />
+                <stop offset="1" stopColor="#e9a9b5" stopOpacity="0.3" />
+              </linearGradient>
+            </defs>
+            <path d="M-80 470 C170 410 400 560 560 880 C390 650 170 540 -80 570 Z" fill="url(#rib-a)" />
+            <path d="M-80 470 C170 410 400 560 560 880" fill="none" stroke="#fff" strokeOpacity="0.8" strokeWidth="1.5" />
+            <path d="M1520 650 C1270 630 1070 750 940 1010 C1100 810 1290 710 1520 740 Z" fill="url(#rib-b)" />
+            <path d="M1520 650 C1270 630 1070 750 940 1010" fill="none" stroke="#fff" strokeOpacity="0.8" strokeWidth="1.5" />
+          </svg>
         <section className={styles.section} aria-labelledby="features-title">
           <p className={styles.eyebrow}>FEATURES</p>
           <h2 id="features-title" className={styles.sectionTitle}>
             샵 운영에 필요한 일을 하나로
           </h2>
+          <p className={styles.sectionSub}>고객 기록부터 예약, 이탈 신호, 재방문 안내까지 Keepsy가 이어서 도와드려요.</p>
           <div className={styles.tabs} role="tablist" aria-label="기능">
             {FEATURES.map((x) => (
               <button
@@ -281,15 +366,18 @@ export default function LandingPage() {
               <h3>{f.title}</h3>
               <p>{f.desc}</p>
               <ol className={styles.steps}>
-                {f.steps.map((s, i) => (
+                {f.steps.map((s) => (
                   <li key={s}>
-                    <span>{String(i + 1).padStart(2, '0')}</span>
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <circle cx="12" cy="12" r="10" />
+                      <path d="m8 12.5 3 3 5-6" />
+                    </svg>
                     {s}
                   </li>
                 ))}
               </ol>
             </div>
-            <Screen title={f.screen} rows={f.rows} />
+            <Screen title={f.screen} rows={f.rows} nav={f.nav} />
           </div>
         </section>
 
@@ -320,26 +408,13 @@ export default function LandingPage() {
             </strong>
           </p>
         </section>
+        </div>
 
-        <section className={styles.section} aria-labelledby="faq-title">
-          <p className={styles.eyebrow}>FAQ</p>
-          <h2 id="faq-title" className={styles.sectionTitle}>
-            자주 묻는 질문
-          </h2>
-          <div className={styles.faq}>
-            {FAQ.map((x) => (
-              <details key={x.q} className={styles.faqItem}>
-                <summary>{x.q}</summary>
-                <p>{x.a}</p>
-              </details>
-            ))}
-          </div>
-        </section>
+        <FaqSection />
       </main>
 
       <footer className={styles.footer}>
         <Logo />
-        <span>시연용 서비스 · 화면의 고객 정보는 모두 모의 데이터예요</span>
       </footer>
     </div>
   );
