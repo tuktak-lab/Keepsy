@@ -136,97 +136,103 @@ export function ShopSection({ onIndustries }: { onIndustries?: (list: string[] |
   return (
     <section id="st-shop" className="st-card">
       <h2 data-guide="settings-shop">{t('settings.shop.title')}</h2>
-      <div className="st-grid">
-        <div className="st-field">
-          <label className="st-lbl" htmlFor="shop-name">
-            {t('settings.shop.name')}
-          </label>
-          <input id="shop-name" className="st-fld" maxLength={100} value={values.name} onChange={(e) => edit({ name: e.target.value })} />
-        </div>
-        <div className="st-field">
-          <label className="st-lbl" htmlFor="shop-phone">
-            {t('settings.shop.phone')}
-          </label>
-          <input id="shop-phone" className="st-fld num" inputMode="tel" placeholder="02-000-0000" value={values.phone} onChange={(e) => edit({ phone: e.target.value })} />
-        </div>
-        <div className="st-field">
-          <label className="st-lbl" htmlFor="shop-sender">
-            {t('settings.shop.sender')}
-          </label>
-          <input id="shop-sender" className="st-fld num" inputMode="tel" placeholder="010-0000-0000" value={values.senderNumber} onChange={(e) => edit({ senderNumber: e.target.value })} />
-        </div>
-        <div className="st-field">
-          <label className="st-lbl" htmlFor="shop-unsub">
-            {t('settings.shop.unsub')}
-          </label>
-          <input id="shop-unsub" className="st-fld num" inputMode="tel" placeholder="080-000-0000" value={values.unsubscribeNumber} onChange={(e) => edit({ unsubscribeNumber: e.target.value })} />
-        </div>
-      </div>
-      <p className="st-meta">{t('settings.shop.numbersNote')}</p>
-
-      <div>
-        <div className="st-lbl" id="shop-industries-label">
-          {t('settings.shop.industries')}
-        </div>
-        <div className="st-chips" role="group" aria-labelledby="shop-industries-label">
-          {CATEGORIES.map((c) => {
-            const on = values.industries.includes(c);
-            return (
-              <label className="st-chk" key={c}>
-                <input
-                  type="checkbox"
-                  checked={on}
-                  disabled={on && values.industries.length === 1}
-                  onChange={() => edit({ industries: toggleIndustry(CATEGORIES, values.industries, c) })}
-                />
-                {CATEGORY_LABEL[c]}
+      {/* 왼쪽 매장 정보(세로), 오른쪽 요일별 영업시간(세로). 좁은 화면에서는 위아래로 (SettingsPage.css .st-shop-cols) */}
+      <div className="st-shop-cols">
+        <div className="st-shop-col">
+          <div className="st-grid">
+            <div className="st-field">
+              <label className="st-lbl" htmlFor="shop-name">
+                {t('settings.shop.name')}
               </label>
-            );
-          })}
-        </div>
-      </div>
-      <p className="st-meta">{t('settings.shop.industryNote')}</p>
-
-      <div>
-        <div className="st-lbl">{t('settings.shop.hoursLabel')}</div>
-        <div className="st-rowgrid">
-          {values.hours.map((h, i) => (
-            <div className="st-row" key={h.dayOfWeek}>
-              <span className="nm" style={{ width: 28, fontWeight: 600 }}>
-                {dowLabel(i)}
-              </span>
-              <input
-                type="time"
-                step={1800}
-                className="st-time num"
-                value={h.off ? '' : h.open}
-                disabled={h.off}
-                aria-label={t('settings.shop.openAria', { day: dowLabel(i) })}
-                onChange={(e) => editRow(i, { open: e.target.value })}
-              />
-              <span>~</span>
-              <input
-                type="time"
-                step={1800}
-                className="st-time num"
-                value={h.off ? '' : h.close}
-                disabled={h.off}
-                aria-label={t('settings.shop.closeAria', { day: dowLabel(i) })}
-                onChange={(e) => editRow(i, { close: e.target.value })}
-              />
-              <label className="st-chk">
-                <input
-                  type="checkbox"
-                  checked={h.off}
-                  onChange={(e) => editRow(i, e.target.checked ? { off: true } : { off: false, open: h.open || DEFAULT_OPEN, close: h.close || DEFAULT_CLOSE })}
-                />
-                {t('settings.shop.regularOff')}
-              </label>
+              <input id="shop-name" className="st-fld" maxLength={100} value={values.name} onChange={(e) => edit({ name: e.target.value })} />
             </div>
-          ))}
+            <div className="st-field">
+              <label className="st-lbl" htmlFor="shop-phone">
+                {t('settings.shop.phone')}
+              </label>
+              <input id="shop-phone" className="st-fld num" inputMode="tel" placeholder="02-000-0000" value={values.phone} onChange={(e) => edit({ phone: e.target.value })} />
+            </div>
+            <div className="st-field">
+              <label className="st-lbl" htmlFor="shop-sender">
+                {t('settings.shop.sender')}
+              </label>
+              <input id="shop-sender" className="st-fld num" inputMode="tel" placeholder="010-0000-0000" value={values.senderNumber} onChange={(e) => edit({ senderNumber: e.target.value })} />
+            </div>
+            <div className="st-field">
+              <label className="st-lbl" htmlFor="shop-unsub">
+                {t('settings.shop.unsub')}
+              </label>
+              <input id="shop-unsub" className="st-fld num" inputMode="tel" placeholder="080-000-0000" value={values.unsubscribeNumber} onChange={(e) => edit({ unsubscribeNumber: e.target.value })} />
+            </div>
+          </div>
+          <p className="st-meta">{t('settings.shop.numbersNote')}</p>
+
+          <div>
+            <div className="st-lbl" id="shop-industries-label">
+              {t('settings.shop.industries')}
+            </div>
+            <div className="st-chips" role="group" aria-labelledby="shop-industries-label">
+              {CATEGORIES.map((c) => {
+                const on = values.industries.includes(c);
+                return (
+                  <label className="st-chk" key={c}>
+                    <input
+                      type="checkbox"
+                      checked={on}
+                      disabled={on && values.industries.length === 1}
+                      onChange={() => edit({ industries: toggleIndustry(CATEGORIES, values.industries, c) })}
+                    />
+                    {CATEGORY_LABEL[c]}
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+          <p className="st-meta">{t('settings.shop.industryNote')}</p>
+        </div>
+        <div className="st-shop-col">
+          <div>
+            <div className="st-lbl">{t('settings.shop.hoursLabel')}</div>
+            <div className="st-hours">
+              {values.hours.map((h, i) => (
+                <div className="st-row" key={h.dayOfWeek}>
+                  <span className="nm" style={{ width: 28, fontWeight: 600 }}>
+                    {dowLabel(i)}
+                  </span>
+                  <input
+                    type="time"
+                    step={1800}
+                    className="st-time num"
+                    value={h.off ? '' : h.open}
+                    disabled={h.off}
+                    aria-label={t('settings.shop.openAria', { day: dowLabel(i) })}
+                    onChange={(e) => editRow(i, { open: e.target.value })}
+                  />
+                  <span>~</span>
+                  <input
+                    type="time"
+                    step={1800}
+                    className="st-time num"
+                    value={h.off ? '' : h.close}
+                    disabled={h.off}
+                    aria-label={t('settings.shop.closeAria', { day: dowLabel(i) })}
+                    onChange={(e) => editRow(i, { close: e.target.value })}
+                  />
+                  <label className="st-chk">
+                    <input
+                      type="checkbox"
+                      checked={h.off}
+                      onChange={(e) => editRow(i, e.target.checked ? { off: true } : { off: false, open: h.open || DEFAULT_OPEN, close: h.close || DEFAULT_CLOSE })}
+                    />
+                    {t('settings.shop.regularOff')}
+                  </label>
+                </div>
+              ))}
+            </div>
+          </div>
+          <p className="st-meta">{t('settings.shop.hoursNote')}</p>
         </div>
       </div>
-      <p className="st-meta">{t('settings.shop.hoursNote')}</p>
 
       {error ? (
         <p className="st-err" role="alert">
