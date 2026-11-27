@@ -119,9 +119,12 @@ export type HistoryVisit = {
   visitId: number;
   visitDate: string;
   serviceCount: number;
-  services: { category: Category; menuName: string | null; staff: StaffRef | null }[];
+  /** 방문 전체 시술. serviceMenuId · cycleExcluded는 방문 수정에 쓴다 (가져온 방문이면 메뉴 · 스탭 null, F76) */
+  services: { category: Category; menuName: string | null; staff: StaffRef | null; serviceMenuId: number | null; cycleExcluded: boolean }[];
   photos: { photoId: number; url: string; uploadedAt: string }[];
   notes: { noteId: number; content: string; staff: StaffRef; createdAt: string }[];
+  /** CSV로 가져온 방문. 수정할 수 없고 삭제만 된다 (F25, F8) */
+  imported: boolean;
 };
 
 /** GET /api/customers/{id}/consult-notes 항목 */

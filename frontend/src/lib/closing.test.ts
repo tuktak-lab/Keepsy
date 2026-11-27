@@ -124,3 +124,16 @@ test('validatePhotos: 10장 · JPG/PNG · 빈 파일 · 10MB', () => {
 test('CONSENT_REQUEST_LABEL: 마감 카드에서 받는 동의 4개 (PRIVACY 제외)', () => {
   assert.deepEqual(Object.keys(CONSENT_REQUEST_LABEL), ['PHOTO', 'MARKETING', 'NIGHT_AD', 'HEALTH']);
 });
+
+test('결제 정정: 취소한 결제는 고칠 수 없고, 금액은 0 이상의 정수 (F76, FR-PAY-02)', async () => {
+  const { paymentEditable, validatePaymentEdit, paymentMethodLabel, cancelPaymentConfirm } = await import('./closing.ts');
+  assert.equal(paymentEditable({ canceled: false }), true);
+  assert.equal(paymentEditable({ canceled: true }), false);
+  assert.equal(validatePaymentEdit('50,000'), null);
+  assert.equal(validatePaymentEdit('0'), null);
+  assert.ok(validatePaymentEdit('-1'));
+  assert.ok(validatePaymentEdit('abc'));
+  assert.ok(validatePaymentEdit(''));
+  assert.equal(paymentMethodLabel('TRANSFER'), '계좌이체');
+  assert.ok(cancelPaymentConfirm().includes('방문 기록과 예약은 그대로'));
+});
