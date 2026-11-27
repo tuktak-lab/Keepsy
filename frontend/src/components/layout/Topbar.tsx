@@ -266,44 +266,6 @@ export function Topbar() {
         </>
       )}
       <span style={{ width: '1px', height: '26px', background: '#D9CBC4' }} />
-      <button
-        type="button"
-        aria-label="알림 3건"
-        style={{
-          position: 'relative',
-          border: 0,
-          background: 'transparent',
-          cursor: 'pointer',
-          color: '#3E3532',
-          display: 'flex',
-          padding: '4px',
-        }}
-      >
-        <svg
-          width="26"
-          height="26"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.4"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
-        >
-          <path d="M6 17V11a6 6 0 0 1 12 0v6l1.5 2h-15z M10 21h4"></path>
-        </svg>
-        <span
-          style={{
-            position: 'absolute',
-            top: '3px',
-            right: '4px',
-            width: '9px',
-            height: '9px',
-            borderRadius: '50%',
-            background: '#7A4450',
-          }}
-        />
-      </button>
       <span
         aria-hidden="true"
         style={{

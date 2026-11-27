@@ -859,7 +859,7 @@ export default function DesignSystemPage() {
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '90px 1fr', gap: '12px', padding: '10px 0' }}>
                 <span className="sub">상단 바</span>
-                <span className="mono">92px · 경로 / 기능 검색 / 근무자 · 매장 / 알림</span>
+                <span className="mono">92px · 경로 / 기능 검색 / 근무자 · 매장</span>
               </div>
             </div>
           </div>
