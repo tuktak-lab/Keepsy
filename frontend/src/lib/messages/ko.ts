@@ -1295,7 +1295,7 @@ export const ko = {
   'settings.shop.unsub': '수신 거부 번호',
   'settings.shop.numbersNote': '연락처 · 발신번호 · 수신 거부 번호는 광고 메시지 표기에 쓰여요. 비워 둘 수 있어요.',
   'settings.shop.industries': '매장 업종',
-  'settings.shop.industryNote': '켜 둔 업종만 아래 「시술 메뉴 · 기본 주기」, 예약 · 시술 마감의 시술 선택, 새 캠페인의 시술 카테고리에 보여요. 꺼도 기존 메뉴 · 예약 · 고객 기록은 그대로이고, 다시 켜면 돌아와요. 하나는 켜 두어야 해요.',
+  'settings.shop.industryNote': '켜 둔 업종만 아래 「시술 메뉴 · 기본 주기」, 예약 · 시술 마감의 시술 선택, 새 캠페인의 시술 카테고리에 보여요.\n꺼도 기존 메뉴 · 예약 · 고객 기록은 그대로이고, 다시 켜면 돌아와요.\n하나는 켜 두어야 해요.',
   'settings.shop.hoursLabel': '요일별 영업시간 (30분 단위)',
   'settings.shop.openAria': '{day}요일 여는 시각',
   'settings.shop.closeAria': '{day}요일 닫는 시각',

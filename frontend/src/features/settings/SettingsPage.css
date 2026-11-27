@@ -172,9 +172,14 @@ html:has(.st-wrap){scroll-behavior:smooth}
 /* 시술 메뉴: 카테고리 묶음을 두 열로. 한 묶음 안에서 메뉴 이름과 가격 · 버튼이 너무 멀어지지 않는다 */
 .st-catgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(480px,100%),1fr));gap:4px 40px;align-items:start}
 /* 매장 정보 · 영업시간: 왼쪽 매장 정보(칸을 세로로), 오른쪽 요일별 영업시간(한 줄에 한 요일). 900px 이하는 위아래 */
-.st-shop-cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px 48px;align-items:start}
+.st-shop-cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px 48px;align-items:stretch}
 .st-shop-col{display:flex;flex-direction:column;gap:12px;min-width:0}
 .st-shop-col>.st-grid{flex-direction:column;gap:12px}
 .st-shop-col>.st-grid>.st-field{flex:none}
 .st-hours>.st-row{padding:8px 0}
 @media (max-width:900px){.st-shop-cols{grid-template-columns:minmax(0,1fr)}}
+/* 문장마다 줄바꿈한 안내 (
+) */
+.st-lines{white-space:pre-line}
+/* 왼쪽 마지막 안내(업종)가 오른쪽 영업시간 안내와 같은 높이에서 끝나게: 두 열을 같은 높이로 늘리고 왼쪽 업종 묶음을 아래로 붙인다 */
+.st-shop-col:first-child>:nth-last-child(2){margin-top:auto}

@@ -188,7 +188,7 @@ export function ShopSection({ onIndustries }: { onIndustries?: (list: string[] |
               })}
             </div>
           </div>
-          <p className="st-meta">{t('settings.shop.industryNote')}</p>
+          <p className="st-meta st-lines">{t('settings.shop.industryNote')}</p>
         </div>
         <div className="st-shop-col">
           <div>
