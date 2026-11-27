@@ -1,23 +1,50 @@
 /* 로그인 전 소개 화면. 색 · 유리 표면은 styles/base.css의 :root 토큰을 쓴다. */
 .page {
+  position: relative;
+  isolation: isolate; /* 아래 ::before(리본 배경)를 이 화면 안에 가둔다 */
+  overflow-x: clip;
   min-height: calc(100vh / 0.85); /* html zoom 0.85 보정 */
   font-family: 'Noto Sans KR', sans-serif;
+  --serif: 'Noto Serif KR', 'Playfair Display', serif; /* 큰 제목 전용: 대시보드 인사말(.kp-hello)과 같은 글꼴 */
   color: var(--body);
   word-break: keep-all; /* 한국어를 단어 단위로 줄바꿈 */
+  background: #fae6ea; /* 배경 이미지의 가운데 색: 위 · 아래 이미지 사이를 이 색으로 잇는다 */
+}
+
+/* 페이지 배경: 위쪽(히어로 · 곡선)과 아래쪽(FAQ · 리본) 이미지를 각각 제 크기로 깔고,
+   맞닿는 쪽은 서서히 지워 가운데 색과 이어 붙인다 */
+.page::before,
+.page::after {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  left: 0;
+  right: 0;
+  background: url('../../assets/images/landing-bg.jpg') no-repeat;
+  background-size: 100% auto;
+  pointer-events: none;
+}
+.page::before {
+  top: 0;
+  aspect-ratio: 1024 / 1400;
+  background-position: top;
+  -webkit-mask-image: linear-gradient(to bottom, #000 72%, transparent);
+  mask-image: linear-gradient(to bottom, #000 72%, transparent);
+}
+.page::after {
+  bottom: 0;
+  aspect-ratio: 1024 / 900;
+  background-position: bottom;
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 30%);
+  mask-image: linear-gradient(to bottom, transparent, #000 30%);
 }
 
 /* ── 머리글 ── */
 .header {
-  position: sticky;
-  top: 0;
-  z-index: 10;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px clamp(16px, 5vw, 56px);
-  background: rgba(255, 255, 255, 0.6);
-  backdrop-filter: var(--glass-blur);
-  border-bottom: 1px solid var(--glass-border);
+  padding: 24px clamp(16px, 5vw, 56px) 0;
 }
 
 .logo {
@@ -26,20 +53,33 @@
   display: block;
 }
 
-.headerNav {
+.tagline {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 14px;
+  margin: 0;
+  font: italic 400 13px 'Playfair Display', serif;
+  color: #7a5a60;
+}
+.tagline em {
+  font-weight: 600;
+  color: var(--wine);
+}
+.tagline::after {
+  content: '';
+  width: 56px;
+  height: 1px;
+  background: rgba(122, 68, 80, 0.3);
 }
 
 /* ── 버튼 ── */
 .primary,
 .primarySm,
-.secondary,
-.ghost {
+.secondary {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 8px;
   border-radius: 999px;
   font-weight: 600;
   text-decoration: none;
@@ -55,14 +95,14 @@
   box-shadow: 0 10px 24px -10px rgba(122, 68, 80, 0.6);
 }
 .primary {
-  height: 56px;
-  padding: 0 32px;
-  font-size: 17px;
+  height: 54px;
+  padding: 0 30px;
+  font-size: 16px;
 }
 .primarySm {
   height: 42px;
   padding: 0 22px;
-  font-size: 15px;
+  font-size: 14px;
 }
 .primary:hover,
 .primarySm:hover {
@@ -70,26 +110,15 @@
 }
 
 .secondary {
-  height: 56px;
-  padding: 0 28px;
-  font-size: 17px;
+  height: 54px;
+  padding: 0 30px;
+  font-size: 16px;
   color: var(--wine);
-  background: var(--glass-bg-strong);
-  border: 1px solid var(--glass-border);
-  box-shadow: var(--glass-shadow);
+  background: transparent;
+  border: 1px solid var(--wine);
 }
 .secondary:hover {
-  background: #fff;
-}
-
-.ghost {
-  height: 42px;
-  padding: 0 16px;
-  font-size: 15px;
-  color: var(--body);
-}
-.ghost:hover {
-  color: var(--wine);
+  background: rgba(255, 255, 255, 0.6);
 }
 
 .primary:active,
@@ -100,99 +129,177 @@
 
 /* ── 히어로 ── */
 .hero {
-  padding: 72px 16px 24px;
-  text-align: center;
-  background: radial-gradient(900px 420px at 50% 0%, rgba(232, 196, 204, 0.55), transparent 70%);
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  align-items: center;
+  min-height: 840px; /* 일러스트가 낮아도 글이 위로 붙지 않게 첫 화면 높이를 확보한다 */
+  padding: 0 clamp(16px, 5vw, 56px) 24px;
 }
 
-.badge {
-  display: inline-block;
-  margin: 0;
-  padding: 8px 18px;
-  border-radius: 999px;
-  background: var(--glass-bg-strong);
-  border: 1px solid var(--glass-border);
-  box-shadow: var(--glass-shadow);
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--wine);
+.heroText {
+  position: relative;
+  z-index: 2; /* 일러스트의 흐려진 왼쪽 가장자리 위에 글자가 오게 한다 */
+  padding: 24px 0;
 }
 
 .heroTitle {
-  margin: 26px 0 0;
-  font-size: clamp(32px, 5vw, 52px);
-  font-weight: 700;
-  line-height: 1.25;
+  font-family: var(--serif);
+  margin: 0;
+  font-size: clamp(28px, 3.3vw, 46px);
+  font-weight: 400;
+  line-height: 1.35;
   letter-spacing: -0.035em;
-  color: var(--ink);
+  color: #4a3238;
 }
 .heroLogo {
-  height: 0.92em; /* 제목 글자 크기에 맞춘 로고 */
+  height: 0.92em; /* 문장 안에서는 글자 크기에 맞춘 로고 */
   width: auto;
   vertical-align: -0.12em;
+}
+.heroTitle .heroLogo {
+  display: block;
+  height: clamp(72px, 8.6vw, 124px);
+  margin: 2px 0 0 -6px;
 }
 
 .heroSub {
   margin: 20px 0 0;
-  font-size: 18px;
-  line-height: 1.7;
-  color: var(--muted);
+  font-size: 17px;
+  line-height: 1.75;
+  color: #6e5a5e;
 }
 
 .heroCta {
   display: flex;
   flex-wrap: wrap;
-  justify-content: center;
-  gap: 12px;
+  gap: 14px;
   margin-top: 36px;
 }
 
-.heroPreview {
-  display: grid;
-  grid-template-columns: 1.4fr 1fr;
-  gap: 20px;
-  max-width: 1080px; /* 아래 섹션 내용 폭(.section max-width)과 맞춘다 */
-  margin: 56px auto 0;
-  text-align: left;
+/* 유리 대시보드 일러스트: 배경이 투명한 이미지라 페이지 배경 위에 그대로 얹는다 (장식) */
+.heroArt {
+  width: 100%;
+  max-width: 1000px;
+  justify-self: end;
+  aspect-ratio: 1325 / 630;
+  background: url('../../assets/images/landing-hero.webp') center / contain no-repeat;
+  filter: drop-shadow(0 28px 36px rgba(150, 90, 100, 0.22));
+  animation: float 7s ease-in-out infinite alternate;
+}
+@keyframes float {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-10px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .heroArt {
+    animation: none;
+  }
 }
 
-/* ── 미리보기 화면 (모의 데이터) ── */
+/* ── 미리보기 화면 (모의 데이터): 사이드 메뉴 + 상단바가 있는 대시보드 모양 ── */
 .screen {
-  border-radius: var(--radius-card);
-  background: var(--glass-bg-strong);
-  border: 1px solid var(--glass-border);
-  box-shadow: var(--glass-shadow);
-  backdrop-filter: var(--glass-blur);
+  display: flex;
+  border-radius: 24px;
+  background: linear-gradient(165deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.62));
+  border: 1px solid rgba(255, 255, 255, 0.95);
+  /* 안쪽 하이라이트 + 부드러운 핑크 그림자 + 뒤에 겹쳐 놓인 유리판 두 장으로 살짝 입체감을 준다 */
+  box-shadow:
+    inset 0 1px 0 #fff,
+    inset 0 -1px 0 rgba(255, 255, 255, 0.4),
+    0 1px 2px rgba(150, 90, 100, 0.06),
+    0 36px 70px -26px rgba(150, 90, 100, 0.34),
+    14px 14px 0 -4px rgba(255, 255, 255, 0.42),
+    28px 28px 0 -9px rgba(255, 255, 255, 0.24);
+  backdrop-filter: blur(20px);
   overflow: hidden;
-  /* 옆 칸과 높이를 맞출 때 늘어난 만큼 행 사이를 고르게 벌린다 */
+  transition: transform 0.4s var(--ease);
+}
+.screen:hover {
+  transform: translateY(-4px);
+}
+
+.screenNav {
+  flex: none;
+  width: 78px;
   display: flex;
   flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 20px 0;
+  background: rgba(250, 232, 236, 0.5);
+  border-right: 1px solid rgba(122, 68, 80, 0.08);
+}
+.screenNav span {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 13px;
+  color: #7c6e69;
+}
+.screenNav svg,
+.screenTop svg {
+  width: 23px;
+  height: 23px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.screenNav .navOn {
+  background: #f8d6dc;
+  color: var(--wine);
+}
+
+.screenMain {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.screenTop {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 24px;
+  border-bottom: 1px solid rgba(122, 68, 80, 0.08);
+  color: #6b605b;
+}
+.screenTop i {
+  flex: 1;
+  max-width: 96px;
+  height: 18px;
+  margin-right: auto;
+  border-radius: 9px;
+  background: rgba(122, 68, 80, 0.08);
 }
 
 .screenBar {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 14px 18px;
-  border-bottom: 1px solid var(--line-soft);
-}
-.screenBar i {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: #e3cfd2;
+  justify-content: space-between;
+  padding: 18px 24px 6px;
 }
 .screenBar span {
-  margin-left: 8px;
-  font-size: 14px;
+  font-size: 17px;
   font-weight: 700;
   color: var(--ink);
+}
+.screenBar small {
+  font-size: 14px;
+  color: var(--wine);
 }
 
 .screenRows {
   list-style: none;
   margin: 0;
-  padding: 8px 10px 12px;
+  padding: 4px 16px 14px;
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -201,23 +308,23 @@
 .screenRows li {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 8px;
+  gap: 14px;
+  padding: 15px 12px;
   border-radius: var(--radius-ctl);
 }
 .screenRows li + li {
-  border-top: 1px solid var(--line-soft);
+  border-top: 1px solid rgba(122, 68, 80, 0.08);
 }
 
 .avatar {
   flex: none;
   display: grid;
   place-items: center;
-  width: 36px;
-  height: 36px;
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
-  background: #f1e2e5;
-  font-size: 14px;
+  background: #f3dfe2;
+  font-size: 17px;
   font-weight: 700;
   color: var(--wine);
 }
@@ -238,68 +345,49 @@
   flex-direction: column;
 }
 .rowText b {
-  font-size: 15px;
+  font-size: 17px;
   color: var(--ink);
 }
 .rowText small {
-  font-size: 13px;
+  font-size: 14px;
   color: var(--muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-/* 대시보드 상단 요약(kp-kpi)과 같은 모양의 카드 2×2 */
-.kpis {
-  flex: 1;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  padding: 12px;
-}
-.kpi {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 2px;
-  padding: 14px 18px;
-  border-radius: var(--radius-ctl);
-  background: rgba(255, 255, 255, 0.7);
-  border: 1px solid var(--line-soft);
-}
-.kpi span {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--body);
-}
-.kpi b {
-  font-size: 30px;
-  font-weight: 700;
-  line-height: 1.2;
-  letter-spacing: -0.02em;
-  color: var(--wine);
-}
-.kpi small {
-  font-size: 13px;
-  color: var(--muted);
-}
-
 .tag {
   flex: none;
-  padding: 4px 10px;
+  padding: 6px 14px;
   border-radius: 999px;
-  background: #f6e9ec;
-  font-size: 12px;
+  background: #f9e3e7;
+  font-size: 13px;
   font-style: normal;
   font-weight: 600;
   color: var(--wine);
 }
 
+/* FEATURES · PROBLEM을 감싸는 영역: 두 섹션 뒤로 반투명 유리 리본(양옆 곡선)을 깐다 */
+.flow {
+  position: relative;
+}
+.flow > section {
+  position: relative;
+  z-index: 1;
+}
+.flowBg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
 /* ── 공통 섹션 ── */
 .section {
-  max-width: 1080px;
+  max-width: 1200px;
   margin: 0 auto;
-  padding: 96px 16px 0;
+  padding: 132px 16px 0;
   text-align: center;
 }
 
@@ -307,17 +395,24 @@
   margin: 0;
   font-size: 14px;
   font-weight: 700;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.2em;
   color: var(--wine);
 }
 
 .sectionTitle {
-  margin: 12px 0 0;
-  font-size: clamp(26px, 3.4vw, 36px);
-  font-weight: 700;
+  font-family: var(--serif);
+  margin: 16px 0 0;
+  font-size: clamp(28px, 3.8vw, 42px);
+  font-weight: 500;
   line-height: 1.35;
   letter-spacing: -0.03em;
   color: var(--ink);
+}
+
+.sectionSub {
+  margin: 18px 0 0;
+  font-size: 18px;
+  color: var(--muted);
 }
 
 /* ── 기능 탭 ── */
@@ -326,22 +421,22 @@
   flex-wrap: wrap;
   justify-content: center;
   gap: 6px;
-  margin-top: 32px;
+  margin-top: 48px;
   padding: 6px;
   border-radius: 999px;
-  background: var(--glass-bg);
+  background: rgba(255, 255, 255, 0.6);
   border: 1px solid var(--glass-border);
   box-shadow: var(--glass-shadow);
 }
 
 .tab,
 .tabOn {
-  height: 44px;
-  padding: 0 22px;
+  height: 50px;
+  padding: 0 30px;
   border: 0;
   border-radius: 999px;
   font: inherit;
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 600;
   cursor: pointer;
   transition: background var(--t-tab) var(--ease);
@@ -362,21 +457,22 @@
   display: grid;
   grid-template-columns: 1fr 1.1fr;
   align-items: stretch; /* 왼쪽 설명 · 단계와 오른쪽 미리보기의 위아래 끝을 맞춘다 */
-  gap: 48px;
-  margin-top: 40px;
+  gap: 80px;
+  margin-top: 64px;
   text-align: left;
 }
 
 .featureText h3 {
+  font-family: var(--serif);
   margin: 0;
-  font-size: 26px;
-  font-weight: 700;
+  font-size: 31px;
+  font-weight: 500;
   letter-spacing: -0.03em;
   color: var(--ink);
 }
 .featureText > p {
-  margin: 12px 0 0;
-  font-size: 16px;
+  margin: 16px 0 0;
+  font-size: 18px;
   line-height: 1.7;
   white-space: pre-line; /* 설명의 줄바꿈(쉼표 뒤)을 그대로 보여 준다 */
   color: var(--muted);
@@ -384,72 +480,112 @@
 
 .steps {
   list-style: none;
-  margin: 28px 0 0;
+  margin: 36px 0 0;
   padding: 0;
-  display: grid;
-  gap: 10px;
 }
 .steps li {
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 14px 18px;
-  border-radius: var(--radius-ctl);
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
-  font-size: 16px;
-  font-weight: 600;
+  padding: 21px 4px;
+  border-top: 1px solid rgba(122, 68, 80, 0.14);
+  font-size: 18px;
+  font-weight: 500;
   color: var(--ink);
 }
-.steps span {
-  font-family: 'Playfair Display', serif;
-  font-size: 18px;
-  color: var(--wine);
+.steps svg {
+  flex: none;
+  width: 27px;
+  height: 27px;
+  fill: none;
+  stroke: var(--wine);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
-/* ── 문제 카드 ── */
+/* ── 문제 카드: 네 장 모두 같은 크기의 반투명 유리 카드 ── */
 .cards {
   list-style: none;
-  margin: 40px 0 0;
+  margin: 64px 0 0;
   padding: 0;
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
+  grid-auto-rows: 1fr;
+  gap: 24px;
   text-align: left;
 }
 
 .card {
-  padding: 28px 24px;
-  border-radius: var(--radius-card);
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
-  box-shadow: var(--glass-shadow);
+  display: flex;
+  flex-direction: column;
+  padding: 46px 34px 44px;
+  border-radius: 24px;
+  background:
+    linear-gradient(125deg, rgba(255, 255, 255, 0.66), rgba(255, 255, 255, 0) 42%),
+    linear-gradient(160deg, rgba(255, 255, 255, 0.58), rgba(255, 255, 255, 0.32));
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    inset 1px 0 0 rgba(255, 255, 255, 0.5),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.25),
+    0 1px 2px rgba(150, 90, 100, 0.06),
+    0 26px 50px -22px rgba(150, 90, 100, 0.38);
+  backdrop-filter: blur(30px) saturate(1.6);
+  -webkit-backdrop-filter: blur(30px) saturate(1.6);
+  transition:
+    transform 0.35s var(--ease),
+    box-shadow 0.35s var(--ease);
+}
+.card:hover {
+  transform: translateY(-6px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    inset 1px 0 0 rgba(255, 255, 255, 0.5),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.25),
+    0 1px 2px rgba(150, 90, 100, 0.06),
+    0 34px 56px -22px rgba(150, 90, 100, 0.46);
 }
 .cardIcon {
   display: block;
-  width: 30px;
-  height: 30px;
+  flex: none;
+  width: 42px;
+  height: 42px;
+  margin-bottom: 30px;
   fill: none;
   stroke: var(--wine);
-  stroke-width: 1.8;
+  stroke-width: 1.5;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 .card h3 {
-  margin: 14px 0 0;
-  font-size: 17px;
+  margin: 0;
+  font-size: 20px;
   font-weight: 700;
   color: var(--ink);
 }
 .card p {
-  margin: 8px 0 0;
-  font-size: 15px;
+  margin: 14px 0 0;
+  font-size: 16px;
+  line-height: 1.65;
   color: var(--muted);
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .card,
+  .screen {
+    transition: none;
+  }
+  .card:hover,
+  .screen:hover {
+    transform: none;
+  }
+}
+
 .answer {
-  margin: 40px 0 0;
-  font-size: 20px;
+  font-family: var(--serif);
+  margin: 64px 0 0;
+  font-size: 25px;
   color: var(--body);
 }
 .answer strong {
@@ -458,66 +594,151 @@
 
 /* ── FAQ ── */
 .faq {
-  max-width: 760px;
-  margin: 36px auto 0;
+  max-width: 880px;
+  margin: 56px auto 0;
   display: grid;
-  gap: 10px;
+  gap: 16px;
   text-align: left;
+}
+
+/* 스크롤 등장: 섹션이 .revealOn이 되면 제목 → 카드 순서로 (--i × 90ms 간격) 아래에서 살짝 올라오며 나타난다.
+   transform · opacity만 움직인다. 움직임 줄이기 설정에서는 바로 보인다 */
+.reveal {
+  opacity: 0;
+  transform: translateY(18px);
+}
+.revealOn .reveal {
+  opacity: 1;
+  transform: none;
 }
 
 .faqItem {
   border-radius: 20px;
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
+  background:
+    linear-gradient(125deg, rgba(255, 255, 255, 0.66), rgba(255, 255, 255, 0) 45%),
+    linear-gradient(160deg, rgba(255, 255, 255, 0.58), rgba(255, 255, 255, 0.32));
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    inset 1px 0 0 rgba(255, 255, 255, 0.5),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.25),
+    0 20px 40px -24px rgba(150, 90, 100, 0.36);
+  backdrop-filter: blur(30px) saturate(1.6);
+  -webkit-backdrop-filter: blur(30px) saturate(1.6);
   overflow: hidden;
-  transition: background var(--t-hover) var(--ease);
+  transition:
+    opacity 0.6s ease-out calc(var(--i, 0) * 90ms),
+    transform 0.6s ease-out calc(var(--i, 0) * 90ms),
+    background var(--t-hover) var(--ease);
 }
-.faqItem[open] {
-  background: var(--glass-bg-strong);
+.faqItem[data-open='true'] {
+  background:
+    linear-gradient(125deg, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0) 45%),
+    linear-gradient(160deg, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0.44));
 }
-.faqItem summary {
+
+.sectionTitle.reveal {
+  transition:
+    opacity 0.6s ease-out calc(var(--i, 0) * 90ms),
+    transform 0.6s ease-out calc(var(--i, 0) * 90ms);
+}
+
+.faqQ {
+  margin: 0;
+  font: inherit;
+}
+.faqQ button {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 20px 22px;
-  font-size: 16px;
-  font-weight: 600;
+  width: 100%;
+  padding: 26px 32px;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 18px;
+  font-weight: 500;
   color: var(--ink);
+  text-align: left;
   cursor: pointer;
-  list-style: none;
 }
-.faqItem summary::-webkit-details-marker {
-  display: none;
+.faqQ button:focus-visible {
+  outline: 2px solid var(--wine);
+  outline-offset: -4px;
+  border-radius: 20px;
 }
-.faqItem summary::after {
-  content: '+';
-  font-size: 22px;
-  font-weight: 400;
-  color: var(--wine);
-  transition: transform var(--t-hover) var(--ease);
+/* 오른쪽 화살표: 열리면 180도 돈다 */
+.faqQ button::after {
+  content: '';
+  flex: none;
+  width: 8px;
+  height: 8px;
+  margin-left: 16px;
+  border-right: 1.6px solid var(--wine);
+  border-bottom: 1.6px solid var(--wine);
+  transform: rotate(45deg) translate(-2px, -2px);
+  transition: transform 0.35s ease;
 }
-.faqItem[open] summary::after {
-  transform: rotate(45deg);
+.faqItem[data-open='true'] .faqQ button::after {
+  transform: rotate(-135deg) translate(-2px, -2px);
 }
-/* 펼친 답변: 질문과 구분선으로 나눈다 */
-.faqItem p {
-  margin: 0 22px;
-  padding: 16px 0 20px;
+
+/* 답변: 높이(0fr → 1fr)와 투명도가 함께 변한다. 닫힐 때도 같은 길로 접힌다 */
+.faqBody {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    grid-template-rows 0.38s ease,
+    opacity 0.28s ease,
+    visibility 0s linear 0.38s;
+}
+.faqItem[data-open='true'] .faqBody {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  visibility: visible;
+  transition:
+    grid-template-rows 0.38s ease,
+    opacity 0.34s ease 0.06s,
+    visibility 0s;
+}
+.faqBody > div {
+  min-height: 0;
+  overflow: hidden;
+}
+.faqBody p {
+  margin: 0 32px;
+  padding: 16px 0 24px;
   border-top: 1px solid var(--line);
   white-space: pre-line; /* 답변의 줄바꿈을 그대로 보여 준다 */
-  font-size: 15px;
+  font-size: 16px;
   color: var(--muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal,
+  .revealOn .reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+  .faqBody,
+  .faqItem[data-open='true'] .faqBody,
+  .faqQ button::after {
+    transition: none;
+  }
 }
 
 .footer {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   flex-wrap: wrap;
-  gap: 12px;
-  max-width: 1080px;
+  gap: 12px 20px;
+  max-width: 1200px;
   margin: 0 auto;
-  padding: 96px 16px 48px;
+  padding: 140px 16px 56px;
   font-size: 13px;
   color: var(--muted);
 }
@@ -527,12 +748,17 @@
 
 /* ── 좁은 화면 ── */
 @media (max-width: 900px) {
-  .feature,
-  .heroPreview {
+  .hero {
     grid-template-columns: 1fr;
+    min-height: 0;
   }
-  .heroPreview > :last-child {
-    display: none;
+  .heroArt {
+    max-width: 640px;
+    justify-self: center;
+    margin-top: -8px;
+  }
+  .feature {
+    grid-template-columns: 1fr;
   }
   .cards {
     grid-template-columns: repeat(2, 1fr);
@@ -540,10 +766,18 @@
 }
 
 @media (max-width: 520px) {
+  .screenNav {
+    width: 50px;
+    gap: 6px;
+  }
+  .screenNav span {
+    width: 34px;
+    height: 34px;
+  }
   .cards {
     grid-template-columns: 1fr;
   }
-  .ghost {
+  .tagline {
     display: none;
   }
 }
