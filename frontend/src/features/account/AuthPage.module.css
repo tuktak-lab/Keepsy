@@ -159,7 +159,8 @@
   height: 0.95em;
   width: auto;
   vertical-align: -0.14em;
-  filter: brightness(0) invert(1);
+  /* 흰색으로 바꾼 뒤, 위쪽 기본 로고(base.css img[alt='Keepsy'])와 같은 방식으로 같은 색 그림자를 겹쳐 획을 굵게 */
+  filter: brightness(0) invert(1) drop-shadow(0.5px 0 0 #fff) drop-shadow(-0.5px 0 0 #fff) drop-shadow(0 0.35px 0 #fff);
 }
 .switch {
   display: inline-flex;
