@@ -84,6 +84,8 @@ a{color:inherit;text-decoration:none}a:hover{text-decoration:none}
 .kp-line-pt.today b{color:#7A4450}
 .kp-line-x{display:grid;grid-template-columns:repeat(7,1fr);text-align:center;padding:8px 0 4px;font-size:12.5px;color:#6B605B}
 .kp-line-x .today{color:#7A4450;font-weight:600}
+.kp-line-x .closed{color:#A0938D}
+.kp-line-x em{display:block;font-style:normal;font-size:11.5px;color:#A0938D}
 /* 오늘 관리할 고객: 가로 전체 카드 안에서 두 열 */
 .kp-care-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(460px,100%),1fr));column-gap:40px}
 .kp-care-grid .kp-care-row{border-top:0;border-bottom:1px solid #F1E4E0}

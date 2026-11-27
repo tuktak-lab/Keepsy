@@ -8,7 +8,7 @@ import { api, type Page } from '@/lib/api';
 import { PERIODS, type Period } from '@/lib/analytics';
 import { CHANNEL_LABEL, dowLabel, hmOf, type Channel } from '@/lib/calendar';
 import { rateText } from '@/lib/campaignResult';
-import { bookedCount, isActive, ratioText } from '@/lib/dashboard';
+import { bookedCount, closedDays, isActive, ratioText } from '@/lib/dashboard';
 import { nextActionLabel, STATUS_TABS } from '@/lib/insights';
 import { seoulToday } from '@/lib/customerDetail';
 import { CATEGORY_LABEL, type Category } from '@/lib/menus';
@@ -91,6 +91,8 @@ export default function DashboardPage() {
   const [recent, setRecent] = useState<Recent[] | null>(null);
   const [period, setPeriod] = useState<Period>('THIS_MONTH');
   const [todayOpen, setTodayOpen] = useState(false);
+  // 이번 주 휴무일 (정기 휴무 · 매장 임시 휴무). 못 읽으면 null로 두고 모든 날을 보여 준다
+  const [weekClosed, setWeekClosed] = useState<boolean[] | null>(null);
   const [channels, setChannels] = useState<{ period: Period; value: Channels } | null>(null);
   const [drawn, setDrawn] = useState(false);
   // 카드별 불러오기 실패 (#346). 실패를 삼키지 않고 그 카드에 「불러오지 못함」을 보인다
@@ -111,6 +113,23 @@ export default function DashboardPage() {
       cancelled = true;
     };
   }, []);
+
+  // 이번 주 그래프에서 휴무일은 건수를 빼고 「휴무」로 보인다 (0건과 헷갈리지 않게)
+  const weekDates = today?.week.map((d) => d.date).join(',') ?? '';
+  useEffect(() => {
+    if (!weekDates) return;
+    const dates = weekDates.split(',');
+    let cancelled = false;
+    Promise.all([
+      api<{ openingHours: { dayOfWeek: string; open: string | null }[] }>('/api/shop', { silent: true }),
+      api<{ date: string; staffId: number | null }[]>(`/api/day-offs?from=${dates[0]}&to=${dates[dates.length - 1]}`, { silent: true }),
+    ])
+      .then(([shop, offs]) => !cancelled && setWeekClosed(closedDays(dates, shop.openingHours, offs)))
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [weekDates]);
 
   useEffect(() => {
     if (!customerOpen) return;
@@ -152,13 +171,15 @@ export default function DashboardPage() {
 
   const todayList = today?.today.filter((r) => isActive(r.status)) ?? null;
   const ch = channels?.period === period ? channels.value : null;
-  const weekMax = today ? Math.max(1, ...today.week.map((d) => bookedCount(d.counts))) : 1;
+  const weekOpen = (today?.week ?? []).filter((_, i) => !weekClosed?.[i]);
+  const weekMax = Math.max(1, ...weekOpen.map((d) => bookedCount(d.counts)));
   // 이번 주 예약 꺾은선: 날짜 칸 가운데(x)와 높이(y)를 0~100 비율로. 위쪽 18%는 값 글자 자리
   const weekPts = (today?.week ?? []).map((d, i) => {
     const n = bookedCount(d.counts);
-    return { date: d.date, n, x: ((i + 0.5) / 7) * 100, y: 88 - (n / weekMax) * 70, today: d.date === seoulToday() };
+    return { date: d.date, n, x: ((i + 0.5) / 7) * 100, y: 88 - (n / weekMax) * 70, today: d.date === seoulToday(), closed: !!weekClosed?.[i] };
   });
-  const weekLine = weekPts.map((p, i) => `${i ? 'L' : 'M'}${p.x} ${p.y}`).join(' ');
+  // 휴무일은 점을 찍지 않고, 선은 문 연 날끼리만 잇는다
+  const weekLine = weekPts.filter((p) => !p.closed).map((p, i) => `${i ? 'L' : 'M'}${p.x} ${p.y}`).join(' ');
   const latest = recent?.[0];
 
   // 도넛 (관리 상태별 고객 × 시술 행)
@@ -217,12 +238,12 @@ export default function DashboardPage() {
             {!today ? (
               <p className="kp-card-sub">{loadingText('today')}</p>
             ) : (
-              <div className="kp-line" role="img" aria-label={weekPts.map((p, i) => `${dowLabel(i)} ${md(p.date)} ${p.n}`).join(', ')}>
+              <div className="kp-line" role="img" aria-label={weekPts.map((p, i) => `${dowLabel(i)} ${md(p.date)} ${p.closed ? t('reservation.dayOff') : p.n}`).join(', ')}>
                 <div className="kp-line-plot" aria-hidden="true">
                   <svg viewBox="0 0 100 100" preserveAspectRatio="none">
                     <path className="kp-line-path" d={weekLine} />
                   </svg>
-                  {weekPts.map((p) => (
+                  {weekPts.filter((p) => !p.closed).map((p) => (
                     <span key={p.date} className={'kp-line-pt' + (p.today ? ' today' : '')} style={{ left: `${p.x}%`, top: `${p.y}%` }}>
                       <b className="num">{p.n}</b>
                     </span>
@@ -230,8 +251,9 @@ export default function DashboardPage() {
                 </div>
                 <div className="kp-line-x" aria-hidden="true">
                   {weekPts.map((p, i) => (
-                    <span key={p.date} className={p.today ? 'today' : undefined}>
+                    <span key={p.date} className={p.today ? 'today' : p.closed ? 'closed' : undefined}>
                       {dowLabel(i)} <span className="num">{md(p.date)}</span>
+                      {p.closed ? <em>{t('reservation.dayOff')}</em> : null}
                     </span>
                   ))}
                 </div>
