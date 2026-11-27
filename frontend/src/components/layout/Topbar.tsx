@@ -2,9 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { useShellTitleValue } from '@/components/layout/ShellTitle';
 import { isSearchShortcut, KEYWORDS_URL, matchFeature, type FeatureEntry } from '@/lib/featureSearch';
-import { crumbOf } from '@/lib/shellNav';
 import { lockPin, logout, useSession, useWorkerRequired } from '@/lib/session';
 
 // 모든 화면 공통 상단 (docs ARCHITECTURE 4장 「모든 화면에 공통」)
@@ -19,7 +17,6 @@ function isTyping(target: EventTarget | null): boolean {
 
 export function Topbar() {
   const pathname = usePathname();
-  const crumb = crumbOf(pathname, useShellTitleValue());
   const router = useRouter();
   const session = useSession();
   useWorkerRequired(session);
@@ -104,11 +101,12 @@ export function Topbar() {
         color: '#3E3532',
       }}
     >
-      <span style={{ marginRight: 'auto', whiteSpace: 'nowrap' }}>{crumb}</span>
       <form
         onSubmit={onSearch}
         role="search"
         style={{
+          // 경로 표시를 지운 자리(왼쪽 끝)에 검색을 두고, 나머지는 오른쪽으로 민다
+          marginRight: 'auto',
           display: 'flex',
           alignItems: 'center',
           gap: '8px',
