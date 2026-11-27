@@ -2,6 +2,7 @@
 // POST · PATCH /api/service-menus, GET · PUT /api/category-cycles. 서버가 다시 검사한다 (NFR-08).
 
 import { t } from './i18n.ts';
+import type { MessageKey } from './messages/ko.ts';
 
 /** CONTRACTS 3장 「시술 카테고리」 (표시 순서) */
 export const CATEGORIES = ['NAIL', 'LASH', 'WAXING', 'SEMI_PERMANENT', 'ETC'] as const;
@@ -46,12 +47,22 @@ export function pickableMenus<T extends { id: number; category: string }>(menus:
 
 /** 메뉴 예측 속성 (E5). 한글 설명은 명세서 FR-SET-02 */
 export type PredictionAttribute = 'NORMAL' | 'EXCLUDE' | 'END_SIGNAL';
-export const ATTRIBUTES: [PredictionAttribute, string][] = [
-  ['NORMAL', '일반'],
-  ['EXCLUDE', '주기 계산 제외'],
-  ['END_SIGNAL', '종료 신호'],
+export const ATTRIBUTES: [PredictionAttribute, MessageKey][] = [
+  ['NORMAL', 'settings.attr.normal'],
+  ['EXCLUDE', 'settings.attr.exclude'],
+  ['END_SIGNAL', 'settings.attr.endSignal'],
 ];
-export const ATTRIBUTE_LABEL = Object.fromEntries(ATTRIBUTES) as Record<PredictionAttribute, string>;
+export const ATTRIBUTE_LABEL: Record<PredictionAttribute, string> = {
+  get NORMAL() {
+    return t('settings.attr.normal');
+  },
+  get EXCLUDE() {
+    return t('settings.attr.exclude');
+  },
+  get END_SIGNAL() {
+    return t('settings.attr.endSignal');
+  },
+};
 
 export type Menu = {
   id: number;
@@ -71,8 +82,8 @@ export const DURATION_STEPS = Array.from({ length: 16 }, (_, i) => (i + 1) * 30)
 export function formatDuration(minutes: number): string {
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
-  if (h === 0) return `${m}분`;
-  return m === 0 ? `${h}시간` : `${h}시간 ${m}분`;
+  if (h === 0) return t('common.minutes', { n: m });
+  return m === 0 ? t('reservation.form.hours', { h }) : t('settings.menu.hm', { h, m });
 }
 
 /** 화면의 입력값. 숫자 칸은 입력 중 값을 허용하려고 문자열 */
@@ -109,15 +120,15 @@ const intOrNull = (s: string): number | null => (/^\d+$/.test(s.trim()) ? Number
 /** 첫 번째 입력 오류 사유. 없으면 null */
 export function validateMenu(v: MenuValues): string | null {
   const name = v.name.trim();
-  if (!name) return '시술명을 입력해 주세요';
-  if (name.length > 100) return '시술명은 100자 이하입니다';
-  if (intOrNull(v.price) === null) return '가격은 0원 이상의 숫자로 입력해 주세요';
-  if (v.durationMinutes < 30 || v.durationMinutes % 30 !== 0) return '소요 시간은 30분 단위로 골라 주세요';
+  if (!name) return t('settings.menu.vName');
+  if (name.length > 100) return t('settings.menu.vNameMax');
+  if (intOrNull(v.price) === null) return t('settings.menu.vPrice');
+  if (v.durationMinutes < 30 || v.durationMinutes % 30 !== 0) return t('settings.menu.vDuration');
   const min = intOrNull(v.cycleMinDays);
   const max = intOrNull(v.cycleMaxDays);
-  if (min === null || max === null) return '기본 주기(일)를 숫자로 입력해 주세요';
-  if (min < 1 || max < 1) return '기본 주기는 1일 이상이에요';
-  if (min > max) return '기본 주기의 최소는 최대보다 클 수 없어요';
+  if (min === null || max === null) return t('settings.menu.vCycleNumber');
+  if (min < 1 || max < 1) return t('settings.menu.vCycleMin1');
+  if (min > max) return t('settings.menu.vCycleOrder');
   return null;
 }
 
@@ -170,9 +181,9 @@ export function validateCycles(v: CycleValues): string | null {
   for (const c of CATEGORIES) {
     const min = intOrNull(v[c].minDays);
     const max = intOrNull(v[c].maxDays);
-    if (min === null || max === null) return `${CATEGORY_LABEL[c]}: 기본 주기(일)를 숫자로 입력해 주세요`;
-    if (min < 1) return `${CATEGORY_LABEL[c]}: 기본 주기는 1일 이상이에요`;
-    if (min > max) return `${CATEGORY_LABEL[c]}: 최소는 최대보다 클 수 없어요`;
+    if (min === null || max === null) return t('settings.menu.vCatNumber', { category: CATEGORY_LABEL[c] });
+    if (min < 1) return t('settings.menu.vCatMin1', { category: CATEGORY_LABEL[c] });
+    if (min > max) return t('settings.menu.vCatOrder', { category: CATEGORY_LABEL[c] });
   }
   return null;
 }

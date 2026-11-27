@@ -1,5 +1,6 @@
 import { AppLink } from '@/components/common/AppLink';
 import { formatDateTime } from '@/lib/format';
+import { t } from '@/lib/i18n';
 
 // 영업시간 · 휴무 · 스탭 설정을 바꿔 영업시간 밖으로 밀린 확정 예약 목록 (FR-SET-01 · 07, F12).
 // 예약은 자동으로 취소하지 않는다. 스탭이 예약 상세에서 옮기거나 취소하게 한다.
@@ -13,22 +14,22 @@ export function PushedReservations(props: { items: PushedReservation[]; onDismis
   return (
     <div className="st-note st-pushed" role="status">
       <b>
-        {props.title ?? '영업시간 밖으로 밀린'} 확정 예약이 {props.items.length}건 있어요.
+        {t('settings.pushed.title', { title: props.title ?? t('settings.pushed.out'), n: props.items.length })}
       </b>{' '}
-      자동으로 취소하지 않아요. 예약을 열어 시간을 옮기거나 취소해 주세요.
+      {t('settings.pushed.note')}
       <ul>
         {props.items.map((r) => (
           <li key={r.id}>
             <AppLink href={`/reservations/detail?id=${r.id}`} className="num">
               {formatDateTime(r.startAt)}
             </AppLink>{' '}
-            · {r.customerName ?? '고객 없는 예약'}
+            · {r.customerName ?? t('reservation.legend.noCustomer')}
           </li>
         ))}
       </ul>
       {props.onDismiss ? (
         <button type="button" className="st-btn" onClick={props.onDismiss}>
-          닫기
+          {t('common.close')}
         </button>
       ) : null}
     </div>

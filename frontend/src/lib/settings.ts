@@ -1,11 +1,13 @@
 // 매장 설정 화면 계산 (순수 함수). 요청 규칙은 docs CONTRACTS 6장 「매장 설정 (SET)」
 // PUT /api/shop (FR-SET-01, F39) · PUT /api/settings (FR-SET-03 · 04 · 06, F40). 서버가 다시 검사한다 (NFR-08).
 import type { OpeningHour } from './calendar';
+import { dowLabel } from './calendar.ts';
+import { intlLocale, t } from './i18n.ts';
+import type { MessageKey } from './messages/ko.ts';
 
 // ── 매장 정보 · 영업시간 (FR-SET-01) ──
 // 요일 이름 순서는 서버와 같다: MONDAY부터 SUNDAY.
 export const DAYS = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'] as const;
-export const DAY_LABEL = ['월', '화', '수', '목', '금', '토', '일'];
 
 export const DEFAULT_OPEN = '10:00';
 export const DEFAULT_CLOSE = '19:00';
@@ -52,22 +54,22 @@ const minutes = (hm: string): number => {
 /** 첫 번째 입력 오류 사유. 없으면 null */
 export function validateShop(v: ShopValues): string | null {
   const name = v.name.trim();
-  if (!name) return '매장명을 입력해 주세요';
-  if (name.length > 100) return '매장명은 100자 이하입니다';
-  if (v.industries.length === 0) return '매장 업종을 하나 이상 켜 주세요';
+  if (!name) return t('settings.v.shopName');
+  if (name.length > 100) return t('settings.v.shopNameMax');
+  if (v.industries.length === 0) return t('settings.v.industryMin');
   for (const [label, value] of [
-    ['매장 연락처', v.phone],
-    ['발신번호', v.senderNumber],
-    ['수신 거부 번호', v.unsubscribeNumber],
+    [t('settings.v.phoneLabel'), v.phone],
+    [t('settings.v.senderLabel'), v.senderNumber],
+    [t('settings.v.unsubLabel'), v.unsubscribeNumber],
   ] as const) {
-    if (value.trim() && !PHONE_FORMAT.test(value.trim())) return `${label}가 전화번호 형식이 아닙니다 (예: 02-000-0000, 1588-0000)`;
+    if (value.trim() && !PHONE_FORMAT.test(value.trim())) return t('settings.v.phoneFormat', { label });
   }
   for (const [i, row] of v.hours.entries()) {
     if (row.off) continue;
-    const day = DAY_LABEL[i];
-    if (!/^\d{2}:\d{2}$/.test(row.open) || !/^\d{2}:\d{2}$/.test(row.close)) return `${day}요일의 여는 시각과 닫는 시각을 모두 입력해 주세요`;
-    if (minutes(row.open) % 30 !== 0 || minutes(row.close) % 30 !== 0) return `${day}요일 영업시간은 30분 단위로 입력해 주세요`;
-    if (minutes(row.open) >= minutes(row.close)) return `${day}요일은 닫는 시각이 여는 시각보다 늦어야 해요`;
+    const day = dowLabel(i);
+    if (!/^\d{2}:\d{2}$/.test(row.open) || !/^\d{2}:\d{2}$/.test(row.close)) return t('settings.v.hoursBoth', { day });
+    if (minutes(row.open) % 30 !== 0 || minutes(row.close) % 30 !== 0) return t('settings.v.hoursStep', { day });
+    if (minutes(row.open) >= minutes(row.close)) return t('settings.v.hoursOrder', { day });
   }
   return null;
 }
@@ -92,13 +94,21 @@ export type SettingKey = 'churnSignalCapDays' | 'attributionDays' | 'dailySendLi
 export type SettingsValues = Record<SettingKey, string>;
 
 /** 범위는 서버와 같다 (F40) */
+// label은 읽을 때 정한다 (언어가 모듈을 불러온 뒤에 정해지므로 getter)
+const rule = (key: MessageKey, min: number, max: number) => ({
+  get label() {
+    return t(key);
+  },
+  min,
+  max,
+});
 export const SETTING_RULES: Record<SettingKey, { label: string; min: number; max: number }> = {
-  churnSignalCapDays: { label: '이탈 신호 기간 상한(일)', min: 30, max: 365 },
-  attributionDays: { label: '귀속 기간(일)', min: 1, max: 60 },
-  dailySendLimit: { label: '일 발송 한도(건)', min: 1, max: 10_000 },
-  resendBlockDays: { label: '재발송 제한 기간(일)', min: 0, max: 60 },
-  virtualFailurePercent: { label: '가상 발송 실패 비율(%)', min: 0, max: 100 },
-  retentionYears: { label: '보관 기간(년)', min: 1, max: 5 },
+  churnSignalCapDays: rule('settings.rule.churnCap', 30, 365),
+  attributionDays: rule('settings.rule.attribution', 1, 60),
+  dailySendLimit: rule('settings.rule.dailyLimit', 1, 10_000),
+  resendBlockDays: rule('settings.rule.resendBlock', 0, 60),
+  virtualFailurePercent: rule('settings.rule.failurePercent', 0, 100),
+  retentionYears: rule('settings.rule.retentionYears', 1, 5),
 };
 
 export const SETTING_KEYS = Object.keys(SETTING_RULES) as SettingKey[];
@@ -114,8 +124,8 @@ export function validateSettings(v: SettingsValues): string | null {
   for (const key of SETTING_KEYS) {
     const { label, min, max } = SETTING_RULES[key];
     const n = parseInteger(v[key]);
-    if (n === null) return `${label}: 숫자로 입력해 주세요`;
-    if (n < min || n > max) return `${label}: ${min.toLocaleString('ko-KR')}~${max.toLocaleString('ko-KR')} 사이로 입력해 주세요`;
+    if (n === null) return t('settings.v.number', { label });
+    if (n < min || n > max) return t('settings.v.range', { label, min: min.toLocaleString(intlLocale()), max: max.toLocaleString(intlLocale()) });
   }
   return null;
 }
