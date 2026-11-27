@@ -189,40 +189,42 @@ export function ShopSection({ onIndustries }: { onIndustries?: (list: string[] |
 
       <div>
         <div className="st-lbl">{t('settings.shop.hoursLabel')}</div>
-        {values.hours.map((h, i) => (
-          <div className="st-row" key={h.dayOfWeek}>
-            <span className="nm" style={{ width: 28, fontWeight: 600 }}>
-              {dowLabel(i)}
-            </span>
-            <input
-              type="time"
-              step={1800}
-              className="st-time num"
-              value={h.off ? '' : h.open}
-              disabled={h.off}
-              aria-label={t('settings.shop.openAria', { day: dowLabel(i) })}
-              onChange={(e) => editRow(i, { open: e.target.value })}
-            />
-            <span>~</span>
-            <input
-              type="time"
-              step={1800}
-              className="st-time num"
-              value={h.off ? '' : h.close}
-              disabled={h.off}
-              aria-label={t('settings.shop.closeAria', { day: dowLabel(i) })}
-              onChange={(e) => editRow(i, { close: e.target.value })}
-            />
-            <label className="st-chk">
+        <div className="st-rowgrid">
+          {values.hours.map((h, i) => (
+            <div className="st-row" key={h.dayOfWeek}>
+              <span className="nm" style={{ width: 28, fontWeight: 600 }}>
+                {dowLabel(i)}
+              </span>
               <input
-                type="checkbox"
-                checked={h.off}
-                onChange={(e) => editRow(i, e.target.checked ? { off: true } : { off: false, open: h.open || DEFAULT_OPEN, close: h.close || DEFAULT_CLOSE })}
+                type="time"
+                step={1800}
+                className="st-time num"
+                value={h.off ? '' : h.open}
+                disabled={h.off}
+                aria-label={t('settings.shop.openAria', { day: dowLabel(i) })}
+                onChange={(e) => editRow(i, { open: e.target.value })}
               />
-              {t('settings.shop.regularOff')}
-            </label>
-          </div>
-        ))}
+              <span>~</span>
+              <input
+                type="time"
+                step={1800}
+                className="st-time num"
+                value={h.off ? '' : h.close}
+                disabled={h.off}
+                aria-label={t('settings.shop.closeAria', { day: dowLabel(i) })}
+                onChange={(e) => editRow(i, { close: e.target.value })}
+              />
+              <label className="st-chk">
+                <input
+                  type="checkbox"
+                  checked={h.off}
+                  onChange={(e) => editRow(i, e.target.checked ? { off: true } : { off: false, open: h.open || DEFAULT_OPEN, close: h.close || DEFAULT_CLOSE })}
+                />
+                {t('settings.shop.regularOff')}
+              </label>
+            </div>
+          ))}
+        </div>
       </div>
       <p className="st-meta">{t('settings.shop.hoursNote')}</p>
 

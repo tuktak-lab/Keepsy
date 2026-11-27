@@ -1,7 +1,7 @@
 body{margin:0;background:linear-gradient(135deg,#FFFFFF 0%,#FCF7F5 100%);background-attachment:fixed;color:#221D1B;font-family:'Noto Sans KR',system-ui,sans-serif;font-size:14px;line-height:1.6;letter-spacing:-0.01em;word-break:keep-all;text-wrap:pretty}
 h1,h2,h3,p,dl{margin:0}
 .num{font-variant-numeric:tabular-nums}
-.st-wrap{padding:28px 32px 56px 50px;width:100%;box-sizing:border-box;display:flex;flex-direction:column;gap:18px}
+.st-wrap{padding:28px 32px 56px 50px;width:100%;max-width:1480px;margin:0 auto;box-sizing:border-box;display:flex;flex-direction:column;gap:18px}
 .st-h1{font-size:28px;font-weight:600;letter-spacing:-0.02em;color:#221D1B}
 .st-sub{font-size:13.5px;color:#6B605B;margin-top:4px}
 .st-meta{font-size:12px;color:#6B605B;line-height:1.6}
@@ -152,3 +152,22 @@ html:has(.st-wrap){scroll-behavior:smooth}
 
 /* 저장 줄: 위와 살짝 띄우고 구분선 */
 :root .st-wrap .st-savebar{padding-top:14px;border-top:1px solid rgba(150,110,116,.14)}
+
+/* 구역 배치: 넓은 화면에서 두 열. 매장 정보 · 시술 메뉴는 가로 전체, 휴무일 | 스탭, 예측 기준 · 발송 · 보관 | 기능별 공용/PIN */
+.st-sections{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px;align-items:start;
+  grid-template-areas:"shop shop" "menu menu" "dayoff staff" "status lock" "send lock" "privacy lock"}
+.st-sections>*{grid-column:1/-1}
+.st-sections>#st-shop{grid-area:shop}
+.st-sections>#st-menu{grid-area:menu}
+.st-sections>#st-dayoff{grid-area:dayoff}
+.st-sections>#st-staff{grid-area:staff}
+.st-sections>#st-status{grid-area:status}
+.st-sections>#st-send{grid-area:send}
+.st-sections>#st-privacy{grid-area:privacy}
+.st-sections>#st-lock{grid-area:lock}
+@media (max-width:1100px){.st-sections{grid-template-columns:minmax(0,1fr);grid-template-areas:none}.st-sections>*{grid-area:auto !important}}
+/* 요일별 영업시간 · 카테고리 기본 주기: 한 줄에 하나씩 왼쪽에 몰리지 않게 두 열로 */
+.st-rowgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(420px,100%),1fr));column-gap:40px}
+.st-rowgrid>.st-row{border-top:0;border-bottom:1px solid #F1E4E0}
+/* 시술 메뉴: 카테고리 묶음을 두 열로. 한 묶음 안에서 메뉴 이름과 가격 · 버튼이 너무 멀어지지 않는다 */
+.st-catgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(480px,100%),1fr));gap:4px 40px;align-items:start}
