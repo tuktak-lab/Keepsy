@@ -4,7 +4,7 @@ import { AppLink } from '@/components/common/AppLink';
 import { toast } from '@/components/common/Toast';
 import { api, ApiError } from '@/lib/api';
 import { CONSENT_METHODS } from '@/lib/newCustomer';
-import { OPTIONAL_CONSENTS, PRIVACY_LABEL, privacyDesc } from '@/lib/consents';
+import { OPTIONAL_CONSENTS, privacyDesc, privacyLabel } from '@/lib/consents';
 import { useShop } from '@/hooks/useIndustries';
 import type {
   AcquisitionChannel,
@@ -15,22 +15,24 @@ import type {
   Gender,
 } from './types';
 import styles from './CustomerNewPage.module.css';
+import type { MessageKey } from '@/lib/messages/ko';
+import { t } from '@/lib/i18n';
 
 // 고객 등록 (FR-CUS-01). POST /api/customers. 처리 스탭은 서버가 현재 근무자로 남긴다 (FR-ACC-10).
 // 개인정보 수집 · 이용 동의(PRIVACY)가 없으면 고객으로 등록하지 않는다 (E3) — 그런 손님은 고객 없는 예약으로 시간만 막는다.
 // 고객 선호 언어는 받지 않는다 (FR-I18N-01 범위 제외, F76). API 필드는 선택이라 보내지 않아도 된다.
 
-const GENDERS: [Gender, string][] = [
-  ['FEMALE', '여성'],
-  ['MALE', '남성'],
-  ['OTHER', '기타'],
+const GENDERS: [Gender, MessageKey][] = [
+  ['FEMALE', 'customer.gender.female'],
+  ['MALE', 'customer.gender.male'],
+  ['OTHER', 'customer.gender.other'],
 ];
-const CHANNELS: [AcquisitionChannel, string][] = [
-  ['INSTAGRAM', '인스타그램'],
-  ['NAVER_SEARCH', '네이버 검색'],
-  ['REFERRAL', '지인 소개'],
-  ['PASSING_BY', '지나가다'],
-  ['ETC', '기타'],
+const CHANNELS: [AcquisitionChannel, MessageKey][] = [
+  ['INSTAGRAM', 'customer.channel.instagram'],
+  ['NAVER_SEARCH', 'customer.channel.naver'],
+  ['REFERRAL', 'customer.channel.referral'],
+  ['PASSING_BY', 'customer.channel.passing'],
+  ['ETC', 'customer.channel.etc'],
 ];
 type Field = 'name' | 'phone' | 'birthYear' | 'consents' | 'consentMethod';
 
@@ -72,7 +74,7 @@ export default function CustomerNewPage() {
     };
     try {
       await api<CustomerCreateResponse>('/api/customers', { method: 'POST', body, silent: true });
-      toast(`${body.name} 고객을 등록했어요.`);
+      toast(t('customer.new.toast', { name: body.name }));
       router.push('/customers');
     } catch (err) {
       if (err instanceof ApiError && err.code === 'invalid' && Array.isArray(err.details)) {
@@ -82,7 +84,7 @@ export default function CustomerNewPage() {
       } else if (err instanceof ApiError && err.code === 'duplicate') {
         setErrors({ phone: err.message });
       } else {
-        setError(err instanceof ApiError ? err.message : '잠시 후 다시 시도해 주세요');
+        setError(err instanceof ApiError ? err.message : t('common.pin.tryLater'));
       }
       setPending(false);
     }
@@ -94,23 +96,23 @@ export default function CustomerNewPage() {
     <>
       <form className={styles.wrap} onSubmit={onSubmit}>
         <div className={styles.head}>
-          <h1 className={styles.title}>고객 등록</h1>
-          <p className={styles.sub}>개인정보 수집 · 이용 동의를 받은 손님만 고객으로 등록해요.</p>
+          <h1 className={styles.title}>{t('customer.new.title')}</h1>
+          <p className={styles.sub}>{t('customer.new.sub')}</p>
         </div>
 
         <section className={styles.card} aria-labelledby="basic">
-          <h2 id="basic" className={styles.cardTitle}>기본 정보</h2>
+          <h2 id="basic" className={styles.cardTitle}>{t('customer.new.basic')}</h2>
           <div className={styles.grid}>
             <label className={styles.field}>
               <span className={styles.label}>
-                이름 <em>필수</em>
+                {t('customer.new.name')} <em>{t('customer.required')}</em>
               </span>
               <input className={styles.input} value={name} onChange={(e) => setName(e.target.value)} maxLength={50} required aria-invalid={Boolean(errors.name)} />
               {fieldError('name')}
             </label>
             <label className={styles.field}>
               <span className={styles.label}>
-                휴대폰 <em>필수</em>
+                {t('customer.new.phone')} <em>{t('customer.required')}</em>
               </span>
               <input
                 className={styles.input}
@@ -125,21 +127,21 @@ export default function CustomerNewPage() {
               {fieldError('phone')}
             </label>
             <div className={styles.field}>
-              <span className={styles.label}>성별</span>
-              <div className={styles.segment} role="radiogroup" aria-label="성별">
-                {([['', '선택 안 함'], ...GENDERS] as [Gender | '', string][]).map(([value, label]) => (
+              <span className={styles.label}>{t('customer.new.gender')}</span>
+              <div className={styles.segment} role="radiogroup" aria-label={t('customer.new.gender')}>
+                {([['', 'customer.new.notSelected'], ...GENDERS] as [Gender | '', MessageKey][]).map(([value, label]) => (
                   <button key={value} type="button" role="radio" aria-checked={gender === value} onClick={() => setGender(value)}>
-                    {label}
+                    {t(label)}
                   </button>
                 ))}
               </div>
             </div>
             <label className={styles.field}>
-              <span className={styles.label}>출생 연도</span>
+              <span className={styles.label}>{t('customer.new.birthYear')}</span>
               <input
                 className={styles.input}
                 inputMode="numeric"
-                placeholder="예: 1995"
+                placeholder={t('customer.new.birthPlaceholder')}
                 value={birthYear}
                 onChange={(e) => setBirthYear(e.target.value.replace(/\D/g, '').slice(0, 4))}
                 aria-invalid={Boolean(errors.birthYear)}
@@ -147,11 +149,11 @@ export default function CustomerNewPage() {
               {fieldError('birthYear')}
             </label>
             <label className={styles.field}>
-              <span className={styles.label}>유입 경로</span>
+              <span className={styles.label}>{t('customer.new.channelLabel')}</span>
               <select className={styles.input} value={channel} onChange={(e) => setChannel(e.target.value as AcquisitionChannel | '')}>
-                <option value="">선택 안 함</option>
+                <option value="">{t('customer.new.notSelected')}</option>
                 {CHANNELS.map(([value, label]) => (
-                  <option key={value} value={value}>{label}</option>
+                  <option key={value} value={value}>{t(label)}</option>
                 ))}
               </select>
             </label>
@@ -159,23 +161,23 @@ export default function CustomerNewPage() {
         </section>
 
         <section className={styles.card} aria-labelledby="consent">
-          <h2 id="consent" className={styles.cardTitle}>동의</h2>
+          <h2 id="consent" className={styles.cardTitle}>{t('customer.new.consentTitle')}</h2>
 
           <label className={`${styles.consent} ${styles.required}`}>
             <input type="checkbox" checked={privacy && privacyText !== null} disabled={!privacyText} onChange={(e) => setPrivacy(e.target.checked)} />
             <span>
               <b>
-                {PRIVACY_LABEL} <em>필수</em>
+                {privacyLabel()} <em>{t('customer.required')}</em>
               </b>
               <span className={styles.consentDesc}>
                 {privacyText ??
                   (shop === undefined ? (
-                    '매장의 보관 기간을 불러오는 중이에요.'
+                    t('customer.new.retentionLoading')
                   ) : (
                     <>
-                      매장의 보관 기간을 불러오지 못해 개인정보 동의를 받을 수 없어요.{' '}
+                      {t('customer.new.retentionFailed')}{' '}
                       <button type="button" className={styles.secondary} onClick={() => setShopTry((n) => n + 1)}>
-                        다시 시도
+                        {t('common.retry')}
                       </button>
                     </>
                   ))}
@@ -189,8 +191,8 @@ export default function CustomerNewPage() {
               <label key={item} className={styles.consent}>
                 <input type="checkbox" checked={consents.includes(item)} onChange={() => toggle(item)} />
                 <span>
-                  <b>{label}</b>
-                  <span className={styles.consentDesc}>{desc}</span>
+                  <b>{t(label)}</b>
+                  <span className={styles.consentDesc}>{t(desc)}</span>
                 </span>
               </label>
             ))}
@@ -198,12 +200,12 @@ export default function CustomerNewPage() {
 
           <div className={styles.field}>
             <span className={styles.label}>
-              동의 받은 방법 <em>필수</em>
+              {t('customer.new.method')} <em>{t('customer.required')}</em>
             </span>
-            <div className={styles.segment} role="radiogroup" aria-label="동의 받은 방법">
+            <div className={styles.segment} role="radiogroup" aria-label={t('customer.new.method')}>
               {CONSENT_METHODS.map(([value, label]) => (
                 <button key={value} type="button" role="radio" aria-checked={method === value} onClick={() => setMethod(value)}>
-                  {label}
+                  {t(label)}
                 </button>
               ))}
             </div>
@@ -219,15 +221,15 @@ export default function CustomerNewPage() {
 
         <div className={styles.actions}>
           {!privacy ? (
-            <span className={styles.hint}>개인정보 동의를 받지 못한 손님은 등록하지 말고, 예약만 고객 없이 잡아 주세요.</span>
+            <span className={styles.hint}>{t('customer.new.hintNoPrivacy')}</span>
           ) : !method ? (
-            <span className={styles.hint}>동의 받은 방법을 골라 주세요.</span>
+            <span className={styles.hint}>{t('customer.new.hintMethod')}</span>
           ) : null}
           <AppLink href="/customers" className={styles.secondary}>
-            취소
+            {t('common.cancel')}
           </AppLink>
           <button className={styles.primary} type="submit" disabled={pending || !privacy || !method || !privacyText}>
-            {pending ? '등록 중…' : '고객 등록'}
+            {pending ? t('reservation.newCustomer.registering') : t('customer.new.title')}
           </button>
         </div>
       </form>

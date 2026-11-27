@@ -1,16 +1,29 @@
 // 시술 메뉴 · 카테고리 기본 주기 계산 (FR-SET-02, 순수 함수). 요청 규칙은 docs CONTRACTS 6장 「매장 설정 (SET)」
 // POST · PATCH /api/service-menus, GET · PUT /api/category-cycles. 서버가 다시 검사한다 (NFR-08).
 
+import { t } from './i18n.ts';
+
 /** CONTRACTS 3장 「시술 카테고리」 (표시 순서) */
 export const CATEGORIES = ['NAIL', 'LASH', 'WAXING', 'SEMI_PERMANENT', 'ETC'] as const;
 export type Category = (typeof CATEGORIES)[number];
 
+// 문구는 읽을 때 정한다 (언어가 모듈을 불러온 뒤에 정해지므로 값 대신 getter를 둔다)
 export const CATEGORY_LABEL: Record<Category, string> = {
-  NAIL: '네일',
-  LASH: '속눈썹',
-  WAXING: '왁싱',
-  SEMI_PERMANENT: '반영구',
-  ETC: '기타',
+  get NAIL() {
+    return t('category.nail');
+  },
+  get LASH() {
+    return t('category.lash');
+  },
+  get WAXING() {
+    return t('category.waxing');
+  },
+  get SEMI_PERMANENT() {
+    return t('category.semi');
+  },
+  get ETC() {
+    return t('category.etc');
+  },
 };
 
 // ── 켜 둔 매장 업종 (CONTRACTS 3절 「매장 업종」) ──

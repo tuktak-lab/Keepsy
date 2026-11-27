@@ -1,8 +1,10 @@
 // 동의 항목 안내 문구와 태블릿 본인 체크의 변경 계산 (FR-CUS-09). 고객 등록 · 태블릿 본인 체크 화면이 같이 쓴다.
 import type { ConsentItem } from '../features/customer/types';
+import { t } from './i18n.ts';
+import type { MessageKey } from './messages/ko.ts';
 
 /** 개인정보 수집 · 이용 동의 (필수) */
-export const PRIVACY_LABEL = '개인정보 수집 · 이용 동의';
+export const privacyLabel = (): string => t('customer.consent.privacy');
 
 /**
  * 개인정보 동의 고지 문구. 보관 기간은 매장 설정값이다 (GET /api/shop의 `retentionYears`, FR-SET-06 · F40).
@@ -11,16 +13,22 @@ export const PRIVACY_LABEL = '개인정보 수집 · 이용 동의';
  */
 export function privacyDesc(retentionYears: number | null | undefined): string | null {
   if (typeof retentionYears !== 'number' || !Number.isInteger(retentionYears) || retentionYears < 1) return null;
-  return `이름 · 휴대폰 번호와 방문 · 시술 기록을 고객 관리와 예약 안내에 씁니다. 마지막 방문 후 매장이 정한 보관 기간(${retentionYears}년)이 지나면 파기합니다.`;
+  return t('customer.consent.privacyDesc', { years: retentionYears });
 }
 
 /** 선택 동의 (CONTRACTS 3장 순서) */
-export const OPTIONAL_CONSENTS: [ConsentItem, string, string][] = [
-  ['PHOTO', '시술 사진', '시술 전후 사진을 기록하고 히스토리북에 보관합니다'],
-  ['MARKETING', '마케팅 수신', '재방문 안내 · 이벤트 문자를 받습니다'],
-  ['NIGHT_AD', '야간 광고 수신', '오후 9시 ~ 오전 8시 사이 광고 문자도 받습니다'],
-  ['HEALTH', '건강 정보', '알레르기 등 시술에 필요한 건강 주의사항을 기록합니다'],
+export const OPTIONAL_CONSENTS: [ConsentItem, MessageKey, MessageKey][] = [
+  ['PHOTO', 'reservation.consent.photo', 'reservation.consent.photoDesc'],
+  ['MARKETING', 'reservation.consent.marketing', 'reservation.consent.marketingDesc'],
+  ['NIGHT_AD', 'reservation.consent.nightAd', 'reservation.consent.nightAdDesc'],
+  ['HEALTH', 'reservation.consent.health', 'reservation.consent.healthDesc'],
 ];
+
+/** 동의 항목 이름 (개인정보는 필수 항목, 나머지는 선택 동의) */
+export const consentLabel = (item: ConsentItem): string => {
+  const optional = OPTIONAL_CONSENTS.find(([i]) => i === item);
+  return optional ? t(optional[1]) : privacyLabel();
+};
 
 /** GET /api/customers/{id}/consents의 current 항목 */
 export type ConsentState = { item: ConsentItem; agreed: boolean; recordedAt: string | null };

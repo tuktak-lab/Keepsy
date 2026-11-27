@@ -14,6 +14,7 @@ import { formatDateTime } from '@/lib/format';
 import type { CategoryPrediction, CustomerConsents, CustomerDetail, CustomerReservation, HistoryVisit } from '../types';
 import { AreaError, errorText } from './common';
 import { CautionCard, PreferenceCard } from './ProfileCards';
+import { t } from '@/lib/i18n';
 
 // 고객 요약 탭 (FR-CUS-03 · 04 · 05 · 09 · 11, FR-PRD-02). 예측은 INSIGHT, 예약은 RESERVATION 설정을 따른다 (명세서 2장).
 
@@ -55,41 +56,41 @@ export function SummaryTab(props: {
   return (
     <>
       <section className="card col" style={{ gap: '14px' }}>
-        <h2 className="h2">방문 요약</h2>
+        <h2 className="h2">{t('customer.summary.title')}</h2>
         <div className="row" style={{ gap: 0 }}>
           <div className="stat">
-            <span className="meta">총 방문</span>
-            <b>{s.visitCount}회</b>
+            <span className="meta">{t('customer.summary.totalVisits')}</span>
+            <b>{t('customer.visits', { n: s.visitCount })}</b>
           </div>
           <div className="stat">
-            <span className="meta">시술</span>
-            <b>{s.serviceCount}건</b>
+            <span className="meta">{t('customer.summary.treatments')}</span>
+            <b>{t('customer.summary.treatmentsCount', { n: s.serviceCount })}</b>
           </div>
           <div className="stat">
-            <span className="meta">첫 방문</span>
+            <span className="meta">{t('customer.summary.firstVisit')}</span>
             <b>{s.firstVisitDate ? dotDate(s.firstVisitDate) : '—'}</b>
           </div>
           <div className="stat">
-            <span className="meta">마지막 방문</span>
+            <span className="meta">{t('customer.summary.lastVisit')}</span>
             <b>{s.lastVisitDate ? dotDate(s.lastVisitDate) : '—'}</b>
           </div>
         </div>
-        {s.categories.length === 0 && <p className="meta">아직 방문 기록이 없어요.</p>}
+        {s.categories.length === 0 && <p className="meta">{t('customer.summary.noVisits')}</p>}
         <div className="col">
           {s.categories.map((c) => (
             <div className="sumrow" key={c.category}>
               <strong>
-                {CATEGORY_LABEL[c.category]} <span className="num">{c.visitCount}회</span>
+                {CATEGORY_LABEL[c.category]} <span className="num">{t('customer.visits', { n: c.visitCount })}</span>
               </strong>
               <span>
                 {s.menus
                   .filter((m) => m.category === c.category)
-                  .map((m) => `${m.name ?? '메뉴 미상'} ${m.count}회`)
+                  .map((m) => t('customer.summary.menuCount', { name: m.name ?? t('customer.history.unknownMenu'), n: m.count }))
                   .join(', ')}
               </span>
               <span className="num">
-                <span className="meta">평균 간격 </span>
-                {c.averageIntervalDays === null ? '—' : `${c.averageIntervalDays}일`}
+                <span className="meta">{t('customer.summary.avgInterval')}</span>
+                {c.averageIntervalDays === null ? '—' : t('customer.summary.days', { n: c.averageIntervalDays })}
               </span>
             </div>
           ))}
@@ -97,9 +98,9 @@ export function SummaryTab(props: {
       </section>
 
       <section className="col" style={{ gap: '12px' }}>
-        <h2 className="h2">시술별 예측</h2>
+        <h2 className="h2">{t('customer.summary.predTitle')}</h2>
         <AreaError text={predError} />
-        {predictions?.length === 0 && <p className="meta">방문이 생기면 시술 카테고리별로 다음 방문 시기를 예측해요.</p>}
+        {predictions?.length === 0 && <p className="meta">{t('customer.summary.predEmpty')}</p>}
         <div className="cgrid">
           {predictions?.map((p) => {
             const chip = p.status ? STATUS_CHIP[p.status] : null;
@@ -110,32 +111,32 @@ export function SummaryTab(props: {
                   {chip ? (
                     <span className="chip" style={{ background: chip[1], color: chip[2] }}>
                       <i></i>
-                      {chip[0]}
+                      {t(chip[0])}
                     </span>
                   ) : (
                     <span className="chip" style={{ background: '#EEF2EE', color: '#3F6150' }}>
-                      <i></i>예약 있음
+                      <i></i>{t('customer.summary.hasBooking')}
                     </span>
                   )}
                 </div>
                 <span style={{ fontWeight: 500 }}>{predictionText(p, today)}</span>
                 {p.startDate && p.endDate && !p.endSignal && (
                   <span className="num" style={{ color: '#7A4450', fontSize: '13px' }}>
-                    예측 {shortDate(p.startDate)} ~ {shortDate(p.endDate)}
+                    {t('customer.summary.predRange', { from: shortDate(p.startDate), to: shortDate(p.endDate) })}
                   </span>
                 )}
-                {p.lastServiceDate && <span className="meta">마지막 시술 {dotDate(p.lastServiceDate)}</span>}
+                {p.lastServiceDate && <span className="meta">{t('customer.summary.lastTreatment', { date: dotDate(p.lastServiceDate) })}</span>}
               </div>
             );
           })}
         </div>
-        <p className="meta">예측은 시술 카테고리별로 따로 계산해요. 방문이 1~2회면 시술 평균 주기를 기준으로 해요.</p>
+        <p className="meta">{t('customer.summary.predNote')}</p>
       </section>
 
       {points.length > 0 && (
         <section className="card col" style={{ gap: '14px' }}>
           <div className="row between">
-            <h2 className="h2">방문 리듬</h2>
+            <h2 className="h2">{t('customer.summary.rhythm')}</h2>
             <span className="row meta" style={{ gap: 10 }}>
               {[...new Set(points.flatMap((p) => p.categories))].map((c) => (
                 <span className="row" style={{ gap: 4 }} key={c}>
@@ -165,7 +166,7 @@ export function SummaryTab(props: {
                   <span className="num" style={{ fontSize: '12.5px', fontWeight: 600, color: '#7A4450' }}>
                     {shortDate(p.startDate!)}~{shortDate(p.endDate!)}
                   </span>
-                  <span className="meta">{CATEGORY_LABEL[p.category]} 예측</span>
+                  <span className="meta">{t('customer.summary.predOf', { category: CATEGORY_LABEL[p.category] })}</span>
                 </div>
               ))}
           </div>
@@ -179,29 +180,29 @@ export function SummaryTab(props: {
 
       <section className="card col" style={{ gap: '4px' }}>
         <h2 className="h2" style={{ paddingBottom: 6 }}>
-          예약
+          {t('customer.summary.bookings')}
         </h2>
         <AreaError text={resError} />
-        {reservations?.length === 0 && <p className="meta">예약이 없어요.</p>}
+        {reservations?.length === 0 && <p className="meta">{t('customer.summary.noBookings')}</p>}
         {reservations?.map((r) => (
           <div className="trow" key={r.id} style={{ gridTemplateColumns: '150px 1fr auto' }}>
             <span className="num">{formatDateTime(r.startAt)}</span>
             <span className="col">
-              <strong>{r.services.map((x) => x.name).join(', ') || '시술 미정'}</strong>
+              <strong>{r.services.map((x) => x.name).join(', ') || t('customer.summary.undecided')}</strong>
               <span className="meta">
-                {r.staff.name} · {r.minutes}분
+                {r.staff.name} · {t('common.minutes', { n: r.minutes })}
               </span>
               {/* 시술 컬러처럼 예약할 때 정한 내용은 예약 메모에 적는다 (CONTRACTS 6장, F66) */}
               {r.memo && (
                 <span className="sub" style={{ marginTop: 4 }}>
-                  <span className="meta">예약 메모 </span>
+                  <span className="meta">{t('customer.summary.bookingMemo')}</span>
                   {r.memo}
                 </span>
               )}
               {r.status === 'COMPLETED' &&
                 notesByDate.get(formatDateTime(r.startAt).slice(0, 10))?.map((n, i) => (
                   <span className="sub" key={i} style={{ marginTop: 4 }}>
-                    <span className="meta">방문 메모 </span>
+                    <span className="meta">{t('customer.summary.visitMemo')}</span>
                     {n}
                   </span>
                 ))}

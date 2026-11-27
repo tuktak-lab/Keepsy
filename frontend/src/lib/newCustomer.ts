@@ -2,13 +2,16 @@
 // 개인정보 수집 · 이용 동의(PRIVACY)가 없으면 서버가 `invalid`로 거절하므로 화면에서도 먼저 막는다 (E3).
 // 마케팅 등 나머지 동의는 여기서 받지 않고, 고객 상세에서 받는다.
 
+import { t } from './i18n.ts';
+import type { MessageKey } from './messages/ko.ts';
+
 export type ConsentMethod = 'TABLET' | 'PAPER' | 'VERBAL';
 
 /** 동의를 받은 방법. 등록 때 받은 동의 모두에 쓴다 (`IMPORT`는 CSV 전용) */
-export const CONSENT_METHODS: [ConsentMethod, string][] = [
-  ['VERBAL', '구두'],
-  ['PAPER', '서면'],
-  ['TABLET', '태블릿'],
+export const CONSENT_METHODS: [ConsentMethod, MessageKey][] = [
+  ['VERBAL', 'customer.method.verbal'],
+  ['PAPER', 'customer.method.paper'],
+  ['TABLET', 'customer.method.tablet'],
 ];
 
 export const PHONE_FORMAT = /^010-?\d{4}-?\d{4}$/;
@@ -23,10 +26,10 @@ export type NewCustomerValues = {
 /** 첫 번째 입력 오류 사유. 없으면 null. 서버가 다시 검사한다 (NFR-08) */
 export function validateNewCustomer(v: NewCustomerValues): string | null {
   const name = v.name.trim();
-  if (!name) return '이름을 입력해 주세요';
-  if (name.length > 50) return '이름은 50자 이하입니다';
-  if (!PHONE_FORMAT.test(v.phone.trim())) return '휴대폰 번호는 010으로 시작하는 11자리입니다';
-  if (!v.privacyAgreed) return '개인정보 수집 · 이용 동의를 받아야 등록할 수 있어요';
+  if (!name) return t('customer.new.needName');
+  if (name.length > 50) return t('customer.new.nameMax');
+  if (!PHONE_FORMAT.test(v.phone.trim())) return t('customer.new.phoneFormat');
+  if (!v.privacyAgreed) return t('customer.new.needPrivacy');
   return null;
 }
 

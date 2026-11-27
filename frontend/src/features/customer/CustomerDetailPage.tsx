@@ -14,16 +14,17 @@ import { SummaryTab } from './detail/SummaryTab';
 import styleText from './CustomerDetailPage.css?inline';
 import { useStyleSheet } from '@/hooks/useStyleSheet';
 import { useLoad } from '@/hooks/useLoad';
+import { t } from '@/lib/i18n';
 
 // 고객 상세 · 시술 히스토리북 (FR-CUS-03~11, FR-PRD-02). `?id=`로 연다.
 // 영역마다 기능 키가 달라(명세서 2장) 각 API를 따로 부르고, 실패하면 그 영역에만 사유를 보인다.
 // 데모의 `/history`는 문서 경로 표에 없어 이 화면의 「시술 히스토리북」 탭으로 합쳤다.
 
 const TABS = [
-  ['summary', '고객 요약'],
-  ['history', '시술 히스토리북'],
-  ['memo', '상담 메모'],
-  ['messages', '수신 이력'],
+  ['summary', 'customer.detail.tabSummary'],
+  ['history', 'customer.detail.tabHistory'],
+  ['memo', 'customer.detail.tabMemo'],
+  ['messages', 'customer.detail.tabMessages'],
 ] as const;
 type Tab = (typeof TABS)[number][0];
 
@@ -46,7 +47,7 @@ export default function CustomerDetailPage() {
     ]),
   );
   const [detail, consents] = load.data ?? [null, null];
-  const error = valid ? (load.error ? errorText(load.error) : '') : '고객을 고르지 않았어요. 고객 목록에서 열어 주세요.';
+  const error = valid ? (load.error ? errorText(load.error) : '') : t('customer.detail.noCustomer');
   const reload = load.reload;
 
   async function showPhone() {
@@ -66,7 +67,7 @@ export default function CustomerDetailPage() {
       <div className="wrap">
         <div className="row between">
           <AppLink href="/customers" className="meta">
-            ‹ 고객 목록
+            {t('customer.detail.back')}
           </AppLink>
           {detail && <DeleteCustomer customerId={customerId} name={detail.name} />}
         </div>
@@ -84,12 +85,12 @@ export default function CustomerDetailPage() {
                   </h1>
                   {detail.noShowCount > 0 && (
                     <span className="chip" style={{ background: '#F6E3DF', color: '#8A2F3F' }}>
-                      <i></i>노쇼 {detail.noShowCount}회
+                      <i></i>{t('customer.detail.noShow', { n: detail.noShowCount })}
                     </span>
                   )}
                   {detail.bookingRestricted && (
                     <span className="chip" style={{ background: '#F6E3DF', color: '#8A2F3F' }} title={detail.bookingRestrictionReason ?? ''}>
-                      <i></i>예약 제한{detail.bookingRestrictionReason ? ` · ${detail.bookingRestrictionReason}` : ''}
+                      <i></i>{t('customer.detail.restricted')}{detail.bookingRestrictionReason ? ` · ${detail.bookingRestrictionReason}` : ''}
                     </span>
                   )}
                 </div>
@@ -97,16 +98,16 @@ export default function CustomerDetailPage() {
                   {phone ?? detail.phone}
                   {!phone && (
                     <button type="button" className="lk" onClick={showPhone}>
-                      전체 번호 보기
+                      {t('customer.detail.fullNumber')}
                     </button>
                   )}
                 </span>
                 {phoneError && <span className="meta" style={{ color: '#8A2F3F' }}>{phoneError}</span>}
               </div>
               <button type="button" className="btn" style={{ marginLeft: 'auto', gap: 8 }} onClick={() => setConsentOpen(true)}>
-                동의 항목
+                {t('customer.detail.consentItems')}
                 <span className="chip" style={{ background: '#F9EBE8', color: '#7A4450' }}>
-                  {consents.current.filter((c) => c.agreed).length}/{consents.current.length} 동의
+                  {t('customer.detail.consentCount', { done: consents.current.filter((c) => c.agreed).length, total: consents.current.length })}
                 </span>
               </button>
             </section>
@@ -127,24 +128,24 @@ export default function CustomerDetailPage() {
             )}
 
             {(detail.serviceCaution || detail.healthCaution) && (
-              <div className="note col" style={{ gap: 4 }} role="note" aria-label="주의사항">
+              <div className="note col" style={{ gap: 4 }} role="note" aria-label={t('customer.detail.cautionLabel')}>
                 {detail.serviceCaution && (
                   <span>
-                    <b>시술 주의</b> {detail.serviceCaution}
+                    <b>{t('customer.detail.serviceCautionShort')}</b> {detail.serviceCaution}
                   </span>
                 )}
                 {detail.healthCaution && (
                   <span>
-                    <b>건강 주의</b> {detail.healthCaution}
+                    <b>{t('customer.detail.healthCautionShort')}</b> {detail.healthCaution}
                   </span>
                 )}
               </div>
             )}
 
-            <div className="tabs" role="tablist" aria-label="고객 상세">
+            <div className="tabs" role="tablist" aria-label={t('customer.detail.tabsLabel')}>
               {TABS.map(([id, label]) => (
                 <button type="button" role="tab" aria-selected={tab === id} onClick={() => setTab(id)} key={id}>
-                  {label}
+                  {t(label)}
                 </button>
               ))}
             </div>

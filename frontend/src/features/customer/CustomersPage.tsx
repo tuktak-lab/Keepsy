@@ -6,35 +6,37 @@ import type { StaffRef } from '@/lib/session';
 import type { Category, CustomerListFilter, CustomerListItem, PredictionStatus } from './types';
 import styleText from './CustomersPage.css?inline';
 import { useStyleSheet } from '@/hooks/useStyleSheet';
+import { t } from '@/lib/i18n';
+import type { MessageKey } from '@/lib/messages/ko';
 
 // 고객 목록 · 검색 · 필터 (FR-CUS-02). GET /api/customers, 20건씩.
 // 데모의 누적 결제액 · 시술 카테고리 · 예측 상태 칸은 목록 API 응답에 없어 뺐다 (필터로는 쓴다).
 
 const PAGE_SIZE = 20;
 
-const CATEGORIES: [Category, string][] = [
-  ['NAIL', '네일'],
-  ['LASH', '속눈썹'],
-  ['WAXING', '왁싱'],
-  ['SEMI_PERMANENT', '반영구'],
-  ['ETC', '기타'],
+const CATEGORIES: [Category, MessageKey][] = [
+  ['NAIL', 'category.nail'],
+  ['LASH', 'category.lash'],
+  ['WAXING', 'category.waxing'],
+  ['SEMI_PERMANENT', 'category.semi'],
+  ['ETC', 'category.etc'],
 ];
 
-const STATUSES: [PredictionStatus, string][] = [
-  ['SCHEDULED', '예정'],
-  ['DUE', '주기 도래'],
-  ['CHURN_SIGNAL', '이탈 신호'],
-  ['LONG_ABSENT', '장기 미방문'],
-  ['NO_PREDICTION', '예측 없음'],
+const STATUSES: [PredictionStatus, MessageKey][] = [
+  ['SCHEDULED', 'dashboard.seg.scheduled'],
+  ['DUE', 'prediction.status.due'],
+  ['CHURN_SIGNAL', 'prediction.status.churn'],
+  ['LONG_ABSENT', 'prediction.status.long'],
+  ['NO_PREDICTION', 'customer.status.none'],
 ];
 
 // 방문 횟수 범위 → visitCountMin · visitCountMax
-const VISITS: [string, string, number | undefined, number | undefined][] = [
-  ['', '방문 횟수 전체', undefined, undefined],
-  ['0', '첫 방문 전', 0, 0],
-  ['1-2', '방문 1~2회', 1, 2],
-  ['3-5', '방문 3~5회', 3, 5],
-  ['6+', '방문 6회 이상', 6, undefined],
+const VISITS: [string, MessageKey, number | undefined, number | undefined][] = [
+  ['', 'customer.list.visitsAll', undefined, undefined],
+  ['0', 'customer.list.visitsFirst', 0, 0],
+  ['1-2', 'customer.list.visits12', 1, 2],
+  ['3-5', 'customer.list.visits35', 3, 5],
+  ['6+', 'customer.list.visits6', 6, undefined],
 ];
 
 /** `2026-10-24` → `2026.10.24` (서버 날짜는 이미 Asia/Seoul) */
@@ -115,13 +117,13 @@ export default function CustomersPage() {
       <div className="wrap">
         <div className="row between" style={{ alignItems: 'flex-end' }}>
           <div className="col" style={{ gap: '6px' }}>
-            <h1 className="h1">고객 목록</h1>
-            <p className="sub">이름이나 연락처 뒷자리로 찾고, 방문 횟수 · 시술 카테고리 · 예측 상태로 다시 만날 고객을 골라 보세요.</p>
+            <h1 className="h1">{t('customer.list.title')}</h1>
+            <p className="sub">{t('customer.list.sub')}</p>
           </div>
           <div className="row" style={{ gap: '8px' }}>
-            <AppLink href="/customers/retention" className="btn">파기 대상</AppLink>
-            <AppLink href="/customers/import" className="btn">CSV 일괄 등록</AppLink>
-            <AppLink href="/customers/new" className="btn btn-p">+ 고객 등록</AppLink>
+            <AppLink href="/customers/retention" className="btn">{t('customer.list.retention')}</AppLink>
+            <AppLink href="/customers/import" className="btn">{t('customer.list.import')}</AppLink>
+            <AppLink href="/customers/new" className="btn btn-p">{t('customer.list.new')}</AppLink>
           </div>
         </div>
 
@@ -130,47 +132,47 @@ export default function CustomersPage() {
             type="search"
             className="fld"
             style={{ flex: '1 1 260px', width: 'auto' }}
-            placeholder="이름 또는 연락처 뒷자리 4자리"
-            aria-label="고객 검색"
+            placeholder={t('customer.list.searchPlaceholder')}
+            aria-label={t('customer.list.searchLabel')}
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
-          <select className="sel" aria-label="시술 카테고리" value={cat} onChange={(e) => pick(setCat)(e.target.value as Category | '')}>
-            <option value="">시술 카테고리 전체</option>
+          <select className="sel" aria-label={t('customer.list.catLabel')} value={cat} onChange={(e) => pick(setCat)(e.target.value as Category | '')}>
+            <option value="">{t('customer.list.catAll')}</option>
             {CATEGORIES.map(([value, label]) => (
-              <option key={value} value={value}>{label}</option>
+              <option key={value} value={value}>{t(label)}</option>
             ))}
           </select>
-          <select className="sel" aria-label="예측 상태" value={status} onChange={(e) => pick(setStatus)(e.target.value as PredictionStatus | '')}>
-            <option value="">예측 상태 전체</option>
+          <select className="sel" aria-label={t('customer.list.statusLabel')} value={status} onChange={(e) => pick(setStatus)(e.target.value as PredictionStatus | '')}>
+            <option value="">{t('customer.list.statusAll')}</option>
             {STATUSES.map(([value, label]) => (
-              <option key={value} value={value}>{label}</option>
+              <option key={value} value={value}>{t(label)}</option>
             ))}
           </select>
-          <select className="sel" aria-label="방문 횟수" value={vis} onChange={(e) => pick(setVis)(e.target.value)}>
+          <select className="sel" aria-label={t('customer.list.visitsLabel')} value={vis} onChange={(e) => pick(setVis)(e.target.value)}>
             {VISITS.map(([value, label]) => (
-              <option key={value} value={value}>{label}</option>
+              <option key={value} value={value}>{t(label)}</option>
             ))}
           </select>
-          <select className="sel" aria-label="담당 스탭" value={staffId} onChange={(e) => pick(setStaffId)(e.target.value)}>
-            <option value="">담당 스탭 전체</option>
+          <select className="sel" aria-label={t('common.staff')} value={staffId} onChange={(e) => pick(setStaffId)(e.target.value)}>
+            <option value="">{t('customer.list.staffAll')}</option>
             {staff.map((s) => (
               <option key={s.id} value={s.id}>{s.name}</option>
             ))}
           </select>
-          <select className="sel" aria-label="마케팅 수신 동의" value={consent} onChange={(e) => pick(setConsent)(e.target.value)}>
-            <option value="">수신 동의 전체</option>
-            <option value="true">수신 동의</option>
-            <option value="false">수신 미동의</option>
+          <select className="sel" aria-label={t('customer.list.consentLabel')} value={consent} onChange={(e) => pick(setConsent)(e.target.value)}>
+            <option value="">{t('customer.list.consentAll')}</option>
+            <option value="true">{t('common.consent')}</option>
+            <option value="false">{t('common.noConsent')}</option>
           </select>
         </div>
 
         <section className="card" style={{ padding: '10px 0 6px', overflowX: 'auto' }}>
           <div className="crow head">
-            <span>고객</span>
-            <span>총 방문</span>
-            <span>최근 방문</span>
-            <span>마케팅 수신</span>
+            <span>{t('common.customer')}</span>
+            <span>{t('customer.list.colVisits')}</span>
+            <span>{t('customer.list.colLast')}</span>
+            <span>{t('customer.list.colMarketing')}</span>
           </div>
           <div className="kp-fade" key={[query, cat, status, vis, staffId, consent, page].join('|')}>
           {rows.map((r) => (
@@ -182,21 +184,21 @@ export default function CustomersPage() {
                   <span className="meta num">{r.phone}</span>
                 </span>
               </button>
-              <span className="num" style={{ fontWeight: 600 }}>{r.visitCount}회</span>
-              <span className="num">{r.lastVisitDate ? dot(r.lastVisitDate) : <span className="meta">방문 전</span>}</span>
-              <span className={r.marketingConsent ? '' : 'meta'}>{r.marketingConsent ? '동의' : '미동의'}</span>
+              <span className="num" style={{ fontWeight: 600 }}>{t('customer.visits', { n: r.visitCount })}</span>
+              <span className="num">{r.lastVisitDate ? dot(r.lastVisitDate) : <span className="meta">{t('customer.list.beforeVisit')}</span>}</span>
+              <span className={r.marketingConsent ? '' : 'meta'}>{r.marketingConsent ? t('customer.agreed') : t('customer.notAgreed')}</span>
             </div>
           ))}
           {result && rows.length === 0 ? (
-            <div className="kp-empty"><b>조건에 맞는 고객이 없어요</b>검색어나 필터를 바꿔 보세요.</div>
+            <div className="kp-empty"><b>{t('customer.list.emptyTitle')}</b>{t('customer.list.emptyHint')}</div>
           ) : null}
           </div>
           <div className="row between meta" style={{ padding: '10px 18px 8px', borderTop: '1px solid #F1E4E0' }}>
-            <span>{result ? `${total}명 중 ${rows.length}명 표시` : '불러오는 중…'}</span>
+            <span>{result ? t('customer.list.showing', { total, shown: rows.length }) : t('common.loading')}</span>
             <span className="row" style={{ gap: '8px' }}>
-              <button type="button" className="btn" disabled={page === 0} onClick={() => setPage(page - 1)}>이전</button>
+              <button type="button" className="btn" disabled={page === 0} onClick={() => setPage(page - 1)}>{t('customer.list.prev')}</button>
               <span className="num">{page + 1} / {pages}</span>
-              <button type="button" className="btn" disabled={page + 1 >= pages} onClick={() => setPage(page + 1)}>다음</button>
+              <button type="button" className="btn" disabled={page + 1 >= pages} onClick={() => setPage(page + 1)}>{t('customer.list.next')}</button>
             </span>
           </div>
         </section>
@@ -209,18 +211,18 @@ export default function CustomersPage() {
               <div className="col">
                 <strong style={{ fontSize: '17px' }}>{cur.name}</strong>
                 <span className="sub">
-                  총 방문 {cur.visitCount}회 · 최근 방문 {cur.lastVisitDate ? dot(cur.lastVisitDate) : '없음'} · 마케팅 수신 {cur.marketingConsent ? '동의' : '미동의'}
+                  {t('customer.list.summary', { visits: cur.visitCount, last: cur.lastVisitDate ? dot(cur.lastVisitDate) : t('customer.none'), consent: cur.marketingConsent ? t('customer.agreed') : t('customer.notAgreed') })}
                 </span>
               </div>
             </div>
             <div className="row" style={{ gap: '8px' }}>
-              <AppLink href={`/customers/detail?id=${cur.customerId}`} className="btn btn-p">고객 상세 · 히스토리북</AppLink>
+              <AppLink href={`/customers/detail?id=${cur.customerId}`} className="btn btn-p">{t('customer.list.detailBtn')}</AppLink>
             </div>
             </div>
           </section>
         ) : null}
         <p className="meta">
-          예측 상태 필터는 오늘 기준으로 그 상태인 시술 카테고리가 하나라도 있는 고객을 보여 줘요. 카테고리를 함께 고르면 그 카테고리의 상태로 찾아요.
+          {t('customer.list.filterNote')}
         </p>
       </div>
     </>

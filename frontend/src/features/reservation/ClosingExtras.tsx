@@ -37,7 +37,7 @@ export function ConsentRequests(props: { customerId: number; items: string[]; on
       <div className="pills" role="group" aria-label={t('reservation.newCustomer.method')} style={{ marginBottom: 8 }}>
         {CONSENT_METHODS.map(([value, label]) => (
           <button key={value} type="button" className="pill" aria-pressed={method === value} onClick={() => setMethod(value)}>
-            {label}
+            {t(label)}
           </button>
         ))}
       </div>

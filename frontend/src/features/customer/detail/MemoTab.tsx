@@ -5,6 +5,7 @@ import { api, type Page } from '@/lib/api';
 import { formatDateTime } from '@/lib/format';
 import type { ConsultNote } from '../types';
 import { AreaError, errorText } from './common';
+import { t } from '@/lib/i18n';
 
 // 상담 메모 (FR-CUS-06). 작성은 CUSTOMER_WRITE(작성자 · 시각은 서버가 기록), 수정 · 삭제는 CUSTOMER_EDIT(기본 PIN).
 
@@ -40,36 +41,36 @@ export function MemoTab(props: { customerId: number }) {
 
   async function create() {
     if (!draft.trim()) return;
-    if (await run(() => api(`/api/customers/${props.customerId}/consult-notes`, { method: 'POST', body: { content: draft }, silent: true }), '상담 메모를 저장했어요'))
+    if (await run(() => api(`/api/customers/${props.customerId}/consult-notes`, { method: 'POST', body: { content: draft }, silent: true }), t('customer.memo.saved')))
       setDraft('');
   }
 
   async function update(noteId: number) {
-    if (await run(() => api(`/api/consult-notes/${noteId}`, { method: 'PATCH', body: { content: editText }, silent: true }), '상담 메모를 고쳤어요'))
+    if (await run(() => api(`/api/consult-notes/${noteId}`, { method: 'PATCH', body: { content: editText }, silent: true }), t('customer.memo.edited')))
       setEditing(null);
   }
 
   return (
     <section className="card col" style={{ gap: 12 }}>
-      <h2 className="h2">상담 메모</h2>
+      <h2 className="h2">{t('customer.memo.title')}</h2>
       <label className="col" style={{ gap: 6 }}>
-        <span className="lbl">새 메모</span>
+        <span className="lbl">{t('customer.memo.new')}</span>
         <textarea
           className="fld"
           rows={3}
           maxLength={2000}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          placeholder="상담 내용과 다음에 해보고 싶은 디자인을 남겨 주세요."
+          placeholder={t('customer.memo.placeholder')}
         />
       </label>
       <div>
         <button type="button" className="btn btn-p" onClick={create} disabled={busy || !draft.trim()}>
-          메모 저장
+          {t('customer.memo.saveBtn')}
         </button>
       </div>
       <AreaError text={error} />
-      {notes?.length === 0 && <p className="meta">아직 상담 메모가 없어요.</p>}
+      {notes?.length === 0 && <p className="meta">{t('customer.memo.empty')}</p>}
       {notes?.map((n) => (
         <div className="consent col" key={n.noteId} style={{ gap: 6 }}>
           <span className="row between">
@@ -86,29 +87,29 @@ export function MemoTab(props: { customerId: number }) {
                     setEditText(n.content);
                   }}
                 >
-                  수정
+                  {t('customer.edit')}
                 </button>
                 <button
                   type="button"
                   className="lk"
                   style={{ color: '#8A2F3F' }}
                   disabled={busy}
-                  onClick={() => run(() => api(`/api/consult-notes/${n.noteId}`, { method: 'DELETE', silent: true }), '상담 메모를 지웠어요')}
+                  onClick={() => run(() => api(`/api/consult-notes/${n.noteId}`, { method: 'DELETE', silent: true }), t('customer.memo.deleted'))}
                 >
-                  삭제
+                  {t('customer.delete')}
                 </button>
               </span>
             )}
           </span>
           {editing === n.noteId ? (
             <>
-              <textarea className="fld" rows={3} maxLength={2000} value={editText} onChange={(e) => setEditText(e.target.value)} aria-label="메모 수정" />
+              <textarea className="fld" rows={3} maxLength={2000} value={editText} onChange={(e) => setEditText(e.target.value)} aria-label={t('customer.memo.editAria')} />
               <span className="row" style={{ gap: 8 }}>
                 <button type="button" className="btn btn-p" onClick={() => update(n.noteId)} disabled={busy || !editText.trim()}>
-                  저장
+                  {t('customer.save')}
                 </button>
                 <button type="button" className="btn" onClick={() => setEditing(null)}>
-                  취소
+                  {t('common.cancel')}
                 </button>
               </span>
             </>
@@ -117,7 +118,7 @@ export function MemoTab(props: { customerId: number }) {
           )}
         </div>
       ))}
-      <p className="meta">건강 관련 내용은 주의사항의 건강 주의사항 칸에 따로 적어 주세요. 수정 · 삭제는 PIN이 필요할 수 있어요.</p>
+      <p className="meta">{t('customer.memo.healthNote')}</p>
     </section>
   );
 }
