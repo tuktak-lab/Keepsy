@@ -1,7 +1,7 @@
 // 매장 세션 상태 (GET /api/session, docs CONTRACTS 6장 ACC). 상단 근무자 · PIN 인증 표시와 PinGate가 같은 값을 본다.
 // 근무자 · PIN 인증을 바꾸는 화면(예: /shift)은 성공한 뒤 refreshSession()을 불러 상단 표시를 맞춘다.
 import { useEffect, useSyncExternalStore } from 'react';
-import { api, navigate } from './api';
+import { api, navigate } from './api.ts';
 
 export type StaffRef = { id: number; name: string };
 /** 기능 키별 설정 (CONTRACTS 3장 「기능 키」) */
@@ -19,12 +19,20 @@ export type Session = {
 let current: Session | null = null;
 let loading: Promise<Session | null> | null = null;
 let expiryTimer: ReturnType<typeof setTimeout> | undefined;
+/** 마지막 세션 읽기가 실패했는지 (500 · 네트워크 등, #489). 다시 읽어 성공하거나 로그아웃하면 false */
+let failed = false;
+let loggingOut = false;
 const listeners = new Set<() => void>();
+
+function notify(): void {
+  listeners.forEach((l) => l());
+}
 
 function set(next: Session | null): void {
   current = next;
+  failed = false;
   scheduleExpiryCheck(next);
-  listeners.forEach((l) => l());
+  notify();
 }
 
 // PIN 인증은 서버에서 5분 무입력이면 풀리고, 잠긴 기능을 쓸 때마다 서버가 연장한다 (FR-ACC-08, C23).
@@ -43,7 +51,12 @@ export function refreshSession(): Promise<Session | null> {
       set(s);
       return s;
     })
-    .catch(() => null)
+    .catch(() => {
+      // 지금 값은 그대로 두고 실패만 알린다. 화면은 useSessionFailed()로 「다시 시도」를 보여 준다
+      failed = true;
+      notify();
+      return null;
+    })
     .finally(() => {
       loading = null;
     });
@@ -58,15 +71,37 @@ export async function authenticatePin(pin: string): Promise<void> {
 
 /** [잠금]: PIN 인증만 해제하고 현재 근무자는 그대로 둔다 */
 export async function lockPin(): Promise<void> {
-  await api('/api/session/pin', { method: 'DELETE' });
+  try {
+    await api('/api/session/pin', { method: 'DELETE' });
+  } catch {
+    return; // 오류 안내는 api.ts가 했다
+  }
   await refreshSession();
 }
 
-/** 로그아웃: 근무자 · PIN 인증도 함께 해제된다 (FR-ACC-02 · 10) */
+/** 로그아웃: 근무자 · PIN 인증도 함께 해제된다 (FR-ACC-02 · 10). 실패해도 던지지 않는다 (오류 안내는 api.ts) */
 export async function logout(): Promise<void> {
-  await api('/api/session', { method: 'DELETE' });
-  set(null);
-  navigate('/login');
+  if (loggingOut) return; // 여러 번 눌러도 한 번만 보낸다
+  loggingOut = true;
+  try {
+    await api('/api/session', { method: 'DELETE' });
+    set(null);
+    navigate('/login');
+  } catch {
+    // 오류 안내 · 로그인 화면 이동(unauthorized)은 api.ts가 했다
+  } finally {
+    loggingOut = false;
+  }
+}
+
+/** 마지막 세션 읽기가 실패했으면 true */
+export function isSessionFailed(): boolean {
+  return failed;
+}
+
+/** isSessionFailed()를 구독한다. 세션이 없을 때 「다시 시도」(refreshSession)를 보여 주는 데 쓴다 */
+export function useSessionFailed(): boolean {
+  return useSyncExternalStore(subscribe, isSessionFailed, () => false);
 }
 
 function subscribe(listener: () => void): () => void {

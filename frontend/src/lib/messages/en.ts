@@ -23,6 +23,8 @@ export const en: Record<MessageKey, string> = {
   'shell.topbar.lock': 'Lock',
   'shell.topbar.worker': 'Staff: {name}',
   'shell.topbar.workerChecking': 'Checking staff…',
+  'shell.topbar.workerFailed': "Couldn't check staff",
+  'shell.session.loadFailed': "Couldn't load your shop session. Please try again in a moment.",
   'shell.topbar.switchWorker': 'Switch staff',
   'shell.topbar.logout': 'Sign out',
   // 사용 가이드 (#468)

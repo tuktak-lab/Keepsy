@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { isSearchShortcut, KEYWORDS_URL, matchFeature, type FeatureEntry } from '@/lib/featureSearch';
 import { LocaleSelect } from '@/components/common/LocaleSelect';
 import { t } from '@/lib/i18n';
-import { lockPin, logout, useSession, useWorkerRequired } from '@/lib/session';
+import { lockPin, logout, refreshSession, useSession, useSessionFailed, useWorkerRequired } from '@/lib/session';
 import { UsageGuideButton } from './UsageGuideButton';
 
 // 모든 화면 공통 상단 (docs ARCHITECTURE 4장 「모든 화면에 공통」)
@@ -22,6 +22,8 @@ export function Topbar() {
   const pathname = usePathname();
   const router = useRouter();
   const session = useSession();
+  // 세션을 한 번도 못 읽었으면 「확인 중」에 멈추지 않고 실패 표시 · 다시 시도 · 로그아웃을 보여 준다 (#489)
+  const sessionFailed = useSessionFailed() && !session;
   useWorkerRequired(session);
   const [q, setQ] = useState('');
   const [miss, setMiss] = useState(false);
@@ -207,7 +209,9 @@ export function Topbar() {
         >
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#221D1B', fontWeight: 600, fontSize: '16px', whiteSpace: 'nowrap' }}>
             <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#7A4450' }} />
-            {session?.currentStaff ? t('shell.topbar.worker', { name: session.currentStaff.name }) : t('shell.topbar.workerChecking')}
+            {session?.currentStaff
+              ? t('shell.topbar.worker', { name: session.currentStaff.name })
+              : t(sessionFailed ? 'shell.topbar.workerFailed' : 'shell.topbar.workerChecking')}
           </span>
           <svg
             width="14"
@@ -245,7 +249,26 @@ export function Topbar() {
           </span>
         )}
       </span>
-      {session && (
+      {sessionFailed && (
+        <button
+          type="button"
+          onClick={() => void refreshSession()}
+          style={{
+            height: '24px',
+            padding: '0 10px',
+            border: 0,
+            borderRadius: '999px',
+            background: '#7A4450',
+            color: '#fff',
+            font: "500 12px 'Noto Sans KR', sans-serif",
+            cursor: 'pointer',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {t('common.retry')}
+        </button>
+      )}
+      {(session || sessionFailed) && (
         <>
           <span style={{ width: '1px', height: '14px', background: '#D9CBC4' }} />
           {/* 로그아웃은 근무자 메뉴 대신 상단바에 바로 둔다. 근무자 전환은 근무자 이름을 누른 메뉴에서 */}
