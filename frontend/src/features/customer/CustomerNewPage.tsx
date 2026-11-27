@@ -12,24 +12,17 @@ import type {
   CustomerCreateRequest,
   CustomerCreateResponse,
   Gender,
-  Language,
 } from './types';
 import styles from './CustomerNewPage.module.css';
 
 // 고객 등록 (FR-CUS-01). POST /api/customers. 처리 스탭은 서버가 현재 근무자로 남긴다 (FR-ACC-10).
 // 개인정보 수집 · 이용 동의(PRIVACY)가 없으면 고객으로 등록하지 않는다 (E3) — 그런 손님은 고객 없는 예약으로 시간만 막는다.
+// 고객 선호 언어는 받지 않는다 (FR-I18N-01 범위 제외, F75). API 필드는 선택이라 보내지 않아도 된다.
 
 const GENDERS: [Gender, string][] = [
   ['FEMALE', '여성'],
   ['MALE', '남성'],
   ['OTHER', '기타'],
-];
-const LANGUAGES: [Language, string][] = [
-  ['KO', '한국어'],
-  ['EN', '영어'],
-  ['ZH', '중국어'],
-  ['JA', '일본어'],
-  ['ETC', '기타'],
 ];
 const CHANNELS: [AcquisitionChannel, string][] = [
   ['INSTAGRAM', '인스타그램'],
@@ -46,7 +39,6 @@ export default function CustomerNewPage() {
   const [phone, setPhone] = useState('');
   const [gender, setGender] = useState<Gender | ''>('');
   const [birthYear, setBirthYear] = useState('');
-  const [language, setLanguage] = useState<Language | ''>('');
   const [channel, setChannel] = useState<AcquisitionChannel | ''>('');
   const [privacy, setPrivacy] = useState(false);
   const [consents, setConsents] = useState<ConsentItem[]>([]);
@@ -71,7 +63,6 @@ export default function CustomerNewPage() {
       consentMethod: method,
       gender: gender || undefined,
       birthYear: birthYear ? Number(birthYear) : undefined,
-      preferredLanguage: language || undefined,
       acquisitionChannel: channel || undefined,
     };
     try {
@@ -149,15 +140,6 @@ export default function CustomerNewPage() {
                 aria-invalid={Boolean(errors.birthYear)}
               />
               {fieldError('birthYear')}
-            </label>
-            <label className={styles.field}>
-              <span className={styles.label}>선호 언어</span>
-              <select className={styles.input} value={language} onChange={(e) => setLanguage(e.target.value as Language | '')}>
-                <option value="">선택 안 함</option>
-                {LANGUAGES.map(([value, label]) => (
-                  <option key={value} value={value}>{label}</option>
-                ))}
-              </select>
             </label>
             <label className={styles.field}>
               <span className={styles.label}>유입 경로</span>
