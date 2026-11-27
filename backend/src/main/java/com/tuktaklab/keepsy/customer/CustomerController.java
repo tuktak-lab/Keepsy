@@ -195,20 +195,28 @@ class CustomerController {
             @RequestParam(required = false) Boolean marketingConsent,
             @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
-        return customerService.list(
-                shopSession.shopId(),
-                q,
-                new CustomerListQuery.Filter(
-                        null,
-                        null,
-                        visitCountMin,
-                        visitCountMax,
-                        category,
-                        predictionStatus,
-                        staffId,
-                        marketingConsent),
-                page,
-                size);
+        PageResponse<CustomerService.ListItem> list =
+                customerService.list(
+                        shopSession.shopId(),
+                        q,
+                        new CustomerListQuery.Filter(
+                                null,
+                                null,
+                                visitCountMin,
+                                visitCountMax,
+                                category,
+                                predictionStatus,
+                                staffId,
+                                marketingConsent),
+                        page,
+                        size);
+        // 돌려준 페이지의 고객만 조회로 남긴다. 검색어 · 이름 · 번호는 남기지 않는다 (NFR-06, CONTRACTS 1장)
+        accessLogger.recordAll(
+                FeatureKey.CUSTOMER_VIEW,
+                AccessLogger.CUSTOMER,
+                list.items().stream().map(CustomerService.ListItem::customerId).toList(),
+                Action.VIEW);
+        return list;
     }
 
     @RequireFeature(FeatureKey.CUSTOMER_VIEW)

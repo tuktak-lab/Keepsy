@@ -153,6 +153,8 @@ class HistoryTest {
                 .extracting(Number::longValue)
                 .containsExactly(nov, oct, imported);
         assertThat(body).doesNotContain("amount").doesNotContain("50000");
+        assertThat(JsonPath.<List<Boolean>>read(body, "$.items[*].imported"))
+                .containsExactly(false, false, true);
         assertThat(
                         jdbc.queryForObject(
                                 "SELECT COUNT(*) FROM access_log WHERE shop_id = ? AND action = 'VIEW'"
@@ -161,6 +163,25 @@ class HistoryTest {
                                 shop,
                                 customer))
                 .isOne();
+    }
+
+    @Test
+    void 방문_수정에_쓰는_메뉴_ID와_주기_계산_제외를_방문_전체_시술마다_준다() throws Exception {
+        // F76: 방문 수정은 방문 전체 시술을 다시 보내야 한다 (C6)
+        jdbc.update(
+                "UPDATE visit_service SET cycle_excluded = TRUE WHERE visit_id = ? AND category = 'LASH'",
+                oct);
+        long gel =
+                jdbc.queryForObject(
+                        "SELECT id FROM service_menu WHERE shop_id = ? AND category = 'NAIL'",
+                        Long.class,
+                        shop);
+
+        history(customer, shop, "")
+                .andExpect(jsonPath("$.items[1].services[0].serviceMenuId").value(gel))
+                .andExpect(jsonPath("$.items[1].services[0].cycleExcluded").value(false))
+                .andExpect(jsonPath("$.items[1].services[1].cycleExcluded").value(true))
+                .andExpect(jsonPath("$.items[2].services[0].serviceMenuId").value(nullValue()));
     }
 
     @Test

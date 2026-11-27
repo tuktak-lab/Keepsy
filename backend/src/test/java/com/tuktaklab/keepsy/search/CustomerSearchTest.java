@@ -1,5 +1,6 @@
 package com.tuktaklab.keepsy.search;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -131,6 +132,64 @@ class CustomerSearchTest {
         search("민지", true)
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElements").value(2));
+    }
+
+    /** 접근 로그(NFR-06) 중 고객 조회 행의 대상 고객 ID */
+    private List<Long> loggedCustomers() {
+        return jdbc.queryForList(
+                "SELECT target_id FROM access_log WHERE shop_id = ? AND target_type = 'CUSTOMER'"
+                        + " AND action = 'VIEW' ORDER BY target_id",
+                Long.class,
+                shop);
+    }
+
+    @Test
+    void 돌려준_페이지의_고객만_조회로_남기고_검색어는_남기지_않는다() throws Exception {
+        mvc.perform(
+                        get("/api/search/customers")
+                                .param("q", "민지")
+                                .param("size", "1")
+                                .session(session(false)))
+                .andExpect(status().isOk());
+        // 조건에 맞는 2명 중 돌려준 1명(최근 등록순 첫 번째)만. 다른 매장의 김민지는 없다
+        assertThat(loggedCustomers()).containsExactly(parkMinji);
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT staff_id FROM access_log WHERE shop_id = ? AND target_id = ?",
+                                Long.class,
+                                shop,
+                                parkMinji))
+                .isEqualTo(staff); // 공용이면 현재 근무자
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT COUNT(*) FROM access_log WHERE shop_id = ? AND target_type <> 'CUSTOMER'",
+                                Integer.class,
+                                shop))
+                .isZero();
+    }
+
+    @Test
+    void 결과가_없거나_권한이_없거나_검색어가_틀리면_남기지_않는다() throws Exception {
+        search("없는이름", false).andExpect(status().isOk());
+        search("  ", false).andExpect(status().isBadRequest());
+        jdbc.update("UPDATE shop SET pin_locked_features = 'CUSTOMER_VIEW' WHERE id = ?", shop);
+        search("민지", false).andExpect(status().isForbidden());
+
+        assertThat(loggedCustomers()).isEmpty();
+    }
+
+    @Test
+    void 고객_조회가_잠겨_있으면_PIN_인증_스탭으로_남는다() throws Exception {
+        jdbc.update("UPDATE shop SET pin_locked_features = 'CUSTOMER_VIEW' WHERE id = ?", shop);
+        search("민지", true).andExpect(status().isOk());
+
+        assertThat(loggedCustomers()).containsExactlyInAnyOrder(minji, parkMinji);
+        assertThat(
+                        jdbc.queryForList(
+                                "SELECT DISTINCT staff_id FROM access_log WHERE shop_id = ?",
+                                Long.class,
+                                shop))
+                .containsExactly(staff);
     }
 
     private ResultActions search(String q, boolean pin) throws Exception {

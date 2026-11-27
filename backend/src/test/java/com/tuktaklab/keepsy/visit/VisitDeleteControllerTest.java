@@ -3,6 +3,7 @@ package com.tuktaklab.keepsy.visit;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -19,6 +20,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -96,6 +98,72 @@ class VisitDeleteControllerTest {
             shopSession.setPin(session, worker, LocalDateTime.now().plusMinutes(5));
         }
         return mvc.perform(delete("/api/visits/{id}", visitId).session(session).with(csrf()));
+    }
+
+    /** 이 매장 접근 로그 중 그 고객 · 행동의 기록 스탭들 */
+    private List<Long> loggedStaff(String action) {
+        return jdbc.queryForList(
+                "SELECT staff_id FROM access_log WHERE shop_id = ? AND target_type = 'CUSTOMER'"
+                        + " AND target_id = ? AND action = ? ORDER BY id",
+                Long.class,
+                shop,
+                customer,
+                action);
+    }
+
+    @Test
+    void 방문_수정_삭제는_그_고객의_수정_삭제로_접근_로그에_남고_실패하면_남지_않는다() throws Exception {
+        long pinStaff = data.staff(shop, "ACTIVE", true);
+        long visitId = visits.completeWithoutPayment(shop, reserve(customer, 11), null);
+        MockHttpSession session = new MockHttpSession();
+        session.setAttribute(
+                HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY,
+                new SecurityContextImpl(
+                        UsernamePasswordAuthenticationToken.authenticated(shop, null, List.of())));
+        shopSession.setCurrentStaffId(session, staff);
+
+        // PIN 없이: 403이고 남지 않는다
+        mvc.perform(
+                        patch("/api/visits/{id}", visitId)
+                                .session(session)
+                                .with(csrf())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        "{\"services\":[{\"serviceMenuId\":%d,\"staffId\":%d}]}"
+                                                .formatted(gel, staff)))
+                .andExpect(status().isForbidden());
+        assertThat(loggedStaff("UPDATE")).isEmpty();
+
+        // CUSTOMER_EDIT는 기본 PIN이라 PIN 인증 스탭으로 남는다 (ARCHITECTURE 6장 「기록에 남는 사람」)
+        shopSession.setPin(session, pinStaff, LocalDateTime.now().plusMinutes(5));
+        mvc.perform(
+                        patch("/api/visits/{id}", visitId)
+                                .session(session)
+                                .with(csrf())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        "{\"services\":[{\"serviceMenuId\":%d,\"staffId\":%d}]}"
+                                                .formatted(gel, staff)))
+                .andExpect(status().isNoContent());
+        assertThat(loggedStaff("UPDATE")).containsExactly(pinStaff);
+
+        mvc.perform(delete("/api/visits/{id}", visitId).session(session).with(csrf()))
+                .andExpect(status().isNoContent());
+        assertThat(loggedStaff("DELETE")).containsExactly(pinStaff);
+
+        // 없는 방문(이미 지움): 404이고 더 남지 않는다
+        mvc.perform(delete("/api/visits/{id}", visitId).session(session).with(csrf()))
+                .andExpect(status().isNotFound());
+        assertThat(loggedStaff("DELETE")).hasSize(1);
+    }
+
+    @Test
+    void 공용으로_풀면_현재_근무자로_남는다() throws Exception {
+        long visitId = visits.completeWithoutPayment(shop, reserve(customer, 11), null);
+        lockOnly("PAYMENT_EDIT"); // CUSTOMER_EDIT 공용
+
+        deleteVisit(visitId, shop, staff, false).andExpect(status().isNoContent());
+        assertThat(loggedStaff("DELETE")).containsExactly(staff);
     }
 
     private int visitCount() {

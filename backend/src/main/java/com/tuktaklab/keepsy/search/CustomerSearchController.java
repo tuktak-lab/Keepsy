@@ -1,5 +1,7 @@
 package com.tuktaklab.keepsy.search;
 
+import com.tuktaklab.keepsy.common.audit.AccessLogger;
+import com.tuktaklab.keepsy.common.audit.AccessLogger.Action;
 import com.tuktaklab.keepsy.common.security.FeatureKey;
 import com.tuktaklab.keepsy.common.security.RequireFeature;
 import com.tuktaklab.keepsy.common.security.ShopSession;
@@ -29,6 +31,7 @@ class CustomerSearchController {
 
     private final CustomerSearchService service;
     private final ShopSession shopSession;
+    private final AccessLogger accessLogger;
 
     /** 길이는 search_miss_log.keyword VARCHAR(100)에 맞춘다 (NFR-08) */
     record MissRequest(@NotBlank @Size(max = 100) String keyword) {}
@@ -39,7 +42,16 @@ class CustomerSearchController {
             @RequestParam(required = false) @NotBlank(message = "검색어를 입력해 주세요") String q,
             @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
-        return service.customers(shopSession.shopId(), q, page, size);
+        PageResponse<CustomerSearchQuery.Item> result =
+                service.customers(shopSession.shopId(), q, page, size);
+        // 고객 목록과 같은 기준: 돌려준 페이지의 고객만 조회로 남기고 검색어는 남기지 않는다 (NFR-06, CONTRACTS 1장).
+        // 화면은 이 API를 부르지 않지만(F74) 호출할 수 있는 API라 기록한다
+        accessLogger.recordAll(
+                FeatureKey.CUSTOMER_VIEW,
+                AccessLogger.CUSTOMER,
+                result.items().stream().map(CustomerSearchQuery.Item::customerId).toList(),
+                Action.VIEW);
+        return result;
     }
 
     /** 결과 없는 검색어 저장 (FR-SCH-06). 저장했든 안 했든 204 (F28) */

@@ -24,16 +24,26 @@ import org.springframework.stereotype.Repository;
 @RequiredArgsConstructor
 public class HistoryQuery {
 
-    /** 가져온 방문이면 메뉴 · 스탭이 null (A13) */
-    public record Service(String category, String menuName, StaffRef staff) {}
+    /**
+     * 가져온 방문이면 메뉴 · 스탭이 null (A13). {@code serviceMenuId} · {@code cycleExcluded}는 방문 수정 화면이 방문 전체
+     * 시술을 다시 보낼 때 쓴다 (F76)
+     */
+    public record Service(
+            String category,
+            String menuName,
+            StaffRef staff,
+            Long serviceMenuId,
+            boolean cycleExcluded) {}
 
     public record Photo(long photoId, OffsetDateTime uploadedAt) {}
 
     public record Note(long noteId, String content, StaffRef staff, OffsetDateTime createdAt) {}
 
+    /** {@code imported}: CSV로 가져온 방문 (FR-CUS-13). 방문 수정은 409라 화면이 수정 버튼을 두지 않는다 (F25, F76) */
     public record Visit(
             long visitId,
             LocalDate visitDate,
+            boolean imported,
             List<Service> services,
             List<Photo> photos,
             List<Note> notes) {}
@@ -53,7 +63,7 @@ public class HistoryQuery {
                         .addValue("offset", (long) page * size);
         List<Map<String, Object>> visits =
                 jdbc.queryForList(
-                        "SELECT id, visit_date FROM visit"
+                        "SELECT id, visit_date, source FROM visit"
                                 + " WHERE shop_id = :shopId AND customer_id = :customerId"
                                 + " ORDER BY visit_date DESC, id DESC LIMIT :limit OFFSET :offset",
                         p);
@@ -64,7 +74,7 @@ public class HistoryQuery {
 
         Map<Long, List<Service>> services =
                 group(
-                        "SELECT vs.visit_id, vs.category, m.name AS menu_name,"
+                        "SELECT vs.visit_id, vs.category, m.name AS menu_name, vs.service_menu_id, vs.cycle_excluded,"
                                 + " st.id AS staff_id, st.name AS staff_name"
                                 + " FROM visit_service vs"
                                 + " LEFT JOIN service_menu m ON m.id = vs.service_menu_id"
@@ -75,7 +85,11 @@ public class HistoryQuery {
                                 new Service(
                                         (String) r.get("category"),
                                         (String) r.get("menu_name"),
-                                        staff(r)));
+                                        staff(r),
+                                        r.get("service_menu_id") == null
+                                                ? null
+                                                : ((Number) r.get("service_menu_id")).longValue(),
+                                        Boolean.TRUE.equals(r.get("cycle_excluded"))));
         Map<Long, List<Photo>> photos =
                 withPhotos
                         ? group(
@@ -108,6 +122,7 @@ public class HistoryQuery {
                     return new Visit(
                             id,
                             ((Date) v.get("visit_date")).toLocalDate(),
+                            "IMPORT".equals(v.get("source")),
                             services.getOrDefault(id, List.of()),
                             photos.getOrDefault(id, List.of()),
                             notes.getOrDefault(id, List.of()));

@@ -6,6 +6,7 @@ import com.tuktaklab.keepsy.common.security.ShopSession;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -64,6 +65,35 @@ public class AccessLogger {
                 LocalDateTime.now(clock),
                 // 로컬 실행은 Next.js rewrites를 거쳐 127.0.0.1로 남는다 (배포 없음)
                 request.getRemoteAddr());
+    }
+
+    /**
+     * 목록 · 검색 결과로 돌려준 고객들을 한 번에 남긴다 (NFR-06, CONTRACTS 1장). 실제로 돌려준 페이지의 대상만 넘긴다(조건에 맞는 전체가 아님).
+     * 비었으면 아무것도 남기지 않는다. 기록 스탭 · 시각 · IP는 {@link #record}와 같다.
+     *
+     * @param feature 그 API의 기능 키 ({@code @RequireFeature}와 같은 값). 기록 스탭을 정한다
+     */
+    public void recordAll(
+            FeatureKey feature, String targetType, List<Long> targetIds, Action action) {
+        if (targetIds.isEmpty()) {
+            return;
+        }
+        HttpServletRequest request =
+                ((ServletRequestAttributes) RequestContextHolder.currentRequestAttributes())
+                        .getRequest();
+        long shopId = shopSession.shopId();
+        Long staffId = featureGuard.actorStaffId(request.getSession(false), feature);
+        LocalDateTime now = LocalDateTime.now(clock);
+        String ip = request.getRemoteAddr();
+        jdbc.batchUpdate(
+                "INSERT INTO access_log (shop_id, staff_id, target_type, target_id, action, accessed_at, ip)"
+                        + " VALUES (?, ?, ?, ?, ?, ?, ?)",
+                targetIds.stream()
+                        .map(id ->
+                                new Object[] {
+                                    shopId, staffId, targetType, id, action.name(), now, ip
+                                })
+                        .toList());
     }
 
     /** 2년 지난 행을 매일 새벽에 지운다 (D2). 스케줄링은 CampaignSchedulingConfig의 @EnableScheduling이 앱 전체에 켠다 */
