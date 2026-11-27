@@ -63,6 +63,38 @@ test('부분 일치가 여럿이면 더 구체적인(긴) 키워드의 기능으
   assert.equal(matchFeature(entries, '시술 메뉴 수정'), '/settings#st-menu');
 });
 
+test('영어로 입력해도 같은 기능을 찾는다 (대소문자 · 띄어쓰기 무시)', () => {
+  assert.equal(matchFeature(entries, 'sales'), '/analytics');
+  assert.equal(matchFeature(entries, 'Customer List'), '/customers');
+  assert.equal(matchFeature(entries, 'customer'), '/customers');
+  assert.equal(matchFeature(entries, 'booking'), '/reservations');
+  assert.equal(matchFeature(entries, 'campaign'), '/campaigns');
+  assert.equal(matchFeature(entries, 'CSV'), '/customers/import');
+  assert.equal(matchFeature(entries, 'virtual phone'), '/virtual-phone');
+  assert.equal(matchFeature(entries, 'shop settings'), '/settings');
+  assert.equal(matchFeature(entries, 'PIN'), '/settings');
+});
+
+test('영어에서도 더 구체적인(긴) 키워드의 기능으로 간다', () => {
+  assert.equal(matchFeature(entries, 'add customer'), '/customers/new'); // 'customer'보다 'add customer'
+  assert.equal(matchFeature(entries, 'new campaign'), '/campaigns/new'); // 'campaign'보다 'new campaign'
+  assert.equal(matchFeature(entries, "today's bookings"), '/dashboard'); // 'booking'보다 "today's bookings"
+  assert.equal(matchFeature(entries, 'consent reconfirmation'), '/campaigns/reconfirm'); // 'consent'보다 구체적
+  assert.equal(matchFeature(entries, 'customers due for deletion'), '/customers/retention');
+  assert.equal(matchFeature(entries, 'retention period'), '/settings#st-privacy');
+  assert.equal(matchFeature(entries, 'treatment menu'), '/settings#st-menu');
+  assert.equal(matchFeature(entries, 'staff pin'), '/settings#st-staff'); // 'pin'보다 'staff pin'
+  assert.equal(matchFeature(entries, 'day off'), '/settings#st-dayoff');
+  assert.equal(matchFeature(entries, 'sender number'), '/settings'); // 'send'보다 'sender number'
+  assert.equal(matchFeature(entries, 'send message'), '/campaigns/new'); // 'send'보다 'send message'
+});
+
+test('영어에서도 모호한 입력이 엉뚱한 화면으로 가지 않는다', () => {
+  assert.equal(matchFeature(entries, "today's sales"), '/analytics'); // "today's"만으로는 대시보드로 가지 않는다
+  assert.equal(matchFeature(entries, 'this week'), null);
+  assert.equal(matchFeature(entries, 'Minji Kim'), null);
+});
+
 test('모호한 입력이 엉뚱한 화면으로 가지 않는다', () => {
   assert.equal(matchFeature(entries, '오늘 매출'), '/analytics'); // "오늘"만으로는 대시보드로 가지 않는다
   assert.equal(matchFeature(entries, '이번 주'), null); // 기간 인식은 범위 제외 (F74)
