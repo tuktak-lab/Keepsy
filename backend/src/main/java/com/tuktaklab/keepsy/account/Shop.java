@@ -40,7 +40,9 @@ public class Shop {
     /** 로그인 잠금 시간 (FR-ACC-02, C1) */
     public static final Duration LOGIN_LOCK = Duration.ofMinutes(15);
 
-    /** PIN 연속 실패 허용 횟수. 매장 단위, 근무자 PIN과 잠긴 기능 PIN을 같이 센다 (FR-ACC-08 · 10, C22) */
+    /**
+     * PIN 누적 실패 허용 횟수 (성공해도 되돌리지 않음, F60). 매장 단위, 근무자 PIN과 잠긴 기능 PIN을 같이 센다 (FR-ACC-08 · 10, C22)
+     */
     public static final int PIN_MAX_FAILURES = 5;
 
     /** PIN 입력 차단 시간 (FR-ACC-08, C22) */
@@ -89,7 +91,7 @@ public class Shop {
     /** 이 시각 전까지 로그인 · 비밀번호 재확인을 막는다 (F14) */
     private LocalDateTime loginLockedUntil;
 
-    /** 차단 전 PIN 연속 실패 횟수 (F14) */
+    /** 차단 전 PIN 누적 실패 횟수. 성공해도 되돌리지 않는다 (F14 · F60) */
     private int pinFailCount;
 
     /** 이 시각 전까지 PIN 입력을 막는다 (F14) */
