@@ -1,4 +1,5 @@
 import { images } from '@/assets/images';
+import { t } from '@/lib/i18n';
 
 export function Photo(props: { kind?: string; h?: number | string; bg?: string; caption?: string; label?: string }) {
   function renderVals() {
@@ -15,7 +16,7 @@ export function Photo(props: { kind?: string; h?: number | string; bg?: string; 
       h: props.h || 90,
       bg: props.bg || '#E9E4DD',
       caption: props.caption ?? '',
-      label: props.label || '시술 사진',
+      label: props.label || t('common.photo.default'),
     };
   }
   const v = renderVals();

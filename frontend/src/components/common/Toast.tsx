@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { t } from '@/lib/i18n';
 
 // 전역 토스트: 어느 화면에서든 toast('저장했어요') / toast('겹쳐요', 'warn') 로 호출합니다.
 // 실제로 끝난 작업에만 호출하세요(가짜 완료 메시지 금지).
@@ -34,17 +35,17 @@ export function ToastHost() {
 
   return (
     <div className="kp-toasts" role="status" aria-live="polite">
-      {list.map((t) => (
-        <div key={t.id} className={`kp-toast ${t.kind}${t.leaving ? ' out' : ''}`}>
+      {list.map((item) => (
+        <div key={item.id} className={`kp-toast ${item.kind}${item.leaving ? ' out' : ''}`}>
           <span className="kp-toast-i" aria-hidden="true">
-            {ICON[t.kind]}
+            {ICON[item.kind]}
           </span>
-          <span>{t.msg}</span>
+          <span>{item.msg}</span>
           <button
             type="button"
             className="kp-toast-x"
-            aria-label="알림 닫기"
-            onClick={() => setList((l) => l.filter((x) => x.id !== t.id))}
+            aria-label={t('common.toast.close')}
+            onClick={() => setList((l) => l.filter((x) => x.id !== item.id))}
           >
             ×
           </button>
