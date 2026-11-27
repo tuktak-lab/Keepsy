@@ -43,9 +43,12 @@
   flex-direction: column;
   gap: 12px;
   padding: 24px 28px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--surface-card-border);
   border-radius: 20px;
-  background: #fffefd;
+  background: var(--surface-card);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-shadow), 0 0 0 1px var(--glass-edge);
 }
 
 .cardHead {
@@ -148,7 +151,7 @@
   padding: 0 16px;
   border: 1px solid #e3c9cd;
   border-radius: 999px;
-  background: #fff;
+  background: var(--surface-ghost);
   font: inherit;
   font-size: 13px;
   font-weight: 600;
@@ -225,9 +228,9 @@
   align-self: center;
   margin-top: 4px;
   padding: 8px 18px;
-  border: 1px solid var(--line);
+  border: 1.5px solid var(--wine-line);
   border-radius: 999px;
-  background: #fff;
+  background: var(--surface-ghost);
   font: inherit;
   font-size: 13px;
   color: var(--body);
@@ -251,13 +254,13 @@
 }
 
 .secondary {
-  border: 1px solid var(--line);
-  background: #fff;
-  color: var(--ink);
+  border: 1.5px solid var(--wine-line);
+  background: var(--surface-ghost);
+  color: var(--wine);
 }
 
 .secondary:hover {
-  background: #f8f2ee;
+  background: var(--surface-ghost-hover);
   text-decoration: none;
 }
 

@@ -49,6 +49,14 @@ html:has(.st-wrap){scroll-behavior:smooth}
 .st-def{display:grid;grid-template-columns:110px 1fr;gap:12px;padding:12px 0;border-top:1px solid #F1E4E0}
 .st-def:first-of-type{border-top:0}
 .st-savebar{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:12px}
+/* 저장 확인 팝업 (매장 정보): 모달과 같은 반투명 흰 면 + 와인 그림자 */
+.st-overlay{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(34,29,27,.34);animation:st-fade .18s ease}
+.st-dialog{width:100%;max-width:420px;box-sizing:border-box;padding:26px 28px 22px;border:1px solid rgba(255,255,255,.9);border-radius:22px;background:rgba(255,255,255,.94);box-shadow:0 30px 70px -10px rgba(110,60,72,.35),inset 0 1px 0 #fff;display:flex;flex-direction:column;gap:14px}
+.st-dialog h3{margin:0;font-size:18px;font-weight:700;color:#221D1B;letter-spacing:-.02em}
+.st-dialog p{margin:0;font-size:13.5px;line-height:1.65;color:#4A3F3B}
+.st-dialog b{color:#7A4450}
+.st-dialog-acts{display:flex;justify-content:flex-end;gap:10px;margin-top:4px}
+@keyframes st-fade{from{opacity:0}to{opacity:1}}
 .st-time[type="number"]{width:84px}
 .st-err{font-size:12.5px;color:#8F2F2F}
 .st-pushed ul{margin:8px 0;padding-left:18px}

@@ -42,9 +42,12 @@
   flex-direction: column;
   gap: 14px;
   padding: 24px 28px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--surface-card-border);
   border-radius: 20px;
-  background: #fffefd;
+  background: var(--surface-card);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-shadow), 0 0 0 1px var(--glass-edge);
 }
 
 .cardHead {
@@ -243,12 +246,12 @@
 }
 
 .secondary {
-  border: 1px solid var(--line);
-  background: #fff;
-  color: var(--ink);
+  border: 1.5px solid var(--wine-line);
+  background: var(--surface-ghost);
+  color: var(--wine);
 }
 
 .secondary:hover {
-  background: #f8f2ee;
+  background: var(--surface-ghost-hover);
   text-decoration: none;
 }
