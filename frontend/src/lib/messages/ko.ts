@@ -23,6 +23,8 @@ export const ko = {
   'shell.topbar.lock': '잠금',
   'shell.topbar.worker': '근무자 {name}',
   'shell.topbar.workerChecking': '근무자 확인 중',
+  'shell.topbar.workerFailed': '근무자를 확인하지 못했어요',
+  'shell.session.loadFailed': '매장 세션을 확인하지 못했어요. 잠시 후 다시 시도해 주세요.',
   'shell.topbar.switchWorker': '근무자 전환',
   'shell.topbar.logout': '로그아웃',
   // 사용 가이드 (#468). 상단바 버튼 · 팝오버 조작 문구, 탭별 단계 문구 (lib/usageGuide.ts)
