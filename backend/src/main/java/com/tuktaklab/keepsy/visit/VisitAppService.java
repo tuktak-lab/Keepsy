@@ -190,9 +190,11 @@ public class VisitAppService {
     /**
      * {@code DELETE /api/visits/{id}}: 방문 삭제 = 그 방문의 마감 되돌리기 (FR-VIS-03, F8). 한 트랜잭션에서 연결된 예약을 모두
      * 확정으로, 결제를 모두 취소 표시 · 방문 연결 해제(이력 보존), 시술 · 방문 메모 · 사진 행과 방문을 지운다. 사진 파일은 커밋 뒤에 지운다.
+     *
+     * @return 방문의 고객 ID (접근 로그 대상, NFR-06)
      */
     @Transactional
-    public void deleteVisit(long shopId, long visitId) {
+    public long deleteVisit(long shopId, long visitId) {
         Visit visit = lockVisit(shopId, visitId);
         if (visit.getCustomerId() == null) {
             // 되돌리면 다시 마감할 때 고객을 연결할 수 있어 "고객 없음 방문은 나중에 고객과 연결하지 않음"(E3)을 우회한다
@@ -208,14 +210,17 @@ public class VisitAppService {
         // 지운 방문을 빼고 다시 계산한다. 카테고리 방문이 남지 않으면 그 예측 행이 지워진다 (FR-PRD-01)
         refs.recalculatePrediction(shopId, visit.getCustomerId());
         // ponytail: 고객 마지막 방문일(FR-CUS-12)은 그 서비스가 생기면 여기서 부른다. 스냅샷 재평가 · 귀속 승계는 하지 않는다 (#71)
+        return visit.getCustomerId();
     }
 
     /**
      * {@code PATCH /api/visits/{id}}: 방문의 실제 시술 · 담당 스탭 · 주기 계산 제외 수정 (FR-VIS-03 · 05, F25). 고객이
      * 있으면 같은 트랜잭션에서 예측을 다시 계산한다. "앞으로 이 메뉴를 모두 제외할까요?" 안내는 화면이 메뉴 예측 속성으로 띄운다 (CONTRACTS 6장)
+     *
+     * @return 방문의 고객 ID. 고객 없음으로 마감한 방문이면 null (접근 로그 대상, NFR-06)
      */
     @Transactional
-    public void editVisit(long shopId, long visitId, List<Closing.Item> items) {
+    public Long editVisit(long shopId, long visitId, List<Closing.Item> items) {
         if (items == null || items.isEmpty()) {
             throw new ApiException(ErrorCode.INVALID, "실제 시술을 1개 이상 골라 주세요");
         }
@@ -233,6 +238,7 @@ public class VisitAppService {
         if (visit.getCustomerId() != null) {
             refs.recalculatePrediction(shopId, visit.getCustomerId());
         }
+        return visit.getCustomerId();
     }
 
     /**

@@ -134,6 +134,20 @@ class CustomerControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items[0].phone").value("010-****-1234"))
                 .andExpect(jsonPath("$.totalElements").value(1));
+        // 돌려준 페이지의 고객만 조회로 남긴다 (NFR-06, CONTRACTS 1장). 실제 저장은 CustomerSearchTest와 같은
+        // AccessLogger.recordAll
+        verify(accessLogger)
+                .recordAll(
+                        FeatureKey.CUSTOMER_VIEW, AccessLogger.CUSTOMER, List.of(3L), Action.VIEW);
+    }
+
+    @Test
+    void 목록을_PIN으로_잠그면_pin_required이고_접근_로그를_남기지_않는다() throws Exception {
+        when(settings.lockedFeatures(1L)).thenReturn(Set.of(FeatureKey.CUSTOMER_VIEW));
+        mvc.perform(get("/api/customers").session(signIn()))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("pin_required"));
+        org.mockito.Mockito.verifyNoInteractions(accessLogger);
     }
 
     @Test

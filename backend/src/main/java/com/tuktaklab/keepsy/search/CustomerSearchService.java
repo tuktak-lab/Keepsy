@@ -24,7 +24,6 @@ public class CustomerSearchService {
     public PageResponse<CustomerSearchQuery.Item> customers(
             long shopId, String q, int page, int size) {
         String term = q.strip();
-        // ponytail: 접근 로그(NFR-06)는 기록 수단(#12)이 머지되면 개인정보 조회로 남길지 정해 여기서 남긴다
         return new PageResponse<>(
                 query.find(shopId, term, page, size), page, size, query.count(shopId, term));
     }

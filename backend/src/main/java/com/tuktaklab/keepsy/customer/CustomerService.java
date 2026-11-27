@@ -455,7 +455,8 @@ public class CustomerService {
             int serviceCount,
             List<HistoryQuery.Service> services,
             List<HistoryPhoto> photos,
-            List<HistoryQuery.Note> notes) {}
+            List<HistoryQuery.Note> notes,
+            boolean imported) {}
 
     /**
      * 시술 히스토리북 (FR-CUS-07). 사진은 사진 동의(PHOTO) 최신 행이 동의일 때만 짧은 만료의 서명 URL로 준다 (NFR-07, F16).
@@ -490,7 +491,8 @@ public class CustomerService {
                                                                         ph.photoId(), shopId, now),
                                                                 ph.uploadedAt()))
                                                 .toList(),
-                                        v.notes()))
+                                        v.notes(),
+                                        v.imported()))
                         .toList();
         return new PageResponse<>(items, page, size, historyQuery.count(shopId, customerId));
     }

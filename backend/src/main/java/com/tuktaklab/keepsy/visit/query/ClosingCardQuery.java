@@ -2,6 +2,9 @@ package com.tuktaklab.keepsy.visit.query;
 
 import com.tuktaklab.keepsy.common.error.ApiException;
 import com.tuktaklab.keepsy.common.error.ErrorCode;
+import com.tuktaklab.keepsy.common.time.TimeConfig;
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -32,7 +35,12 @@ public class ClosingCardQuery {
             CustomerRef customer,
             List<Service> services,
             boolean photoAllowed,
-            List<String> consentsToRequest) {}
+            List<String> consentsToRequest,
+            List<Payment> payments) {}
+
+    /** 이 예약으로 등록한 결제 (F76). 취소된 결제도 이력으로 남긴다 */
+    public record Payment(
+            long paymentId, OffsetDateTime paidAt, int amount, String method, boolean canceled) {}
 
     public record CustomerRef(long id, String name) {}
 
@@ -126,6 +134,25 @@ public class ClosingCardQuery {
         List<String> toRequest = new ArrayList<>(customer == null ? List.of() : REQUESTABLE);
         toRequest.removeAll(agreed);
         Long visitId = r.get("visit_id") == null ? null : ((Number) r.get("visit_id")).longValue();
+        // 이 예약으로 등록한 결제만 (payment.reservation_id). 같은 방문에 묶인 다른 예약의 결제는 넣지 않는다. 확정 예약은 빈 목록이다:
+        // 방문 삭제(마감 되돌리기)로 확정이 된 예약에 남은 취소 결제는 다시 마감할 때의 결제가 아니다 (F8, F76)
+        List<Payment> payments =
+                confirmed
+                        ? List.of()
+                        : jdbc.query(
+                                "SELECT id, paid_at, amount, method, canceled FROM payment"
+                                        + " WHERE reservation_id = :id AND shop_id = :shopId"
+                                        + " ORDER BY paid_at, id",
+                                p,
+                                (rs, i) ->
+                                        new Payment(
+                                                rs.getLong("id"),
+                                                TimeConfig.offset(
+                                                        rs.getObject(
+                                                                "paid_at", LocalDateTime.class)),
+                                                rs.getInt("amount"),
+                                                rs.getString("method"),
+                                                rs.getBoolean("canceled")));
         return new Card(
                 reservationId,
                 status,
@@ -136,6 +163,7 @@ public class ClosingCardQuery {
                 customer,
                 services,
                 agreed.contains("PHOTO"),
-                toRequest);
+                toRequest,
+                payments);
     }
 }

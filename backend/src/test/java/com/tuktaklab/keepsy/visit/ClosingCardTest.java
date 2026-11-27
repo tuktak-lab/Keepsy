@@ -163,6 +163,106 @@ class ClosingCardTest {
                 .andExpect(jsonPath("$.consentsToRequest", empty()));
     }
 
+    private long reserveAt(Long customerId, long staffId, int hour) {
+        return reservations.create(
+                shop,
+                new NewReservation(
+                        customerId,
+                        staffId,
+                        DAY.atTime(hour, 0),
+                        null,
+                        null,
+                        false,
+                        null,
+                        List.of(gel)),
+                false);
+    }
+
+    private long closeWith(long reservationId, int amount, boolean noCustomer) {
+        return visits.close(
+                shop,
+                reservationId,
+                new Closing(
+                        List.of(new Item(gel, staff, false)),
+                        amount,
+                        PaymentMethod.CARD,
+                        null,
+                        noCustomer),
+                staff);
+    }
+
+    private long paymentId(long reservationId, int amount) {
+        return jdbc.queryForObject(
+                "SELECT id FROM payment WHERE reservation_id = ? AND amount = ?",
+                Long.class,
+                reservationId,
+                amount);
+    }
+
+    @Test
+    void 확정_예약의_결제는_빈_목록이다() throws Exception {
+        card(reserve(customer, false), shop, staff).andExpect(jsonPath("$.payments", empty()));
+    }
+
+    @Test
+    void 완료_예약은_그_예약의_결제를_추가_결제와_취소된_결제까지_결제_시각순으로_준다() throws Exception {
+        long r = reserve(customer, false);
+        closeWith(r, 50000, false);
+        // 완료 예약에 더한 추가 결제 (E4). 실제 시술은 읽기 전용이라 보내지 않는다
+        visits.close(shop, r, new Closing(null, 10000, PaymentMethod.CASH, null, false), staff);
+        visits.cancelPayment(shop, paymentId(r, 10000));
+
+        card(r, shop, staff)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.payments.length()").value(2))
+                .andExpect(jsonPath("$.payments[0].paymentId").value(paymentId(r, 50000)))
+                .andExpect(jsonPath("$.payments[0].amount").value(50000))
+                .andExpect(jsonPath("$.payments[0].method").value("CARD"))
+                .andExpect(jsonPath("$.payments[0].canceled").value(false))
+                .andExpect(jsonPath("$.payments[0].paidAt").exists())
+                .andExpect(jsonPath("$.payments[1].amount").value(10000))
+                .andExpect(jsonPath("$.payments[1].canceled").value(true));
+    }
+
+    @Test
+    void 고객_없는_완료_예약도_그_예약의_결제를_준다() throws Exception {
+        long r = reserve(null, false);
+        closeWith(r, 30000, true);
+
+        card(r, shop, staff)
+                .andExpect(jsonPath("$.customer").doesNotExist())
+                .andExpect(jsonPath("$.payments.length()").value(1))
+                .andExpect(jsonPath("$.payments[0].amount").value(30000));
+    }
+
+    @Test
+    void 같은_방문에_묶인_다른_예약의_결제는_넣지_않는다() throws Exception {
+        // 같은 고객 · 같은 날 두 예약을 마감하면 방문 하나가 된다 (C6)
+        long first = reserveAt(customer, staff, 11);
+        long second = reserveAt(customer, staff2, 14);
+        long visitA = closeWith(first, 40000, false);
+        long visitB = closeWith(second, 25000, false);
+        org.assertj.core.api.Assertions.assertThat(visitB).isEqualTo(visitA);
+
+        card(first, shop, staff)
+                .andExpect(jsonPath("$.payments.length()").value(1))
+                .andExpect(jsonPath("$.payments[0].amount").value(40000));
+        card(second, shop, staff)
+                .andExpect(jsonPath("$.payments.length()").value(1))
+                .andExpect(jsonPath("$.payments[0].amount").value(25000));
+    }
+
+    @Test
+    void 방문_삭제로_확정으로_돌아간_예약은_남은_취소_결제를_보이지_않는다() throws Exception {
+        long r = reserve(customer, false);
+        long visitId = closeWith(r, 50000, false);
+        visits.deleteVisit(shop, visitId); // 마감 되돌리기: 결제는 취소 표시로 남는다 (F8)
+
+        card(r, shop, staff)
+                .andExpect(jsonPath("$.status").value("CONFIRMED"))
+                .andExpect(jsonPath("$.payments", empty()));
+    }
+
     @Test
     void 취소된_예약은_conflict_다른_매장_예약은_not_found() throws Exception {
         long r = reserve(customer, false);
