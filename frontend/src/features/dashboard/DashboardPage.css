@@ -77,9 +77,9 @@ a{color:inherit;text-decoration:none}a:hover{text-decoration:none}
 .kp-line{flex:1;min-height:180px;display:flex;flex-direction:column;margin-top:auto;padding-top:14px}
 .kp-line-plot{position:relative;flex:1;min-height:150px;margin-left:30px}
 /* 가로 눈금선 (10건 간격)과 왼쪽 건수. 0은 바닥선 */
-.kp-line-tick{position:absolute;left:0;right:0;border-top:1px solid #E8DCD7}
-.kp-line-tick:first-child{border-top-color:#D9CBC4}
-.kp-line-tick em{position:absolute;right:calc(100% + 8px);top:-8px;font-style:normal;font-size:11.5px;line-height:16px;color:#A0938D}
+.kp-line-tick{position:absolute;left:0;right:0;border-top:1px dashed #CDBDB6}
+.kp-line-tick:first-child{border-top:1px solid #B9A8A1}
+.kp-line-tick em{position:absolute;right:calc(100% + 8px);top:-8px;font-style:normal;font-size:12px;line-height:16px;color:#6B605B}
 .kp-line-plot svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
 .kp-line-path{fill:none;stroke:#7A4450;stroke-width:2.5;stroke-linejoin:round;stroke-linecap:round;vector-effect:non-scaling-stroke}
 .kp-line-pt{position:absolute;width:10px;height:10px;margin:-5px 0 0 -5px;border-radius:50%;background:#fff;border:2px solid #7A4450;box-sizing:border-box}

@@ -40,7 +40,7 @@ const SEG_COLOR: Record<string, string> = { SCHEDULED: '#F0DAD6', DUE: '#7A4450'
 /** 오늘 예약은 처음에 이만큼만 보이고 [모두 보기]로 펼친다 */
 const TODAY_FOLD = 6;
 /** 이번 주 예약 그래프 세로 눈금의 기본 최대 건수 */
-const WEEK_SCALE = 50;
+const WEEK_SCALE = 40;
 
 const SEGS: { status: string; label: MessageKey; rule: MessageKey }[] = [
   { status: 'SCHEDULED', label: 'dashboard.seg.scheduled', rule: 'dashboard.seg.ruleScheduled' },
@@ -174,7 +174,7 @@ export default function DashboardPage() {
   const todayList = today?.today.filter((r) => isActive(r.status)) ?? null;
   const ch = channels?.period === period ? channels.value : null;
   const weekOpen = (today?.week ?? []).filter((_, i) => !weekClosed?.[i]);
-  // 세로 눈금은 0~50건 고정 (10건 간격). 50건을 넘는 날이 있으면 그 위 10단위까지 늘린다
+  // 세로 눈금은 0~40건 고정 (10건 간격). 40건을 넘는 날이 있으면 그 위 10단위까지 늘린다
   const weekScale = Math.max(WEEK_SCALE, Math.ceil(Math.max(0, ...weekOpen.map((d) => bookedCount(d.counts))) / 10) * 10);
   const weekTicks = Array.from({ length: weekScale / 10 + 1 }, (_, k) => k * 10);
   const weekY = (n: number) => 100 - (n / weekScale) * 90;
