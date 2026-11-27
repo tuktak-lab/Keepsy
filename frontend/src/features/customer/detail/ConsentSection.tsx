@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { AppLink } from '@/components/common/AppLink';
 import { toast } from '@/components/common/Toast';
 import { api } from '@/lib/api';
-import { OPTIONAL_CONSENTS, PRIVACY_TEXT } from '@/lib/consents';
+import { OPTIONAL_CONSENTS, PRIVACY_LABEL } from '@/lib/consents';
 import { formatDateTime } from '@/lib/format';
 import type { ConsentMethod } from '@/lib/newCustomer';
 import type { ConsentHistoryRow, ConsentItem, CustomerConsents } from '../types';
@@ -13,7 +13,7 @@ import { AreaError, errorText } from './common';
 // 정정은 실수했을 때만 쓰므로 동의 이력 안, 항목별 최신 행에만 둔다 (서버도 최신 행만 고친다).
 
 const LABEL: Record<ConsentItem, string> = {
-  PRIVACY: PRIVACY_TEXT.label,
+  PRIVACY: PRIVACY_LABEL,
   ...(Object.fromEntries(OPTIONAL_CONSENTS.map(([i, l]) => [i, l])) as Record<Exclude<ConsentItem, 'PRIVACY'>, string>),
 };
 /**

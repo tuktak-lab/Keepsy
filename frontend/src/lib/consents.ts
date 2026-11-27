@@ -1,11 +1,18 @@
 // 동의 항목 안내 문구와 태블릿 본인 체크의 변경 계산 (FR-CUS-09). 고객 등록 · 태블릿 본인 체크 화면이 같이 쓴다.
 import type { ConsentItem } from '../features/customer/types';
 
-/** 개인정보 수집 · 이용 동의 (필수). 보관 기간은 매장 설정값을 공용으로 읽을 수 없어 기본값으로 안내한다 (#33) */
-export const PRIVACY_TEXT = {
-  label: '개인정보 수집 · 이용 동의',
-  desc: '이름 · 휴대폰 번호와 방문 · 시술 기록을 고객 관리와 예약 안내에 씁니다. 마지막 방문 후 매장이 정한 보관 기간(기본 3년)이 지나면 파기합니다.',
-};
+/** 개인정보 수집 · 이용 동의 (필수) */
+export const PRIVACY_LABEL = '개인정보 수집 · 이용 동의';
+
+/**
+ * 개인정보 동의 고지 문구. 보관 기간은 매장 설정값이다 (GET /api/shop의 `retentionYears`, FR-SET-06 · F40).
+ * 아직 모르면(불러오는 중 · 실패) null이고, 그때는 화면이 개인정보 동의를 받지 않는다. 다른 값으로 대신 안내하지 않는다.
+ * 이미 받은 동의는 그때의 문구로 받은 것이라, 설정을 바꿔도 이력은 바꾸지 않는다.
+ */
+export function privacyDesc(retentionYears: number | null | undefined): string | null {
+  if (typeof retentionYears !== 'number' || !Number.isInteger(retentionYears) || retentionYears < 1) return null;
+  return `이름 · 휴대폰 번호와 방문 · 시술 기록을 고객 관리와 예약 안내에 씁니다. 마지막 방문 후 매장이 정한 보관 기간(${retentionYears}년)이 지나면 파기합니다.`;
+}
 
 /** 선택 동의 (CONTRACTS 3장 순서) */
 export const OPTIONAL_CONSENTS: [ConsentItem, string, string][] = [

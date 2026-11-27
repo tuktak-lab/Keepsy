@@ -4,7 +4,8 @@ import { AppLink } from '@/components/common/AppLink';
 import { toast } from '@/components/common/Toast';
 import { api, ApiError } from '@/lib/api';
 import { CONSENT_METHODS } from '@/lib/newCustomer';
-import { OPTIONAL_CONSENTS, PRIVACY_TEXT } from '@/lib/consents';
+import { OPTIONAL_CONSENTS, PRIVACY_LABEL, privacyDesc } from '@/lib/consents';
+import { useShop } from '@/hooks/useIndustries';
 import type {
   AcquisitionChannel,
   ConsentItem,
@@ -54,13 +55,17 @@ export default function CustomerNewPage() {
   const [errors, setErrors] = useState<Partial<Record<Field, string>>>({});
   const [error, setError] = useState('');
   const [pending, setPending] = useState(false);
+  // 동의서의 보관 기간은 매장 설정값 (FR-SET-06). 모르는 동안은 개인정보 동의를 받지 않는다
+  const [shopTry, setShopTry] = useState(0);
+  const shop = useShop(shopTry);
+  const privacyText = privacyDesc(shop?.retentionYears);
 
   const toggle = (item: ConsentItem) =>
     setConsents((list) => (list.includes(item) ? list.filter((c) => c !== item) : [...list, item]));
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (pending || !privacy || !method) return;
+    if (pending || !privacy || !method || !privacyText) return;
     setError('');
     setErrors({});
     setPending(true);
@@ -175,12 +180,24 @@ export default function CustomerNewPage() {
           <h2 id="consent" className={styles.cardTitle}>동의</h2>
 
           <label className={`${styles.consent} ${styles.required}`}>
-            <input type="checkbox" checked={privacy} onChange={(e) => setPrivacy(e.target.checked)} />
+            <input type="checkbox" checked={privacy && privacyText !== null} disabled={!privacyText} onChange={(e) => setPrivacy(e.target.checked)} />
             <span>
               <b>
-                {PRIVACY_TEXT.label} <em>필수</em>
+                {PRIVACY_LABEL} <em>필수</em>
               </b>
-              <span className={styles.consentDesc}>{PRIVACY_TEXT.desc}</span>
+              <span className={styles.consentDesc}>
+                {privacyText ??
+                  (shop === undefined ? (
+                    '매장의 보관 기간을 불러오는 중이에요.'
+                  ) : (
+                    <>
+                      매장의 보관 기간을 불러오지 못해 개인정보 동의를 받을 수 없어요.{' '}
+                      <button type="button" className={styles.secondary} onClick={() => setShopTry((n) => n + 1)}>
+                        다시 시도
+                      </button>
+                    </>
+                  ))}
+              </span>
             </span>
           </label>
           {fieldError('consents')}
@@ -227,7 +244,7 @@ export default function CustomerNewPage() {
           <AppLink href="/customers" className={styles.secondary}>
             취소
           </AppLink>
-          <button className={styles.primary} type="submit" disabled={pending || !privacy || !method}>
+          <button className={styles.primary} type="submit" disabled={pending || !privacy || !method || !privacyText}>
             {pending ? '등록 중…' : '고객 등록'}
           </button>
         </div>
