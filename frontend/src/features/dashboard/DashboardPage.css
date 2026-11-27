@@ -66,8 +66,10 @@ a{color:inherit;text-decoration:none}a:hover{text-decoration:none}
 .kp-legend i{width:10px;height:10px;border-radius:50%}
 .kp-chart{width:100%;height:auto;display:block;margin-top:6px}
 
-.kp-low{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(280px,1fr);gap:16px}
-@media (max-width:980px){.kp-low{grid-template-columns:1fr}}
+/* 대시보드 아래쪽: 두 열을 각각 세로로 쌓는다 (왼쪽 1.5 : 오른쪽 1) */
+.kp-cols{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(280px,1fr);gap:16px;align-items:start}
+.kp-col{display:flex;flex-direction:column;gap:16px;min-width:0}
+@media (max-width:980px){.kp-cols{grid-template-columns:1fr}}
 .kp-care{padding:20px 24px}
 .kp-care-row{display:flex;align-items:center;gap:14px;padding:14px 0;border-top:1px solid #F1E4E0}
 .kp-care-row:first-of-type{border-top:0}
