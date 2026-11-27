@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { ApiError, type PinPrompt } from '@/lib/api';
+import { attachPinHost, currentPin, requestPin, settlePin } from '@/lib/pinQueue';
 import { authenticatePin } from '@/lib/session';
 import { t } from '@/lib/i18n';
 
@@ -147,32 +148,19 @@ export function PinForm(props: { title: string; owner?: boolean; message?: strin
   );
 }
 
-// api.ts의 promptPin 자리: pin_required · owner_pin_required를 받으면 이 창을 띄우고, 인증되면 true
-type Open = PinPrompt & { resolve: (ok: boolean) => void };
-let show: ((open: Open) => void) | null = null;
-
+// api.ts의 promptPin 자리: pin_required · owner_pin_required를 받으면 이 창을 띄우고, 인증되면 true.
+// 직원 PIN · 원장 PIN 요청이 겹치면 lib/pinQueue.ts가 줄을 세워 하나씩 보여 준다 (#492)
 export function openPinDialog(prompt: PinPrompt): Promise<boolean> {
-  return new Promise((resolve) => {
-    if (!show) return resolve(false);
-    show({ ...prompt, resolve });
-  });
+  return requestPin(prompt);
 }
 
 export function PinDialogHost() {
-  const [open, setOpen] = useState<Open | null>(null);
-
-  useEffect(() => {
-    show = setOpen;
-    return () => {
-      show = null;
-    };
-  }, []);
+  const open = useSyncExternalStore(attachPinHost, currentPin, () => null);
 
   if (!open) return null;
 
   function close(ok: boolean) {
-    open?.resolve(ok);
-    setOpen(null);
+    settlePin(ok);
   }
 
   return (
@@ -184,6 +172,7 @@ export function PinDialogHost() {
       style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px', background: 'rgba(34,29,27,.32)' }}
     >
       <PinForm
+        key={open.id} // 다음 요청으로 넘어가면 입력 · 오류를 처음부터
         title={open.owner ? t('common.pin.titleOwner') : t('common.pin.titleStaff')}
         owner={open.owner}
         message={open.message}
