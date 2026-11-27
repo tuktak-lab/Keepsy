@@ -24,7 +24,6 @@ export const ko = {
   'shell.topbar.worker': '근무자 {name}',
   'shell.topbar.workerChecking': '근무자 확인 중',
   'shell.topbar.switchWorker': '근무자 전환',
-  'shell.topbar.switchWorkerLong': '근무자 전환하기',
   'shell.topbar.logout': '로그아웃',
   'common.toDashboard': '대시보드로 가기',
   'common.logoLabel': 'Keepsy 소개 화면으로',

@@ -24,7 +24,6 @@ export const en: Record<MessageKey, string> = {
   'shell.topbar.worker': 'Staff: {name}',
   'shell.topbar.workerChecking': 'Checking staff…',
   'shell.topbar.switchWorker': 'Switch staff',
-  'shell.topbar.switchWorkerLong': 'Switch staff',
   'shell.topbar.logout': 'Sign out',
   'common.toDashboard': 'Go to dashboard',
   'common.logoLabel': 'Go to the Keepsy intro page',
