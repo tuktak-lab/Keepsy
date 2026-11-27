@@ -1,19 +1,28 @@
 // 메시지 템플릿 규칙 (FR-CMP-03, C10). 서버 MessageTemplateService · TemplatePurpose와 같은 규칙을 화면에서 미리 보여 준다.
 // 최종 검사는 서버가 한다 (NFR-08).
 
+import { t } from './i18n.ts';
+import type { MessageKey } from './messages/ko.ts';
+
 /** 템플릿 용도 (CONTRACTS 3장) */
 export type TemplatePurpose = 'REVISIT' | 'CHECK_IN' | 'WIN_BACK' | 'CONSENT_RECONFIRM' | 'ETC';
 
 /** 캠페인 메시지 종류 (CONTRACTS 3장). 용도로 정해진다 */
 export type MessageKind = 'AD' | 'INFO';
 
-export const PURPOSES: [TemplatePurpose, string][] = [
-  ['REVISIT', '재방문 안내'],
-  ['CHECK_IN', '안부 · 혜택'],
-  ['WIN_BACK', '재방문 혜택'],
-  ['CONSENT_RECONFIRM', '동의 재확인'],
-  ['ETC', '기타'],
+export const PURPOSES: [TemplatePurpose, MessageKey][] = [
+  ['REVISIT', 'campaign.purpose.revisit'],
+  ['CHECK_IN', 'campaign.purpose.checkin'],
+  ['WIN_BACK', 'campaign.purpose.winback'],
+  ['CONSENT_RECONFIRM', 'campaign.purpose.reconfirm'],
+  ['ETC', 'campaign.purpose.etc'],
 ];
+
+/** 용도 이름 (문구는 읽을 때 정한다) */
+export const purposeLabel = (purpose: string): string => {
+  const found = PURPOSES.find(([p]) => p === purpose);
+  return found ? t(found[1]) : purpose;
+};
 
 /** 본문 상한 (CONTRACTS 2장 「2,000바이트 초과 메시지」) */
 export const MAX_BODY_BYTES = 2000;

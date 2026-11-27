@@ -5,6 +5,7 @@ import { api, ApiError, type Page } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
 import { MESSAGE_KIND_LABEL, normalizePhone } from "@/lib/virtualPhone";
 import styles from "./VirtualPhonePage.module.css";
+import { t } from "@/lib/i18n";
 
 // 가상 휴대폰 (FR-CMP-11 · 16). GET /api/virtual-phone/messages · POST /api/virtual-phone/unsubscribe.
 // 기능 키 CAMPAIGN_SEND(기본 PIN)는 서버가 검사하고, pin_required는 api.ts가 PIN 창을 띄워 다시 부른다 (NFR-04).
@@ -21,7 +22,7 @@ type InboxItem = {
 const SIZE = 20;
 const NOTICE_DELAY_MS = 4000;
 const errorText = (err: unknown) =>
-  err instanceof ApiError ? err.message : "잠시 후 다시 시도해 주세요";
+  err instanceof ApiError ? err.message : t('common.pin.tryLater');
 
 export default function VirtualPhonePage() {
   const [input, setInput] = useState("");
@@ -65,7 +66,7 @@ export default function VirtualPhonePage() {
     e.preventDefault();
     const target = normalizePhone(input);
     if (!target)
-      return setInputError("010으로 시작하는 11자리 번호를 입력해 주세요");
+      return setInputError(t('campaign.phone.badNumber'));
     setInputError("");
     setConfirm(false);
     setItems(null);
@@ -82,7 +83,7 @@ export default function VirtualPhonePage() {
         body: { phone },
         silent: true,
       });
-      toast("수신 거부를 처리했어요. 처리 안내는 잠시 뒤 도착해요");
+      toast(t('campaign.phone.unsubToast'));
       setConfirm(false);
       // 가상 발송기가 대기열을 3초마다 보내므로(VirtualMessageSender) 조금 기다렸다 다시 받는다. 야간이면 다음 08:00에 온다
       const count = (items?.length ?? 0) + 1;
@@ -99,22 +100,22 @@ export default function VirtualPhonePage() {
       <div className={styles.wrap}>
         <div className={styles.head}>
           <div>
-            <h1 className={styles.title}>가상 휴대폰</h1>
+            <h1 className={styles.title}>{t('campaign.phone.title')}</h1>
             <p className={styles.sub}>
-              고객 번호가 받은 메시지를 확인해요. 실제 문자는 오가지 않아요.
+              {t('campaign.phone.sub')}
             </p>
           </div>
           <AppLink href="/campaigns" className={styles.secondary}>
-            캠페인으로
+            {t('campaign.phone.toCampaigns')}
           </AppLink>
         </div>
 
         <div className={styles.layout}>
-          <section className={styles.card} aria-label="번호 선택">
-            <h2 className={styles.cardTitle}>번호 열기</h2>
+          <section className={styles.card} aria-label={t('campaign.phone.pickLabel')}>
+            <h2 className={styles.cardTitle}>{t('campaign.phone.openTitle')}</h2>
             <form className={styles.field} onSubmit={open} noValidate>
               <label className={styles.label} htmlFor="vp-phone">
-                고객 번호
+                {t('campaign.phone.customerNumber')}
               </label>
               <div className={styles.inputRow}>
                 <input
@@ -133,7 +134,7 @@ export default function VirtualPhonePage() {
                   className={styles.primary}
                   disabled={loading}
                 >
-                  열기
+                  {t('campaign.phone.open')}
                 </button>
               </div>
               {inputError && (
@@ -143,14 +144,13 @@ export default function VirtualPhonePage() {
               )}
             </form>
             <p className={styles.hint}>
-              받은 메시지를 최신순으로 보여 줘요.
+              {t('campaign.phone.helpLatest')}
               <br />
-              [수신거부]를 누르면 마케팅 수신이 철회되고, 처리 안내가 이
-              번호로 자동 발송돼요. 야간(21시~8시)에는 다음 날 8시에 발송돼요.
+              {t('campaign.phone.helpUnsub')}
             </p>
           </section>
 
-          <section className={styles.phone} aria-label="가상 휴대폰 화면">
+          <section className={styles.phone} aria-label={t('campaign.phone.screenLabel')}>
             <div className={styles.device}>
               <div className={styles.bezel}>
                 <div className={styles.screen}>
@@ -217,9 +217,9 @@ export default function VirtualPhonePage() {
                   </div>
                   <div className={styles.screenHead}>
                     <strong className="num">
-                      {phone ?? "번호를 열어 주세요"}
+                      {phone ?? t('campaign.phone.openNumber')}
                     </strong>
-                    {phone && <span>받은 메시지 {total}건</span>}
+                    {phone && <span>{t('campaign.phone.received', { n: total })}</span>}
                   </div>
 
                   <div className={styles.messages}>
@@ -229,15 +229,15 @@ export default function VirtualPhonePage() {
                       </p>
                     )}
                     {loading && items === null && (
-                      <p className={styles.empty}>불러오는 중…</p>
+                      <p className={styles.empty}>{t('common.loading')}</p>
                     )}
                     {!phone && !loading && !error && (
                       <p className={styles.empty}>
-                        왼쪽에서 번호를 입력하면 받은 메시지가 보여요.
+                        {t('campaign.phone.hint')}
                       </p>
                     )}
                     {items?.length === 0 && (
-                      <p className={styles.empty}>받은 메시지가 없어요.</p>
+                      <p className={styles.empty}>{t('campaign.phone.none')}</p>
                     )}
                     {items?.map((m) => (
                       <article
@@ -264,7 +264,7 @@ export default function VirtualPhonePage() {
                           phone && load(phone, items.length + SIZE)
                         }
                       >
-                        더 보기
+                        {t('customer.moreBtn')}
                       </button>
                     )}
                   </div>
@@ -275,12 +275,12 @@ export default function VirtualPhonePage() {
                         <div
                           className={styles.confirm}
                           role="alertdialog"
-                          aria-label="수신 거부 확인"
+                          aria-label={t('campaign.phone.confirmLabel')}
                         >
                           <span>
-                            이 번호의 마케팅 수신을 거부할까요?
+                            {t('campaign.phone.askUnsub')}
                             <br />
-                            처리 안내가 이 번호로 발송돼요.
+                            {t('campaign.phone.unsubNote')}
                           </span>
                           <span className={styles.confirmActions}>
                             <button
@@ -289,7 +289,7 @@ export default function VirtualPhonePage() {
                               disabled={busy}
                               onClick={unsubscribe}
                             >
-                              수신거부
+                              {t('campaign.phone.unsubBtn')}
                             </button>
                             <button
                               type="button"
@@ -297,7 +297,7 @@ export default function VirtualPhonePage() {
                               disabled={busy}
                               onClick={() => setConfirm(false)}
                             >
-                              취소
+                              {t('common.cancel')}
                             </button>
                           </span>
                         </div>
@@ -307,7 +307,7 @@ export default function VirtualPhonePage() {
                           className={styles.unsubscribe}
                           onClick={() => setConfirm(true)}
                         >
-                          수신거부
+                          {t('campaign.phone.unsubBtn')}
                         </button>
                       ))}
                     <span

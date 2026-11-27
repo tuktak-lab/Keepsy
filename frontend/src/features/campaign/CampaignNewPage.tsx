@@ -23,10 +23,11 @@ import {
 } from '@/lib/campaignNew';
 import { formatWon } from '@/lib/format';
 import { CATEGORIES, CATEGORY_LABEL, enabledCategories, type Category } from '@/lib/menus';
-import { PURPOSES, type TemplatePurpose } from '@/lib/messageTemplate';
+import { purposeLabel, type TemplatePurpose } from '@/lib/messageTemplate';
 import styleText from './CampaignsPage.css?inline';
 import { useIndustries } from '@/hooks/useIndustries';
 import { useStyleSheet } from '@/hooks/useStyleSheet';
+import { t as tr } from '@/lib/i18n';
 
 // 캠페인 작성 (FR-CMP-01~09 · 12 · 18). 경로: /campaigns/new (만든 뒤에는 ?id=로 이어서 발송)
 // 1) 대상 · 템플릿 · 대조군을 정해 캠페인을 만든다: POST /api/campaigns/targets(미리 계산) → POST /api/campaigns (DRAFT)
@@ -51,7 +52,6 @@ type Campaign = {
 type PreviewItem = { customerId: number; customerName: string | null; text: string | null; bytes: number | null; messageType: string | null; missingVariables: string[] };
 type Preview = { sendCount: number; controlCount: number; estimatedCost: number; unsendableCount: number; items: Page<PreviewItem> };
 
-const PURPOSE_LABEL = Object.fromEntries(PURPOSES) as Record<TemplatePurpose, string>;
 const MAX_CONTROL = 50;
 const unit = (u: string) => (n: number) => n + u;
 /** 예약 입력값(서울 'YYYY-MM-DDTHH:mm')이 야간 시각인지 (FR-CMP-07 · 09) */
@@ -59,7 +59,7 @@ const nightHour = (local: string) => {
   const h = Number(local.slice(11, 13));
   return local.length >= 13 && (h >= 21 || h < 8);
 };
-const errorText = (err: unknown) => (err instanceof ApiError ? err.message : '잠시 후 다시 시도해 주세요');
+const errorText = (err: unknown) => (err instanceof ApiError ? err.message : tr('common.pin.tryLater'));
 const fieldReasons = (err: unknown): Record<string, string> =>
   err instanceof ApiError && Array.isArray(err.details)
     ? Object.fromEntries((err.details as { field: string; reason: string }[]).map((d) => [d.field, d.reason]))
@@ -137,7 +137,7 @@ function SetupStep(props: { presetIds: number[]; presetCategory: string | null; 
   const recommended = templates?.find((t) => recommendedPurpose !== null && t.purpose === recommendedPurpose) ?? null;
   const template = templates?.find((t) => t.id === picked) ?? recommended ?? templates?.[0] ?? null;
   const statusInfo = TARGET_STATUSES.find((s) => s.status === status);
-  const defaultName = `${CATEGORY_LABEL[category]} ${statusInfo?.label ?? (customerIds.length ? '선택 고객' : '전체')} ${template ? PURPOSE_LABEL[template.purpose] : ''}`.trim();
+  const defaultName = `${CATEGORY_LABEL[category]} ${statusInfo ? tr(statusInfo.label) : customerIds.length ? tr('campaign.new.selectedCustomers') : tr('campaign.new.all')} ${template ? purposeLabel(template.purpose) : ''}`.trim();
   const controlCount = targets ? Math.floor((targets.targetCount * control) / 100) : 0;
   const sendCount = targets ? targets.targetCount - controlCount : 0;
 
@@ -154,7 +154,7 @@ function SetupStep(props: { presetIds: number[]; presetCategory: string | null; 
         body: { ...conditions, name: name.trim() || defaultName, templateId: template.id, controlPercent: control },
         silent: true,
       });
-      toast('캠페인을 만들었어요. 미리보기와 검토 뒤 발송해요');
+      toast(tr('campaign.new.toast'));
       router.replace(`/campaigns/new?id=${r.id}`);
     } catch (err) {
       setFieldErrors(fieldReasons(err));
@@ -166,69 +166,69 @@ function SetupStep(props: { presetIds: number[]; presetCategory: string | null; 
   return (
     <>
       <div className="cp-step">
-        <h3><i>1</i>시술 카테고리와 대상</h3>
-        <div className="cp-seg" role="group" aria-label="시술 카테고리">
+        <h3><i>1</i>{tr('campaign.new.step1')}</h3>
+        <div className="cp-seg" role="group" aria-label={tr('campaign.new.categoryLabel')}>
           {enabledCategories(industries).map((k) => (
             <button type="button" key={k} aria-pressed={category === k} onClick={() => setCategory(k)}>{CATEGORY_LABEL[k]}</button>
           ))}
         </div>
         {block === 'disabled' && (
           <div className="cp-warn" role="alert">
-            {CATEGORY_LABEL[category]} 업종은 매장 설정에서 꺼 두어 이 카테고리로는 캠페인을 만들 수 없어요. 위에서 켜 둔 업종을 고르거나{' '}
-            <AppLink href="/settings" style={{ color: '#8F2F2F', fontWeight: 600 }}>매장 설정에서 다시 켜 주세요 →</AppLink>
+            {tr('campaign.new.industryOff', { category: CATEGORY_LABEL[category] })}{' '}
+            <AppLink href="/settings" style={{ color: '#8F2F2F', fontWeight: 600 }}>{tr('campaign.new.industryOn')}</AppLink>
           </div>
         )}
         {block === 'failed' && (
           <div className="cp-warn" role="alert">
-            켜 둔 업종을 불러오지 못해 캠페인을 만들 수 없어요.{' '}
-            <button type="button" className="cp-lk" onClick={() => setIndustriesTry((n) => n + 1)}>다시 시도</button>
+            {tr('campaign.new.industryFailed')}{' '}
+            <button type="button" className="cp-lk" onClick={() => setIndustriesTry((n) => n + 1)}>{tr('common.retry')}</button>
           </div>
         )}
         {customerIds.length > 0 ? (
           <div className="cp-ok">
-            고른 고객 <b className="num">{customerIds.length}명</b>으로 시작했어요. 그중 {CATEGORY_LABEL[category]} 시술 기록이 있는 고객만 남아요.{' '}
-            <button type="button" className="cp-lk" onClick={() => { setCustomerIds([]); setStatus('DUE'); }}>조건으로 고르기</button>
+            {tr('campaign.new.pickedPre')}<b className="num">{tr('common.persons', { n: customerIds.length })}</b>{tr('campaign.new.pickedPost', { category: CATEGORY_LABEL[category] })}{' '}
+            <button type="button" className="cp-lk" onClick={() => { setCustomerIds([]); setStatus('DUE'); }}>{tr('campaign.new.byCondition')}</button>
           </div>
         ) : (
           <>
-            <div className="cp-seg" role="group" aria-label="예측 상태">
+            <div className="cp-seg" role="group" aria-label={tr('campaign.new.statusLabel')}>
               {TARGET_STATUSES.map((s) => (
-                <button type="button" key={s.status} aria-pressed={status === s.status} onClick={() => setStatus(s.status)}>{s.label}</button>
+                <button type="button" key={s.status} aria-pressed={status === s.status} onClick={() => setStatus(s.status)}>{tr(s.label)}</button>
               ))}
-              <button type="button" aria-pressed={status === null} onClick={() => setStatus(null)}>상태 무관</button>
+              <button type="button" aria-pressed={status === null} onClick={() => setStatus(null)}>{tr('campaign.new.anyStatus')}</button>
             </div>
             <span className="cp-note kp-fade" key={status ?? 'all'}>
               {statusInfo ? (
                 <>
-                  <b>{statusInfo.label}</b>: {statusInfo.desc}
+                  <b>{tr(statusInfo.label)}</b>: {tr(statusInfo.desc)}
                 </>
               ) : (
-                <>예측 상태와 상관없이 {CATEGORY_LABEL[category]} 시술 기록이 있는 고객 전체예요.</>
+                <>{tr('campaign.new.anyStatusNote', { category: CATEGORY_LABEL[category] })}</>
               )}
             </span>
           </>
         )}
 
         <button type="button" className="cp-lk" style={{ alignSelf: 'flex-start' }} onClick={() => setMore((m) => !m)} aria-expanded={more}>
-          {more ? '조건 접기' : '조건 더 보기 (방문 횟수 · 마지막 시술일)'}
+          {more ? tr('campaign.new.moreClose') : tr('campaign.new.moreOpen')}
         </button>
         {more && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16 }}>
             <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              <span className="cp-lbl">총 방문 횟수</span>
+              <span className="cp-lbl">{tr('campaign.new.visitCount')}</span>
               <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <input className="cp-fld num" type="number" min={0} value={visitMin} onChange={(e) => setVisitMin(e.target.value)} style={{ width: 80 }} aria-label="방문 횟수 최소" />
+                <input className="cp-fld num" type="number" min={0} value={visitMin} onChange={(e) => setVisitMin(e.target.value)} style={{ width: 80 }} aria-label={tr('campaign.new.visitMin')} />
                 <span className="cp-note">~</span>
-                <input className="cp-fld num" type="number" min={0} value={visitMax} onChange={(e) => setVisitMax(e.target.value)} style={{ width: 80 }} aria-label="방문 횟수 최대" />
-                <span className="cp-note">회</span>
+                <input className="cp-fld num" type="number" min={0} value={visitMax} onChange={(e) => setVisitMax(e.target.value)} style={{ width: 80 }} aria-label={tr('campaign.new.visitMax')} />
+                <span className="cp-note">{tr('campaign.new.times')}</span>
               </span>
             </label>
             <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              <span className="cp-lbl">{CATEGORY_LABEL[category]} 마지막 시술일</span>
+              <span className="cp-lbl">{tr('campaign.new.lastTreatment', { category: CATEGORY_LABEL[category] })}</span>
               <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <input className="cp-fld num" type="date" value={from} onChange={(e) => setFrom(e.target.value)} aria-label="마지막 시술일 시작" />
+                <input className="cp-fld num" type="date" value={from} onChange={(e) => setFrom(e.target.value)} aria-label={tr('campaign.new.lastFrom')} />
                 <span className="cp-note">~</span>
-                <input className="cp-fld num" type="date" value={to} onChange={(e) => setTo(e.target.value)} aria-label="마지막 시술일 끝" />
+                <input className="cp-fld num" type="date" value={to} onChange={(e) => setTo(e.target.value)} aria-label={tr('campaign.new.lastTo')} />
               </span>
             </label>
           </div>
@@ -240,28 +240,28 @@ function SetupStep(props: { presetIds: number[]; presetCategory: string | null; 
           ) : (
             <>
               <span style={{ fontWeight: 600 }} className="num">
-                발송할 수 있는 고객 <CountUp value={targets?.targetCount ?? 0} duration={300} format={unit('명')} />
-                {!current && <span className="cp-note" style={{ fontWeight: 400, marginLeft: 8 }}>다시 세는 중…</span>}
+                {tr('campaign.new.reachable')}<CountUp value={targets?.targetCount ?? 0} duration={300} format={unit(tr('campaign.unit.persons'))} />
+                {!current && <span className="cp-note" style={{ fontWeight: 400, marginLeft: 8 }}>{tr('campaign.new.recounting')}</span>}
               </span>
               <div className="cp-excl">
                 {EXCLUSION_LABEL.map(([code, label]) => (
                   <span className="cp-ex" key={code}>
-                    {label} 제외 <b className="num">{targets?.excludedCounts[code] ?? 0}</b>
+                    {tr('campaign.new.excluded', { reason: tr(label) })} <b className="num">{targets?.excludedCounts[code] ?? 0}</b>
                   </span>
                 ))}
               </div>
-              <span className="cp-note">수신 동의가 없거나 수신 거부했거나, 재발송 제한 기간 안에 광고를 받은 고객은 자동으로 빠져요.</span>
+              <span className="cp-note">{tr('campaign.new.excludeNote')}</span>
             </>
           )}
         </div>
       </div>
 
       <div className="cp-step">
-        <h3><i>2</i>템플릿</h3>
+        <h3><i>2</i>{tr('campaign.new.step2')}</h3>
         {templateError && <div className="cp-warn">{templateError}</div>}
         {templates?.length === 0 && (
           <div className="cp-warn">
-            광고용 템플릿이 없어요. <AppLink href="/campaigns/templates" style={{ color: '#8F2F2F', fontWeight: 600 }}>템플릿 만들기 →</AppLink>
+            {tr('campaign.new.noAdTemplates')}<AppLink href="/campaigns/templates" style={{ color: '#8F2F2F', fontWeight: 600 }}>{tr('campaign.new.createTemplate')}</AppLink>
           </div>
         )}
         <div className="cp-tpls">
@@ -269,35 +269,35 @@ function SetupStep(props: { presetIds: number[]; presetCategory: string | null; 
             <button type="button" className="cp-tpl" key={t.id} aria-pressed={template?.id === t.id} onClick={() => setPicked(t.id)}>
               <b>
                 {t.name}
-                {recommended?.id === t.id && <span className="cp-chip" style={{ background: '#F1E4E0', color: '#7A4450', marginLeft: 6 }}>추천</span>}
+                {recommended?.id === t.id && <span className="cp-chip" style={{ background: '#F1E4E0', color: '#7A4450', marginLeft: 6 }}>{tr('campaign.new.recommended')}</span>}
               </b>
-              <span className="cp-note">{PURPOSE_LABEL[t.purpose]}</span>
+              <span className="cp-note">{purposeLabel(t.purpose)}</span>
             </button>
           ))}
         </div>
         {template && (
           <div className="cp-box">
-            <span className="cp-note">본문 (변수는 고객마다 바뀌고, (광고) 표기와 수신 거부 안내는 발송할 때 자동으로 붙어요)</span>
+            <span className="cp-note">{tr('campaign.new.bodyNote')}</span>
             <span style={{ fontSize: 13.5, whiteSpace: 'pre-line' }}>{template.body}</span>
           </div>
         )}
-        <AppLink href="/campaigns/templates" className="cp-lk" style={{ alignSelf: 'flex-start' }}>템플릿 관리</AppLink>
+        <AppLink href="/campaigns/templates" className="cp-lk" style={{ alignSelf: 'flex-start' }}>{tr('campaign.new.manageTemplates')}</AppLink>
       </div>
 
       <div className="cp-step">
-        <h3><i>3</i>대조군과 이름</h3>
+        <h3><i>3</i>{tr('campaign.new.step3')}</h3>
         <label style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}>
-          <span className="cp-lbl">대조군 비율</span>
+          <span className="cp-lbl">{tr('campaign.new.controlPercent')}</span>
           <input type="range" min={0} max={MAX_CONTROL} step={5} value={control} onChange={(e) => setControl(Number(e.target.value))} style={{ accentColor: '#7A4450' }} />
-          <input className="cp-fld num" type="number" min={0} max={MAX_CONTROL} value={control} onChange={(e) => setControl(Math.max(0, Math.min(MAX_CONTROL, Number(e.target.value) || 0)))} style={{ width: 80 }} aria-label="대조군 비율(%)" />
-          <span className="cp-note">% · 일부 고객에게는 보내지 않고, 성과 분석에서 보낸 고객과 비교해요.</span>
+          <input className="cp-fld num" type="number" min={0} max={MAX_CONTROL} value={control} onChange={(e) => setControl(Math.max(0, Math.min(MAX_CONTROL, Number(e.target.value) || 0)))} style={{ width: 80 }} aria-label={tr('campaign.new.controlPercentAria')} />
+          <span className="cp-note">{tr('campaign.new.controlNote')}</span>
         </label>
         <div className="cp-stats">
-          <div className="cp-stat"><b className="num">{sendCount}명</b><span>발송 (예상)</span></div>
-          <div className="cp-stat"><b className="num">{controlCount}명</b><span>대조군 (예상)</span></div>
+          <div className="cp-stat"><b className="num">{tr('common.persons', { n: sendCount })}</b><span>{tr('campaign.new.expectSend')}</span></div>
+          <div className="cp-stat"><b className="num">{tr('common.persons', { n: controlCount })}</b><span>{tr('campaign.new.expectControl')}</span></div>
         </div>
         <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <span className="cp-lbl">캠페인 이름</span>
+          <span className="cp-lbl">{tr('campaign.new.nameLabel')}</span>
           <input className="cp-fld" value={name} maxLength={100} placeholder={defaultName} onChange={(e) => setName(e.target.value)} aria-invalid={Boolean(fieldErrors.name)} />
           {fieldErrors.name && <span style={{ color: '#8F2F2F', fontSize: 12 }}>{fieldErrors.name}</span>}
         </label>
@@ -306,9 +306,9 @@ function SetupStep(props: { presetIds: number[]; presetCategory: string | null; 
       <div className="cp-step">
         {createError && <div className="cp-warn" role="alert">{createError}</div>}
         <div className="cp-btns">
-          <span className="cp-note">만든 뒤 고객별 문구를 미리 보고, 검토 체크를 해야 발송할 수 있어요.</span>
+          <span className="cp-note">{tr('campaign.new.afterCreate')}</span>
           <button type="button" className="cp-btn p" disabled={!createReady} onClick={create}>
-            {creating ? '만드는 중…' : '캠페인 만들고 미리보기'}
+            {creating ? tr('campaign.new.creating') : tr('campaign.new.createBtn')}
           </button>
         </div>
       </div>
@@ -350,12 +350,12 @@ function SendStep({ id }: { id: number }) {
   }, [id]);
 
   if (loadError) return <div className="cp-warn" role="alert">{loadError}</div>;
-  if (!campaign) return <p className="cp-note">불러오는 중…</p>;
+  if (!campaign) return <p className="cp-note">{tr('common.loading')}</p>;
   if (campaign.status !== 'DRAFT') {
     return (
       <div className="cp-ok">
-        이 캠페인은 이미 {CAMPAIGN_STATUS_LABEL[campaign.status] ?? campaign.status} 상태예요.{' '}
-        <AppLink href="/campaigns" style={{ color: '#7A4450', fontWeight: 600 }}>캠페인 목록으로 →</AppLink>
+        {tr('campaign.new.alreadyPre')}{CAMPAIGN_STATUS_LABEL[campaign.status] ?? campaign.status}{tr('campaign.new.alreadyPost')}{' '}
+        <AppLink href="/campaigns" style={{ color: '#7A4450', fontWeight: 600 }}>{tr('campaign.new.toListLink')}</AppLink>
       </div>
     );
   }
@@ -380,12 +380,12 @@ function SendStep({ id }: { id: number }) {
     try {
       if (mode === 'now') {
         const r = await api<{ sendCount: number; skippedCount: number }>(`/api/campaigns/${id}/send`, { method: 'POST', silent: true });
-        toast(`가상 발송했어요 · ${r.sendCount}건${r.skippedCount ? ` (발송 시점에 ${r.skippedCount}명 제외)` : ''}`);
+        toast(`${tr('campaign.new.sentToast', { n: r.sendCount })}${r.skippedCount ? tr('campaign.new.sentSkipped', { n: r.skippedCount }) : ''}`);
       } else {
         const iso = seoulLocalToIso(at);
-        if (!iso) throw new ApiError(400, 'invalid', '예약 시각을 골라 주세요');
+        if (!iso) throw new ApiError(400, 'invalid', tr('campaign.new.needTime'));
         await api(`/api/campaigns/${id}/schedule`, { method: 'PUT', body: { scheduledAt: iso }, silent: true });
-        toast(`${at.replace('T', ' ')}에 예약 발송해요`);
+        toast(tr('campaign.new.scheduledToast', { at: at.replace('T', ' ') }));
       }
       router.push('/campaigns');
     } catch (err) {
@@ -399,7 +399,7 @@ function SendStep({ id }: { id: number }) {
     setError('');
     try {
       await api(`/api/campaigns/${id}/cancel`, { method: 'POST', silent: true });
-      toast('캠페인을 취소했어요', 'warn');
+      toast(tr('campaign.canceledToast'), 'warn');
       router.push('/campaigns');
     } catch (err) {
       setError(errorText(err));
@@ -412,51 +412,51 @@ function SendStep({ id }: { id: number }) {
       <div className="cp-step">
         <div className="cp-row2">
           <h3 style={{ fontSize: 18 }}>{campaign.name}</h3>
-          <span className="cp-chip" style={{ background: '#F5EBD3', color: '#6B4509' }}>작성 중</span>
+          <span className="cp-chip" style={{ background: '#F5EBD3', color: '#6B4509' }}>{tr('campaign.new.draftChip')}</span>
         </div>
         <span className="cp-meta">
-          {campaign.category ? CATEGORY_LABEL[campaign.category] : '동의 재확인 안내'} · 대상 {campaign.targetCount}명 · 대조군 {campaign.controlCount}명 ({campaign.controlPercent}%)
+          {tr('campaign.new.metaLine', { category: campaign.category ? CATEGORY_LABEL[campaign.category] : tr('customer.msgKind.reconfirm'), n: campaign.targetCount, control: campaign.controlCount, percent: campaign.controlPercent })}
         </span>
       </div>
 
       <div className="cp-step">
-        <h3><i>4</i>미리보기</h3>
+        <h3><i>4</i>{tr('campaign.new.step4')}</h3>
         {previewError ? (
           <div className="cp-warn" role="alert">
             {previewError}
             {previewError.includes('매장 정보') && (
               <>
                 {' '}
-                <AppLink href="/settings" style={{ color: '#8F2F2F', fontWeight: 600 }}>매장 설정으로 →</AppLink>
+                <AppLink href="/settings" style={{ color: '#8F2F2F', fontWeight: 600 }}>{tr('campaign.new.toSettings')}</AppLink>
               </>
             )}
           </div>
         ) : !preview ? (
-          <p className="cp-note">불러오는 중…</p>
+          <p className="cp-note">{tr('common.loading')}</p>
         ) : (
           <>
             <div className="cp-stats">
-              <div className="cp-stat"><b className="num">{preview.sendCount}명</b><span>발송</span></div>
-              <div className="cp-stat"><b className="num">{preview.controlCount}명</b><span>대조군 (보내지 않음)</span></div>
-              <div className="cp-stat"><b className="num">{formatWon(preview.estimatedCost)}</b><span>예상 비용 (가상 단가)</span></div>
-              <div className="cp-stat"><b className="num" style={preview.unsendableCount ? { color: '#8F2F2F' } : undefined}>{preview.unsendableCount}명</b><span>발송 불가</span></div>
+              <div className="cp-stat"><b className="num">{tr('common.persons', { n: preview.sendCount })}</b><span>{tr('campaign.new.statSend')}</span></div>
+              <div className="cp-stat"><b className="num">{tr('common.persons', { n: preview.controlCount })}</b><span>{tr('campaign.new.statControl')}</span></div>
+              <div className="cp-stat"><b className="num">{formatWon(preview.estimatedCost)}</b><span>{tr('campaign.new.statCost')}</span></div>
+              <div className="cp-stat"><b className="num" style={preview.unsendableCount ? { color: '#8F2F2F' } : undefined}>{tr('common.persons', { n: preview.unsendableCount })}</b><span>{tr('campaign.new.statUnsendable')}</span></div>
             </div>
             {preview.unsendableCount > 0 && (
-              <div className="cp-warn">발송 불가 고객은 보내지 않아요. 변수 값이 없거나 2,000바이트를 넘거나 삭제된 고객이에요.</div>
+              <div className="cp-warn">{tr('campaign.new.unsendableWarn')}</div>
             )}
             <div className="cp-pv">
-              <div className="cp-phone" aria-label="가상 휴대폰 미리보기">
-                <div className="top">가상 휴대폰 · 문자 메시지</div>
-                <div className="cp-bubble kp-fade" key={item?.customerId ?? 0}>{item?.text ?? '이 고객에게는 보낼 수 없어요.'}</div>
+              <div className="cp-phone" aria-label={tr('campaign.new.phoneLabel')}>
+                <div className="top">{tr('campaign.new.phoneTop')}</div>
+                <div className="cp-bubble kp-fade" key={item?.customerId ?? 0}>{item?.text ?? tr('campaign.new.cannotSendTo')}</div>
               </div>
               <div style={{ flex: '1 1 240px', display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  <span className="cp-lbl">미리 볼 고객</span>
+                  <span className="cp-lbl">{tr('campaign.new.previewCustomer')}</span>
                   <select className="cp-fld" value={pv} onChange={(e) => setPv(Number(e.target.value))}>
                     {preview.items.items.map((x, i) => (
                       <option key={x.customerId} value={i}>
-                        {x.customerName ?? '삭제된 고객'}
-                        {x.messageType ? '' : ' (발송 불가)'}
+                        {x.customerName ?? tr('campaign.list.deletedCustomer')}
+                        {x.messageType ? '' : tr('campaign.new.cannotSendSuffix')}
                       </option>
                     ))}
                   </select>
@@ -464,18 +464,18 @@ function SendStep({ id }: { id: number }) {
                 {item && (
                   <div className="cp-box">
                     <span style={{ fontSize: 13 }} className="num">
-                      {item.messageType ?? '발송 불가'} · {item.bytes ?? '—'}바이트
+                      {item.messageType ?? tr('campaign.new.statUnsendable')} · {tr('campaign.new.bytesUnit', { n: item.bytes ?? '—' })}
                     </span>
-                    {item.missingVariables.length > 0 && <span className="cp-note">값이 없는 변수: {item.missingVariables.join(', ')}</span>}
+                    {item.missingVariables.length > 0 && <span className="cp-note">{tr('campaign.new.missingVars', { vars: item.missingVariables.join(', ') })}</span>}
                     <span className="cp-note">
-                      90바이트 이하는 SMS, 2,000바이트 이하는 LMS예요.{' '}
+                      {tr('campaign.new.smsNote')}
                       {campaign.messageKind === 'INFO'
-                        ? '동의 재확인 안내라 (광고) 표기는 붙지 않아요.'
-                        : '(광고) 표기 · 매장 정보 · 무료 수신거부 안내는 자동으로 붙고 지울 수 없어요.'}
+                        ? tr('campaign.new.noAdLabel')
+                        : tr('campaign.new.autoLabel')}
                     </span>
                   </div>
                 )}
-                {preview.items.totalElements > preview.items.items.length && <span className="cp-note">앞 {preview.items.items.length}명만 미리 볼 수 있어요.</span>}
+                {preview.items.totalElements > preview.items.items.length && <span className="cp-note">{tr('campaign.new.firstOnly', { n: preview.items.items.length })}</span>}
               </div>
             </div>
           </>
@@ -483,50 +483,50 @@ function SendStep({ id }: { id: number }) {
       </div>
 
       <div className="cp-step">
-        <h3><i>5</i>발송 시점</h3>
-        <div className="cp-seg" role="group" aria-label="발송 방식">
-          <button type="button" aria-pressed={mode === 'now'} onClick={() => setMode('now')}>즉시 발송</button>
-          <button type="button" aria-pressed={mode === 'schedule'} onClick={() => setMode('schedule')}>예약 발송</button>
+        <h3><i>5</i>{tr('campaign.new.step5')}</h3>
+        <div className="cp-seg" role="group" aria-label={tr('campaign.new.modeLabel')}>
+          <button type="button" aria-pressed={mode === 'now'} onClick={() => setMode('now')}>{tr('campaign.new.modeNow')}</button>
+          <button type="button" aria-pressed={mode === 'schedule'} onClick={() => setMode('schedule')}>{tr('campaign.new.modeSchedule')}</button>
         </div>
         {mode === 'schedule' && (
           <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span className="cp-lbl">예약 시각</span>
+            <span className="cp-lbl">{tr('campaign.new.scheduleTime')}</span>
             <input className="cp-fld num" type="datetime-local" value={at} min={seoulLocalInput(new Date())} onChange={(e) => setAt(e.target.value)} />
           </label>
         )}
         {(nightNow || (mode === 'schedule' && nightHour(at))) && (
           <div className="cp-warn">
             {campaign.messageKind === 'INFO'
-              ? '동의 재확인 안내는 야간(21시~다음 날 08시)에 보낼 수 없어요. 낮 시각으로 예약해 주세요.'
-              : '야간(21시~다음 날 08시)에는 보낼 고객 전원이 야간 광고 수신에 동의했을 때만 보낼 수 있어요. 아니면 낮 시각으로 예약해 주세요.'}
+              ? tr('campaign.new.nightInfo')
+              : tr('campaign.new.nightAd')}
           </div>
         )}
-        <span className="cp-note">발송할 때 수신 동의와 하루 발송 한도를 다시 확인해요. 그사이 동의를 철회한 고객은 빠져요.</span>
+        <span className="cp-note">{tr('campaign.new.recheck')}</span>
       </div>
 
       <div className="cp-step">
-        <h3><i>6</i>검토 후 발송</h3>
+        <h3><i>6</i>{tr('campaign.new.step6')}</h3>
         <label className="cp-check">
           <input type="checkbox" checked={reviewed} onChange={(e) => review(e.target.checked)} />
-          <span>대상과 문구를 검토했어요. 다른 앱 예약 목록과 대조해 이미 예약한 고객이 없음을 확인했어요.</span>
+          <span>{tr('campaign.new.reviewCheck')}</span>
         </label>
-        {campaign.reviewedBy && reviewed && <span className="cp-note">검토 기록: {campaign.reviewedBy.name}</span>}
+        {campaign.reviewedBy && reviewed && <span className="cp-note">{tr('campaign.new.reviewRecord', { name: campaign.reviewedBy.name })}</span>}
         {error && <div className="cp-warn" role="alert">{error}</div>}
         <div className="cp-btns">
           {confirmCancel ? (
             <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span className="cp-note">이 캠페인을 취소할까요?</span>
-              <button type="button" className="cp-btn" style={{ color: '#8F2F2F' }} disabled={busy} onClick={cancel}>취소하기</button>
-              <button type="button" className="cp-btn" disabled={busy} onClick={() => setConfirmCancel(false)}>그대로 두기</button>
+              <span className="cp-note">{tr('campaign.new.askCancel')}</span>
+              <button type="button" className="cp-btn" style={{ color: '#8F2F2F' }} disabled={busy} onClick={cancel}>{tr('campaign.new.doCancel')}</button>
+              <button type="button" className="cp-btn" disabled={busy} onClick={() => setConfirmCancel(false)}>{tr('campaign.new.keep')}</button>
             </span>
           ) : (
-            <button type="button" className="cp-btn" disabled={busy} onClick={() => setConfirmCancel(true)}>캠페인 취소</button>
+            <button type="button" className="cp-btn" disabled={busy} onClick={() => setConfirmCancel(true)}>{tr('campaign.new.cancelBtn')}</button>
           )}
           <button type="button" className="cp-btn p" disabled={busy || !reviewed || !preview || preview.sendCount === 0} onClick={send}>
-            {busy ? '처리 중…' : mode === 'now' ? `${preview?.sendCount ?? 0}명에게 가상 발송` : '예약 발송 등록'}
+            {busy ? tr('common.processing') : mode === 'now' ? tr('campaign.new.sendNow', { n: preview?.sendCount ?? 0 }) : tr('campaign.new.registerSchedule')}
           </button>
         </div>
-        {!reviewed && <span className="cp-note">검토 체크를 해야 발송할 수 있어요. MVP는 가상 발송이라 실제 문자는 나가지 않아요.</span>}
+        {!reviewed && <span className="cp-note">{tr('campaign.new.needReview')}</span>}
       </div>
     </>
   );
@@ -536,21 +536,21 @@ export default function CampaignNewPage() {
   useStyleSheet('CampaignsPage', styleText);
   return (
     <>
-      <PinGate id="campaign-new" title="새 캠페인 만들기">
+      <PinGate id="campaign-new" title={tr('campaign.new.pageTitle')}>
         <div className="cp-wrap">
           <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-end', gap: 16 }}>
             <div>
-              <h1 className="cp-h1">새 캠페인 만들기</h1>
-              <p className="cp-sub">시술 카테고리 하나를 정해 대상을 고르고, 미리보기와 검토를 거쳐 발송해요.</p>
+              <h1 className="cp-h1">{tr('campaign.new.pageTitle')}</h1>
+              <p className="cp-sub">{tr('campaign.new.pageSub')}</p>
             </div>
-            <AppLink href="/campaigns" className="cp-btn">캠페인 목록</AppLink>
+            <AppLink href="/campaigns" className="cp-btn">{tr('campaign.new.toList')}</AppLink>
           </div>
-          <section className="cp-card cp-main" aria-label="캠페인 작성">
+          <section className="cp-card cp-main" aria-label={tr('campaign.new.formLabel')}>
             <div className="cp-main-in">
               <Body />
             </div>
           </section>
-          <p className="cp-foot">마케팅 수신 동의 고객에게만 발송해요. 문구는 템플릿으로 만들고 자동 발송되지 않으며, 검토 체크가 필요해요. MVP는 가상 발송이에요.</p>
+          <p className="cp-foot">{tr('campaign.new.foot')}</p>
         </div>
       </PinGate>
     </>

@@ -7,6 +7,7 @@ import { CAMPAIGN_STATUS_LABEL, SEND_STATUS_LABEL, rateText } from '@/lib/campai
 import { formatDateTime, formatWon } from '@/lib/format';
 import { CATEGORY_LABEL, type Category } from '@/lib/menus';
 import styleText from '../reservation/SchedulePage.css?inline';
+import { t } from '@/lib/i18n';
 
 // 캠페인 결과 (FR-ANL-01 · 04 · 09, FR-CMP-10). 경로: /campaigns/detail?id=
 // API (docs CONTRACTS 4장): GET /api/campaigns/{id} (고객별 발송 결과) · …/funnel · …/control-comparison (CAMPAIGN_VIEW), …/revenue (SALES_ANALYTICS)
@@ -48,7 +49,7 @@ type Control = {
 };
 type Loaded = { id: number; campaign?: Campaign; funnel?: Funnel; control?: Control; error?: string };
 
-const errorText = (err: unknown) => (err instanceof ApiError ? err.message : '잠시 후 다시 열어 주세요');
+const errorText = (err: unknown) => (err instanceof ApiError ? err.message : t('campaign.tryReopen'));
 
 export default function CampaignDetailPage() {
   useStyleSheet('SchedulePage', styleText);
@@ -109,79 +110,79 @@ export default function CampaignDetailPage() {
       <div className="wrap">
         <header className="head">
           <div>
-            <h1 className="h1">{c?.name ?? '캠페인 결과'}</h1>
+            <h1 className="h1">{c?.name ?? t('campaign.detail.defaultTitle')}</h1>
             <p className="sub">
               <AppLink href="/campaigns" className="p-link">
-                ‹ 캠페인 목록으로
+                {t('campaign.detail.toList')}
               </AppLink>
             </p>
           </div>
         </header>
 
-        <section className="card detail-card wide" aria-label="캠페인 결과">
+        <section className="card detail-card wide" aria-label={t('campaign.detail.defaultTitle')}>
           {!validId || current?.error === 'notfound' ? (
-            <p className="meta">찾을 수 없는 캠페인이에요. 캠페인 목록에서 다시 골라 주세요.</p>
+            <p className="meta">{t('campaign.detail.notFound')}</p>
           ) : current?.error ? (
             <p className="meta">
-              불러오지 못했어요. {current.error}{' '}
+              {t('prediction.loadFailed', { reason: current.error })}{' '}
               <button type="button" className="btn btn-sm" onClick={() => setReload((n) => n + 1)}>
-                다시 시도
+                {t('common.retry')}
               </button>
             </p>
           ) : !c || !current?.funnel || !current.control ? (
-            <p className="meta">불러오는 중…</p>
+            <p className="meta">{t('common.loading')}</p>
           ) : (
             <div className="detail">
               <dl className="d-dl">
-                <dt>상태</dt>
+                <dt>{t('campaign.detail.status')}</dt>
                 <dd className="strong">{CAMPAIGN_STATUS_LABEL[c.status] ?? c.status}</dd>
-                <dt>카테고리</dt>
-                <dd>{c.category ? CATEGORY_LABEL[c.category] : '동의 재확인 안내'}</dd>
-                <dt>발송</dt>
-                <dd className="num">{c.sentAt ? formatDateTime(c.sentAt) : c.scheduledAt ? `${formatDateTime(c.scheduledAt)} 예약` : '아직 발송 전'}</dd>
-                <dt>대상</dt>
+                <dt>{t('campaign.detail.category')}</dt>
+                <dd>{c.category ? CATEGORY_LABEL[c.category] : t('customer.msgKind.reconfirm')}</dd>
+                <dt>{t('campaign.detail.sent')}</dt>
+                <dd className="num">{c.sentAt ? formatDateTime(c.sentAt) : c.scheduledAt ? t('campaign.list.scheduledAt', { at: formatDateTime(c.scheduledAt) }) : t('campaign.detail.notSentYet')}</dd>
+                <dt>{t('campaign.detail.targets')}</dt>
                 <dd className="num">
-                  {c.targetCount}명 (대조군 {c.controlCount}명 · {c.controlPercent}%)
+                  {t('campaign.detail.targetLine', { n: c.targetCount, control: c.controlCount, percent: c.controlPercent })}
                 </dd>
-                <dt>검토</dt>
-                <dd>{c.reviewedBy?.name ?? '검토 전'}</dd>
+                <dt>{t('campaign.detail.review')}</dt>
+                <dd>{c.reviewedBy?.name ?? t('campaign.detail.beforeReview')}</dd>
               </dl>
 
               <div className="box" role="note">
-                <p>아래 결과는 모의 데이터로 생성한 결과값이에요. 실제 발송 · 예약 결과가 아니에요.</p>
+                <p>{t('campaign.detail.mockNote')}</p>
               </div>
 
               <Funnel f={current.funnel} />
               <ControlComparison k={current.control} />
 
               <div>
-                <span className="lbl">연결 매출</span>
+                <span className="lbl">{t('campaign.detail.revenue')}</span>
                 {!rev ? (
-                  <p className="meta">불러오는 중…</p>
+                  <p className="meta">{t('common.loading')}</p>
                 ) : rev.value === null ? (
-                  <p className="meta">매출은 「매출 · 성과 분석」 권한(PIN)이 있어야 볼 수 있어요. {rev.error}</p>
+                  <p className="meta">{t('campaign.detail.revenueLocked', { reason: rev.error ?? '' })}</p>
                 ) : (
                   <p className="num" style={{ fontSize: 20, fontWeight: 600 }}>
                     {formatWon(rev.value)}
                   </p>
                 )}
-                <p className="meta">이 캠페인이 귀속된 방문의 결제 합계예요. 같은 방문이 다른 캠페인에도 귀속되면 그쪽에도 전액 들어가요.</p>
+                <p className="meta">{t('campaign.detail.revenueNote')}</p>
               </div>
 
               <div>
                 <span className="lbl">
-                  고객별 발송 결과 <span className="meta num">({c.messages.totalElements}명)</span>
+                  {t('campaign.detail.byCustomer')} <span className="meta num">{t('campaign.detail.countParen', { n: c.messages.totalElements })}</span>
                 </span>
                 {messages.length === 0 ? (
-                  <p className="meta">발송을 시작하기 전이라 결과가 없어요.</p>
+                  <p className="meta">{t('campaign.detail.noResults')}</p>
                 ) : (
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13.5 }}>
                     <thead>
                       <tr className="meta" style={{ textAlign: 'left' }}>
-                        <th style={{ padding: '6px 4px', fontWeight: 500 }}>고객</th>
-                        <th style={{ padding: '6px 4px', fontWeight: 500 }}>수신 번호</th>
-                        <th style={{ padding: '6px 4px', fontWeight: 500 }}>결과</th>
-                        <th style={{ padding: '6px 4px', fontWeight: 500 }}>시각</th>
+                        <th style={{ padding: '6px 4px', fontWeight: 500 }}>{t('common.customer')}</th>
+                        <th style={{ padding: '6px 4px', fontWeight: 500 }}>{t('campaign.detail.colPhone')}</th>
+                        <th style={{ padding: '6px 4px', fontWeight: 500 }}>{t('campaign.detail.colResult')}</th>
+                        <th style={{ padding: '6px 4px', fontWeight: 500 }}>{t('campaign.detail.colTime')}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -189,10 +190,10 @@ export default function CampaignDetailPage() {
                         <tr key={m.customerId} style={{ borderTop: '1px solid #EFE8E2' }}>
                           <td style={{ padding: '8px 4px' }}>
                             {m.customerDeleted ? (
-                              <span className="meta">삭제된 고객</span>
+                              <span className="meta">{t('campaign.list.deletedCustomer')}</span>
                             ) : (
                               <AppLink href={`/customers/detail?id=${m.customerId}`} className="p-link">
-                                {m.customerName ?? '이름 없음'}
+                                {m.customerName ?? t('reservation.noName')}
                               </AppLink>
                             )}
                           </td>
@@ -200,7 +201,7 @@ export default function CampaignDetailPage() {
                             {m.phone ?? '-'}
                           </td>
                           <td style={{ padding: '8px 4px' }}>
-                            {m.controlGroup ? '대조군 (발송 안 함)' : (SEND_STATUS_LABEL[m.sendStatus ?? ''] ?? '-')}
+                            {m.controlGroup ? t('campaign.detail.control') : (SEND_STATUS_LABEL[m.sendStatus ?? ''] ?? '-')}
                             {m.failureReason ? <span className="meta"> · {m.failureReason}</span> : null}
                           </td>
                           <td className="num meta" style={{ padding: '8px 4px' }}>
@@ -213,7 +214,7 @@ export default function CampaignDetailPage() {
                 )}
                 {messages.length < c.messages.totalElements ? (
                   <button type="button" className="btn btn-sm" style={{ marginTop: 8 }} disabled={moreBusy} onClick={() => void loadMore()}>
-                    {moreBusy ? '불러오는 중…' : '더 보기'}
+                    {moreBusy ? t('common.loading') : t('customer.moreBtn')}
                   </button>
                 ) : null}
                 {moreError && (
@@ -222,7 +223,7 @@ export default function CampaignDetailPage() {
                   </p>
                 )}
                 <p className="meta" style={{ marginTop: 6 }}>
-                  고객 이름을 누르면 고객 상세에서 이 캠페인 뒤의 예약 · 방문 · 결제 기록을 볼 수 있어요.
+                  {t('campaign.detail.clickNote')}
                 </p>
               </div>
             </div>
@@ -236,14 +237,14 @@ export default function CampaignDetailPage() {
 /** 발송 → 도달 → 재예약 → 재방문. 전환율은 앞 단계 대비, 막대는 발송 대비 (FR-ANL-01) */
 function Funnel({ f }: { f: Funnel }) {
   const steps: [string, number, number][] = [
-    ['발송', f.sentCount, f.sentCount],
-    ['도달', f.reachedCount, f.sentCount],
-    ['재예약', f.rebookedCount, f.reachedCount],
-    ['재방문', f.revisitedCount, f.rebookedCount],
+    [t('campaign.detail.funnelSent'), f.sentCount, f.sentCount],
+    [t('campaign.detail.funnelReached'), f.reachedCount, f.sentCount],
+    [t('campaign.detail.funnelRebooked'), f.rebookedCount, f.reachedCount],
+    [t('campaign.detail.funnelRevisited'), f.revisitedCount, f.rebookedCount],
   ];
   return (
     <div>
-      <span className="lbl">전환 퍼널</span>
+      <span className="lbl">{t('campaign.detail.funnel')}</span>
       <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
         {steps.map(([label, n, base], i) => {
           const rate = i > 0 ? rateText(n, base) : null;
@@ -254,14 +255,14 @@ function Funnel({ f }: { f: Funnel }) {
                 <span style={{ display: 'block', height: '100%', width: `${f.sentCount > 0 ? (n / f.sentCount) * 100 : 0}%`, background: '#7A4450' }} />
               </span>
               <span className="num">
-                <b>{n}명</b> {rate ? <span className="meta">· {rate}</span> : null}
+                <b>{t('common.persons', { n })}</b> {rate ? <span className="meta">· {rate}</span> : null}
               </span>
             </li>
           );
         })}
       </ul>
       <p className="meta" style={{ marginTop: 6 }}>
-        전환율은 앞 단계 대비예요. 재예약 전환율(재예약 ÷ 도달)이 캠페인 성과 지표예요. 대조군은 퍼널에 넣지 않아요.
+        {t('campaign.detail.funnelNote')}
       </p>
     </div>
   );
@@ -270,30 +271,30 @@ function Funnel({ f }: { f: Funnel }) {
 /** 발송군 vs 대조군 재예약률 · 주기 내 재방문율 (FR-ANL-09, E2, F36 · F57). 분모가 0인 비율은 '-' */
 function ControlComparison({ k }: { k: Control }) {
   const rows: [string, number, number][] = [
-    ['발송군 재예약률', k.rebookedCount, k.reachedCount],
-    ['대조군 재예약률', k.controlRebookedCount, k.controlCount],
-    ['발송군 주기 내 재방문율', k.reachedCycleRevisitedCount, k.reachedCycleCount],
-    ['대조군 주기 내 재방문율', k.controlCycleRevisitedCount, k.controlCycleCount],
+    [t('campaign.detail.rateSent'), k.rebookedCount, k.reachedCount],
+    [t('campaign.detail.rateControl'), k.controlRebookedCount, k.controlCount],
+    [t('campaign.detail.cycleSent'), k.reachedCycleRevisitedCount, k.reachedCycleCount],
+    [t('campaign.detail.cycleControl'), k.controlCycleRevisitedCount, k.controlCycleCount],
   ];
   return (
     <div>
-      <span className="lbl">대조군 비교</span>
+      <span className="lbl">{t('campaign.detail.compare')}</span>
       {k.controlCount === 0 ? (
-        <p className="meta">대조군이 없는 캠페인이라 비교 대상이 아니에요.</p>
+        <p className="meta">{t('campaign.detail.noControl')}</p>
       ) : (
         <dl className="d-dl" style={{ gridTemplateColumns: '160px 1fr' }}>
           {rows.map(([label, n, base]) => (
             <Fragment key={label}>
               <dt>{label}</dt>
               <dd className="num">
-                <b>{rateText(n, base) ?? '-'}</b> <span className="meta">({n} / {base}명)</span>
+                <b>{rateText(n, base) ?? '-'}</b> <span className="meta">{t('campaign.detail.ratio', { n, base })}</span>
               </dd>
             </Fragment>
           ))}
         </dl>
       )}
       <p className="meta" style={{ marginTop: 6 }}>
-        주기 내 재방문율은 발송 시각의 예측으로 셀 수 있는 고객만 분모에 넣어요. 예측이 없거나 셀 수 없는 고객은 빠져요.
+        {t('campaign.detail.cycleNote')}
       </p>
     </div>
   );

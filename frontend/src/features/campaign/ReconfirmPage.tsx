@@ -5,11 +5,13 @@ import { PinGate } from '@/components/common/PinGate';
 import { toast } from '@/components/common/Toast';
 import { ApiError, api, type Page } from '@/lib/api';
 import { dueText } from '@/lib/consentReconfirm';
+import { intlLocale } from '@/lib/i18n';
 import { dotDate, seoulToday } from '@/lib/customerDetail';
 import { formatDateTime } from '@/lib/format';
 import type { TemplatePurpose } from '@/lib/messageTemplate';
 import styleText from './CampaignsPage.css?inline';
 import { useStyleSheet } from '@/hooks/useStyleSheet';
+import { t as tr } from '@/lib/i18n';
 
 // 동의 재확인 대상 (FR-CMP-13, D1 · F45). 경로: /campaigns/reconfirm. GET /api/consent-reconfirm-targets (CAMPAIGN_VIEW).
 // 목록에서 고른 고객으로 "동의 재확인" 용도 템플릿의 안내 캠페인을 만들고(POST /api/campaigns, CAMPAIGN_SEND),
@@ -28,7 +30,7 @@ type Template = { id: number; name: string; body: string; purpose: TemplatePurpo
 
 const SIZE = 50;
 const MAX_TARGETS = 3000;
-const errorText = (err: unknown) => (err instanceof ApiError ? err.message : '잠시 후 다시 시도해 주세요');
+const errorText = (err: unknown) => (err instanceof ApiError ? err.message : tr('common.pin.tryLater'));
 
 function Body() {
   const router = useRouter();
@@ -76,7 +78,7 @@ function Body() {
 
   const template = templates?.find((t) => t.id === templateId) ?? templates?.[0] ?? null;
   const allPicked = Boolean(rows?.length) && rows!.every((r) => picked.has(r.customerId));
-  const defaultName = `동의 재확인 안내 ${today}`;
+  const defaultName = tr('campaign.reconf.defaultName', { date: today });
 
   function toggle(id: number) {
     setPicked((cur) => {
@@ -101,7 +103,7 @@ function Body() {
         body: { name: name.trim() || defaultName, templateId: template.id, customerIds: [...picked] },
         silent: true,
       });
-      toast('안내 캠페인을 만들었어요. 미리보기와 검토 뒤 발송해요');
+      toast(tr('campaign.reconf.toast'));
       router.push(`/campaigns/new?id=${r.id}`);
     } catch (err) {
       setCreateError(errorText(err));
@@ -111,17 +113,17 @@ function Body() {
 
   return (
     <>
-      <section className="cp-card cp-main" aria-label="동의 재확인 대상 목록">
+      <section className="cp-card cp-main" aria-label={tr('campaign.reconf.listLabel')}>
         <div className="cp-row2">
           <h2 style={{ margin: 0, fontSize: 16 }}>
-            대상 <span className="num">{total}</span>명
+            {tr('campaign.reconf.targets')} <span className="num">{total}</span>{tr('campaign.unit.persons')}
           </h2>
-          <span className="cp-meta">재확인 기한이 이른 순 · 기한 30일 전부터 보여요</span>
+          <span className="cp-meta">{tr('campaign.reconf.sortNote')}</span>
         </div>
 
         {error && <div className="cp-warn" role="alert">{error}</div>}
-        {rows === null && !error && <p className="cp-note">불러오는 중…</p>}
-        {rows?.length === 0 && <div className="cp-ok">지금 재확인할 고객이 없어요. 동의일(또는 마지막 재확인)부터 2년이 되기 30일 전에 여기에 나타나요.</div>}
+        {rows === null && !error && <p className="cp-note">{tr('common.loading')}</p>}
+        {rows?.length === 0 && <div className="cp-ok">{tr('campaign.reconf.empty')}</div>}
 
         {rows && rows.length > 0 && (
           <div style={{ overflowX: 'auto' }}>
@@ -129,13 +131,13 @@ function Body() {
               <thead>
                 <tr>
                   <th style={{ width: 32 }}>
-                    <input type="checkbox" checked={allPicked} onChange={toggleAll} aria-label="불러온 고객 모두 고르기" />
+                    <input type="checkbox" checked={allPicked} onChange={toggleAll} aria-label={tr('campaign.reconf.pickAll')} />
                   </th>
-                  <th>고객</th>
-                  <th>마케팅 동의일</th>
-                  <th>마지막 재확인</th>
-                  <th>재확인 기한</th>
-                  <th>야간 광고 동의</th>
+                  <th>{tr('common.customer')}</th>
+                  <th>{tr('campaign.reconf.colConsentDate')}</th>
+                  <th>{tr('campaign.reconf.colLast')}</th>
+                  <th>{tr('campaign.reconf.colDue')}</th>
+                  <th>{tr('campaign.reconf.colNight')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -144,7 +146,7 @@ function Body() {
                   return (
                     <tr key={r.customerId}>
                       <td>
-                        <input type="checkbox" checked={picked.has(r.customerId)} onChange={() => toggle(r.customerId)} aria-label={`${r.name} 고르기`} />
+                        <input type="checkbox" checked={picked.has(r.customerId)} onChange={() => toggle(r.customerId)} aria-label={tr('campaign.reconf.pickOne', { name: r.name })} />
                       </td>
                       <td>
                         <AppLink href={`/customers/detail?id=${r.customerId}`} style={{ color: 'inherit' }}>
@@ -160,7 +162,7 @@ function Body() {
                           {due.text}
                         </span>
                       </td>
-                      <td>{r.nightAdConsent ? '동의' : '미동의'}</td>
+                      <td>{r.nightAdConsent ? tr('customer.agreed') : tr('customer.notAgreed')}</td>
                     </tr>
                   );
                 })}
@@ -171,63 +173,63 @@ function Body() {
 
         {rows && rows.length < total && (
           <button type="button" className="cp-btn" style={{ alignSelf: 'center' }} disabled={loading} onClick={() => load(rows.length + SIZE)}>
-            {loading ? '불러오는 중…' : '더 보기'}
+            {loading ? tr('common.loading') : tr('customer.moreBtn')}
           </button>
         )}
         <span className="cp-note">
-          안내 발송에 성공한 고객만 목록에서 빠지고, 그날부터 다음 2년을 세요. 발송에 실패한 고객은 목록에 남아요.
+          {tr('campaign.reconf.afterSend')}
         </span>
       </section>
 
-      <section className="cp-card cp-main" aria-label="재확인 안내 캠페인 만들기">
+      <section className="cp-card cp-main" aria-label={tr('campaign.reconf.createLabel')}>
         <div className="cp-main-in">
           <div className="cp-step">
-            <h3><i>1</i>안내 템플릿</h3>
+            <h3><i>1</i>{tr('campaign.reconf.stepTemplate')}</h3>
             {templateError && <div className="cp-warn">{templateError}</div>}
             {templates?.length === 0 && (
               <div className="cp-warn">
-                동의 재확인 용도 템플릿이 없어요. <AppLink href="/campaigns/templates" style={{ color: '#8F2F2F', fontWeight: 600 }}>템플릿 만들기 →</AppLink>
+                {tr('campaign.reconf.noTemplate')}<AppLink href="/campaigns/templates" style={{ color: '#8F2F2F', fontWeight: 600 }}>{tr('campaign.new.createTemplate')}</AppLink>
               </div>
             )}
             <div className="cp-tpls">
               {templates?.map((t) => (
                 <button type="button" className="cp-tpl" key={t.id} aria-pressed={template?.id === t.id} onClick={() => setTemplateId(t.id)}>
                   <b>{t.name}</b>
-                  <span className="cp-note">동의 재확인</span>
+                  <span className="cp-note">{tr('campaign.purpose.reconfirm')}</span>
                 </button>
               ))}
             </div>
             {template && (
               <div className="cp-box">
-                <span className="cp-note">본문 (변수는 고객마다 바뀌어요. 광고가 아니라 (광고) 표기는 붙지 않아요)</span>
+                <span className="cp-note">{tr('campaign.reconf.bodyNote')}</span>
                 <span style={{ fontSize: 13.5, whiteSpace: 'pre-line' }}>{template.body}</span>
               </div>
             )}
           </div>
 
           <div className="cp-step">
-            <h3><i>2</i>캠페인 이름</h3>
-            <input className="cp-fld" value={name} maxLength={100} placeholder={defaultName} onChange={(e) => setName(e.target.value)} aria-label="캠페인 이름" />
+            <h3><i>2</i>{tr('campaign.reconf.stepName')}</h3>
+            <input className="cp-fld" value={name} maxLength={100} placeholder={defaultName} onChange={(e) => setName(e.target.value)} aria-label={tr('campaign.reconf.stepName')} />
           </div>
 
           <div className="cp-step">
             <div className="cp-box">
               <span className="cp-note">
-                재확인 안내도 캠페인이라 검토 체크 · 하루 발송 한도를 그대로 적용해요. 야간(21시~다음 날 08시)에는 보낼 수 없어 낮 시각으로 예약해 주세요.
-                최근 광고를 받은 고객도 법정 안내는 받아야 해서 재발송 제한은 적용하지 않아요.
+                {tr('campaign.reconf.rule1')}
+                {tr('campaign.reconf.rule2')}
               </span>
             </div>
-            {picked.size > MAX_TARGETS && <div className="cp-warn">한 번에 {MAX_TARGETS.toLocaleString('ko-KR')}명까지 보낼 수 있어요.</div>}
+            {picked.size > MAX_TARGETS && <div className="cp-warn">{tr('campaign.reconf.maxTargets', { max: MAX_TARGETS.toLocaleString(intlLocale()) })}</div>}
             {createError && <div className="cp-warn" role="alert">{createError}</div>}
             <div className="cp-btns">
-              <span className="cp-note">만든 뒤 고객별 문구를 미리 보고, 검토 체크를 해야 발송할 수 있어요.</span>
+              <span className="cp-note">{tr('campaign.new.afterCreate')}</span>
               <button
                 type="button"
                 className="cp-btn p"
                 disabled={creating || !template || picked.size === 0 || picked.size > MAX_TARGETS}
                 onClick={create}
               >
-                {creating ? '만드는 중…' : `고른 ${picked.size}명으로 안내 캠페인 만들기`}
+                {creating ? tr('campaign.new.creating') : tr('campaign.reconf.createBtn', { n: picked.size })}
               </button>
             </div>
           </div>
@@ -241,24 +243,24 @@ export default function ReconfirmPage() {
   useStyleSheet('CampaignsPage', styleText);
   return (
     <>
-      <PinGate id="campaigns" title="동의 재확인 대상">
+      <PinGate id="campaigns" title={tr('campaign.reconf.title')}>
         <div className="cp-wrap">
           <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-end', gap: 16 }}>
             <div>
-              <h1 className="cp-h1">동의 재확인 대상</h1>
+              <h1 className="cp-h1">{tr('campaign.reconf.title')}</h1>
               <p className="cp-sub">
-                광고 수신 동의를 받은 고객에게는 2년마다 동의 사실과 철회 방법을 다시 알려야 해요 (정보통신망법 시행령 제62조의3).
+                {tr('campaign.reconf.sub1')}
                 <br />
-                기한이 다가온 고객을 골라 재확인 안내를 보내요.
+                {tr('campaign.reconf.sub2')}
               </p>
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-              <AppLink href="/campaigns/templates" className="cp-btn">템플릿</AppLink>
-              <AppLink href="/campaigns" className="cp-btn">캠페인 목록</AppLink>
+              <AppLink href="/campaigns/templates" className="cp-btn">{tr('campaign.list.templates')}</AppLink>
+              <AppLink href="/campaigns" className="cp-btn">{tr('campaign.new.toList')}</AppLink>
             </div>
           </div>
           <Body />
-          <p className="cp-foot">MVP는 가상 발송이라 실제 문자는 나가지 않아요.</p>
+          <p className="cp-foot">{tr('campaign.reconf.foot')}</p>
         </div>
       </PinGate>
     </>

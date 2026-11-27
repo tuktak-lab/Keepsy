@@ -1,5 +1,7 @@
 // 가상 휴대폰 규칙 (FR-CMP-11 · 16). 서버 VirtualPhoneController와 같은 번호 규칙을 화면에서 먼저 본다.
 
+import { t } from './i18n.ts';
+
 /** `010`으로 시작하는 11자리, 하이픈은 있어도 없어도 된다 (CONTRACTS 6장, 고객 phone과 같은 규칙) */
 export const PHONE_PATTERN = /^010-?\d{4}-?\d{4}$/;
 
@@ -13,7 +15,13 @@ export function normalizePhone(input: string): string | null {
 
 /** 발송 메시지 종류 (CONTRACTS 3장) */
 export const MESSAGE_KIND_LABEL: Record<string, string> = {
-  AD: '광고',
-  UNSUBSCRIBE_NOTICE: '수신 거부 처리 안내',
-  CONSENT_RECONFIRM: '동의 재확인 안내',
+  get AD() {
+    return t('campaign.kind.ad');
+  },
+  get UNSUBSCRIBE_NOTICE() {
+    return t('customer.msgKind.unsubscribe');
+  },
+  get CONSENT_RECONFIRM() {
+    return t('customer.msgKind.reconfirm');
+  },
 };

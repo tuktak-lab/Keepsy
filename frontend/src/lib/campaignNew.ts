@@ -1,12 +1,14 @@
 // 캠페인 작성 화면 값 (순수 함수). docs CONTRACTS 3절 「예측 상태」 · 「템플릿 용도」 · 「캠페인 제외 사유」, 6장 CMP
 
+import type { MessageKey } from './messages/ko.ts';
+
 export type TargetStatus = 'DUE' | 'CHURN_SIGNAL' | 'LONG_ABSENT';
 
 /** 대상 예측 상태 (FR-CMP-01). 뜻풀이는 처음 쓰는 원장이 바로 알 수 있게 (FR-PRD-04) */
-export const TARGET_STATUSES: { status: TargetStatus; label: string; desc: string }[] = [
-  { status: 'DUE', label: '주기 도래', desc: '다음 방문 예상 시기가 됐는데 아직 예약이 없는 고객' },
-  { status: 'CHURN_SIGNAL', label: '이탈 신호', desc: '다음 방문 예상 시기가 지났는데 아직 오지 않은 고객' },
-  { status: 'LONG_ABSENT', label: '장기 미방문', desc: '예상 시기가 지나고도 오랫동안 오지 않은 고객' },
+export const TARGET_STATUSES: { status: TargetStatus; label: MessageKey; desc: MessageKey }[] = [
+  { status: 'DUE', label: 'prediction.status.due', desc: 'campaign.target.dueDesc' },
+  { status: 'CHURN_SIGNAL', label: 'prediction.status.churn', desc: 'campaign.target.churnDesc' },
+  { status: 'LONG_ABSENT', label: 'prediction.status.long', desc: 'campaign.target.longDesc' },
 ];
 
 /** 상태별 추천 템플릿 용도 (FR-PRD-06 다음 액션과 같은 규칙) */
@@ -17,10 +19,10 @@ export const RECOMMENDED_PURPOSE: Record<TargetStatus, string> = {
 };
 
 /** 캠페인 제외 사유 (CONTRACTS 3절, 이 순서로 우선) */
-export const EXCLUSION_LABEL: [string, string][] = [
-  ['UNSUBSCRIBED', '수신 거부'],
-  ['NO_CONSENT', '수신 미동의'],
-  ['RESEND_LIMIT', '재발송 제한 기간'],
+export const EXCLUSION_LABEL: [string, MessageKey][] = [
+  ['UNSUBSCRIBED', 'campaign.exclude.unsubscribed'],
+  ['NO_CONSENT', 'campaign.exclude.noConsent'],
+  ['RESEND_LIMIT', 'campaign.exclude.resendLimit'],
 ];
 
 /** 서울 시각으로 야간(21:00~08:00 전)인지 (FR-CMP-07, 서버 NightSendPolicy와 같은 경계) */
