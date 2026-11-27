@@ -33,7 +33,13 @@ class ShopIndustriesTest {
 
     @Test
     void 가입_때_고른_업종만_켜지고_순서는_계약_3절_순서로_맞춘다() {
-        Shop s = Shop.create("a@example.com", "hash", "네일", List.of("ETC", "NAIL", "WAXING"));
+        Shop s =
+                Shop.create(
+                        "a@example.com",
+                        "hash",
+                        "네일",
+                        "02-000-0000",
+                        List.of("ETC", "NAIL", "WAXING"));
 
         assertThat(s.industries()).containsExactly("NAIL", "WAXING", "ETC");
     }
@@ -61,9 +67,9 @@ class ShopIndustriesTest {
 
     @Test
     void 가입_때_업종이_규칙을_어기면_매장을_만들지_못한다() {
-        assertThatThrownBy(() -> Shop.create("a@example.com", "hash", "네일", List.of()))
+        assertThatThrownBy(() -> Shop.create("a@example.com", "hash", "네일", null, List.of()))
                 .isInstanceOf(ApiException.class);
-        assertThatThrownBy(() -> Shop.create("a@example.com", "hash", "네일", List.of("HAIR")))
+        assertThatThrownBy(() -> Shop.create("a@example.com", "hash", "네일", null, List.of("HAIR")))
                 .isInstanceOf(ApiException.class);
     }
 }

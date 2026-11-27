@@ -23,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 class ShopSignupServiceTest {
 
     @Autowired ShopSignupService signupService;
+    @Autowired ShopInfoService infoService;
     @Autowired JdbcTemplate jdbc;
     @Autowired PasswordEncoder passwordEncoder;
 
@@ -55,6 +56,7 @@ class ShopSignupServiceTest {
                         "테스트 네일",
                         "원장",
                         "1234",
+                        "02-000-0000",
                         List.of("ETC", "NAIL"));
         long unchosen =
                 signupService.signUp(
@@ -62,6 +64,24 @@ class ShopSignupServiceTest {
 
         assertThat(industriesOf(chosen)).isEqualTo("NAIL,ETC");
         assertThat(industriesOf(unchosen)).isEqualTo("NAIL,LASH,WAXING,SEMI_PERMANENT,ETC");
+    }
+
+    @Test
+    void 가입_때_받은_매장_연락처를_저장하고_매장_정보_조회로_돌려준다() {
+        // F73: 가입 연락처는 PUT /api/shop의 phone과 같은 칸이다. 형식 · 필수 검사는 ShopControllerTest
+        long shopId =
+                signupService.signUp(
+                        "phone-test@example.com",
+                        "password1",
+                        "테스트 네일",
+                        "원장",
+                        "1234",
+                        "1588-0000",
+                        List.of("NAIL"));
+
+        assertThat(jdbc.queryForObject("SELECT phone FROM shop WHERE id = ?", String.class, shopId))
+                .isEqualTo("1588-0000");
+        assertThat(infoService.get(shopId).phone()).isEqualTo("1588-0000");
     }
 
     @Test
@@ -73,6 +93,7 @@ class ShopSignupServiceTest {
                                 "테스트 네일",
                                 "원장",
                                 "1234",
+                                "02-000-0000",
                                 List.of("HAIR")))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).errorCode())

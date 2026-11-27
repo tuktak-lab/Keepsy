@@ -349,19 +349,22 @@ public class Shop {
         return s == null || s.isBlank() ? null : s.strip();
     }
 
-    /** 업종은 5개 모두 켠다 (기존 매장과 같은 시작값) */
+    /** 연락처 없이, 업종은 5개 모두 켠다 (기존 매장과 같은 시작값. 테스트 · 시드용) */
     static Shop create(String email, String passwordHash, String name) {
-        return create(email, passwordHash, name, CATEGORIES);
+        return create(email, passwordHash, name, null, CATEGORIES);
     }
 
     /**
+     * @param phone 매장 연락처 (F73). 형식은 가입 API가 검사한다. 비었으면 null로 저장
      * @throws ApiException 업종이 규칙을 어기면 {@code invalid} ({@link #changeIndustries})
      */
-    static Shop create(String email, String passwordHash, String name, List<String> industries) {
+    static Shop create(
+            String email, String passwordHash, String name, String phone, List<String> industries) {
         Shop shop = new Shop();
         shop.email = email;
         shop.passwordHash = passwordHash;
         shop.name = name;
+        shop.phone = blankToNull(phone);
         shop.changeIndustries(industries);
         // 매핑한 칸은 INSERT에 모두 들어가 V1의 DB 기본값이 쓰이지 않으므로 같은 값을 넣는다 (FR-SET-02 · C16)
         shop.changeCategoryCycle("NAIL", 21, 28);
