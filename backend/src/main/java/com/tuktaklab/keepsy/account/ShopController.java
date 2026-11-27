@@ -137,6 +137,10 @@ class ShopController {
             @NotNull(message = "원장 PIN을 입력해 주세요")
                     @Pattern(regexp = "\\d{4,6}", message = "PIN은 숫자 4~6자리입니다")
                     String ownerPin,
+            // 매장 연락처 (F73). PUT /api/shop의 phone과 같은 형식이지만 가입에서는 비울 수 없다
+            @NotBlank(message = "매장 연락처를 입력해 주세요")
+                    @Pattern(regexp = SHOP_NUMBER, message = SHOP_NUMBER_MESSAGE)
+                    String phone,
             // 켜 둘 매장 업종. 중복 · 5개 밖의 값은 Shop이 invalid로 거절한다
             @NotEmpty(message = "매장 업종을 하나 이상 선택해 주세요") List<String> industries) {}
 
@@ -152,6 +156,7 @@ class ShopController {
                         request.shopName(),
                         request.ownerName(),
                         request.ownerPin(),
+                        request.phone(),
                         request.industries());
         return new SignUpResponse(shopId);
     }

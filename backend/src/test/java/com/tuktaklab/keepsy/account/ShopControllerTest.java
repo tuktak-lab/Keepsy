@@ -40,11 +40,16 @@ class ShopControllerTest {
     }
 
     private static String body(String email, String password, String pin, String industriesJson) {
+        return body(email, password, pin, "\"02-000-0000\"", industriesJson);
+    }
+
+    private static String body(
+            String email, String password, String pin, String phoneJson, String industriesJson) {
         return """
         {"email":"%s","password":"%s","shopName":"테스트 네일","ownerName":"원장","ownerPin":"%s",\
-        "industries":%s}
+        "phone":%s,"industries":%s}
         """
-                .formatted(email, password, pin, industriesJson);
+                .formatted(email, password, pin, phoneJson, industriesJson);
     }
 
     @Test
@@ -55,6 +60,7 @@ class ShopControllerTest {
                         "테스트 네일",
                         "원장",
                         "1234",
+                        "02-000-0000",
                         List.of("NAIL", "LASH")))
                 .thenReturn(5L);
 
@@ -71,7 +77,7 @@ class ShopControllerTest {
     void 업종이_비었거나_빠지면_invalid_400과_칸별_사유() throws Exception {
         String noIndustries =
                 """
-                {"email":"owner@example.com","password":"password1","shopName":"테스트 네일","ownerName":"원장","ownerPin":"1234"}
+                {"email":"owner@example.com","password":"password1","shopName":"테스트 네일","ownerName":"원장","ownerPin":"1234","phone":"02-000-0000"}
                 """;
         for (String content :
                 List.of(noIndustries, body("owner@example.com", "password1", "1234", "[]"))) {
@@ -83,6 +89,29 @@ class ShopControllerTest {
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.error.code").value("invalid"))
                     .andExpect(jsonPath("$.error.details[0].field").value("industries"));
+        }
+        verifyNoInteractions(signupService);
+    }
+
+    @Test
+    void 매장_연락처가_빠지거나_비었거나_형식이_틀리면_invalid_400() throws Exception {
+        // F73: PUT /api/shop과 같은 형식이지만 가입에서는 비울 수 없다
+        for (String phoneJson :
+                List.of("null", "\"\"", "\"   \"", "\"12345\"", "\"02-000-0000a\"")) {
+            mvc.perform(
+                            post("/api/shops")
+                                    .with(csrf())
+                                    .contentType(MediaType.APPLICATION_JSON)
+                                    .content(
+                                            body(
+                                                    "owner@example.com",
+                                                    "password1",
+                                                    "1234",
+                                                    phoneJson,
+                                                    "[\"NAIL\"]")))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.error.code").value("invalid"))
+                    .andExpect(jsonPath("$.error.details[0].field").value("phone"));
         }
         verifyNoInteractions(signupService);
     }
@@ -115,7 +144,13 @@ class ShopControllerTest {
     @Test
     void 이미_가입한_이메일이면_duplicate_409() throws Exception {
         when(signupService.signUp(
-                        anyString(), anyString(), anyString(), anyString(), anyString(), anyList()))
+                        anyString(),
+                        anyString(),
+                        anyString(),
+                        anyString(),
+                        anyString(),
+                        anyString(),
+                        anyList()))
                 .thenThrow(new ApiException(ErrorCode.DUPLICATE, "이미 가입한 이메일입니다"));
 
         mvc.perform(

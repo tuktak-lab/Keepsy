@@ -1,7 +1,7 @@
 import { useState, type ChangeEvent, type FormEvent } from 'react';
 import { api, ApiError } from '@/lib/api';
 import { toast } from '@/components/common/Toast';
-import { EMPTY_SIGNUP, INDUSTRIES, STEPS, formatBusinessNumber, stepOf, toSignUpRequest, validateStep, type SignUpField, type SignUpValues } from '@/lib/signup';
+import { EMPTY_SIGNUP, INDUSTRIES, STEPS, stepOf, toSignUpRequest, validateStep, type SignUpField, type SignUpValues } from '@/lib/signup';
 import { ChevronIcon, InfoIcon, PasswordInput } from './AuthFields';
 import type { SignUpRequest, SignUpResponse } from './types';
 import styles from './AuthPage.module.css';
@@ -16,18 +16,16 @@ const FIELD: Record<Exclude<SignUpField, 'industries'>, { label: string; type: s
   ownerName: { label: '대표자명', type: 'text', autoComplete: 'name', placeholder: '대표자명을 입력해주세요' },
   ownerPin: { label: '원장 PIN', type: 'password', autoComplete: 'off', placeholder: '숫자 4~6자리로 입력해주세요', hint: '근무 시작과 잠금 해제에 사용됩니다.' },
   shopName: { label: '매장명', type: 'text', autoComplete: 'organization', placeholder: '매장명을 입력해주세요' },
-  businessNumber: { label: '사업자등록번호', type: 'text', autoComplete: 'off', placeholder: '000-00-00000', hint: '시연용이에요. 실제 사업자등록번호를 넣지 말고 가짜 번호를 넣어 주세요' },
-  phone: { label: '매장 연락처', type: 'tel', autoComplete: 'tel', placeholder: '02-000-0000' },
-  address: { label: '매장 주소', type: 'text', autoComplete: 'street-address', placeholder: '서울시 가상구 예시로 1' },
+  phone: { label: '매장 연락처', type: 'tel', autoComplete: 'tel', placeholder: '02-000-0000', hint: '시연용이에요. 실제 번호 대신 가짜 번호를 넣어 주세요' },
 };
 
-const STEP_SUB = ['매장 계정과 대표자 정보를 입력해주세요.', '매장의 사업자 정보를 입력해주세요.', '매장의 주요 서비스 분야를 모두 선택해주세요. (중복 선택 가능)'];
+const STEP_SUB = ['매장 계정과 대표자 정보를 입력해주세요.', '매장 이름과 연락처를 입력해주세요.', '매장의 주요 서비스 분야를 모두 선택해주세요. (중복 선택 가능)'];
 
 // 비밀번호 칸은 「보기」 버튼, PIN 칸은 안내 아이콘이 오른쪽 끝에 붙는다
 const REVEALABLE = new Set<SignUpField>(['password', 'passwordConfirm']);
 
 // 매장 가입 (FR-ACC-01). 매장 1개와 원장 스탭을 만든다. 가입만 하고 로그인은 되지 않는다 (CONTRACTS 4장 POST /api/shops).
-// 3단계: 개인정보 → 사업자 정보 → 업종 설정. 단계마다 그 단계 칸만 검사하고, 마지막에 한 번에 보낸다.
+// 3단계: 개인정보 → 매장 정보 → 업종 설정. 단계마다 그 단계 칸만 검사하고, 마지막에 한 번에 보낸다.
 export function SignUpForm(props: { onRegistered: () => void; onSwitch: () => void }) {
   const [step, setStep] = useState(0);
   const [form, setForm] = useState<SignUpValues>(EMPTY_SIGNUP);
@@ -37,7 +35,7 @@ export function SignUpForm(props: { onRegistered: () => void; onSwitch: () => vo
   const last = step === STEPS.length - 1;
 
   function change(name: Exclude<SignUpField, 'industries'>, value: string) {
-    const v = name === 'ownerPin' ? value.replace(/\D/g, '').slice(0, 6) : name === 'businessNumber' ? formatBusinessNumber(value) : value;
+    const v = name === 'ownerPin' ? value.replace(/\D/g, '').slice(0, 6) : value;
     setForm((f) => ({ ...f, [name]: v }));
     setErrors((e) => ({ ...e, [name]: undefined }));
   }
@@ -118,7 +116,7 @@ export function SignUpForm(props: { onRegistered: () => void; onSwitch: () => vo
         const shared = {
           id,
           name,
-          inputMode: name === 'ownerPin' || name === 'businessNumber' ? ('numeric' as const) : undefined,
+          inputMode: name === 'ownerPin' ? ('numeric' as const) : undefined,
           autoComplete: f.autoComplete,
           placeholder: f.placeholder,
           value: form[name],
@@ -158,7 +156,7 @@ export function SignUpForm(props: { onRegistered: () => void; onSwitch: () => vo
       {last && (
         <div className={styles.notice}>
           <b>가입 후 진행할 초기 설정</b>
-          <span>스탭 등록 · 개인 PIN 설정 · 기능별 권한 설정 · 기본 재방문 주기 설정 · 다국어 설정</span>
+          <span>스탭 등록 · 개인 PIN 설정 · 기능별 권한 설정 · 기본 재방문 주기 설정</span>
         </div>
       )}
 

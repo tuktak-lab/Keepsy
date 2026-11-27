@@ -20,14 +20,18 @@ public class ShopSignupService {
     private final PasswordEncoder passwordEncoder;
     private final ShopDefaults shopDefaults;
 
-    /** 업종은 5개 모두 켠다 (업종을 고르지 않는 호출: 테스트 · 시드). 자기 호출은 프록시를 거치지 않아 여기에도 트랜잭션을 건다 */
+    /**
+     * 연락처 없이, 업종은 5개 모두 켠다 (테스트 · 시드 전용. 가입 API는 연락처가 필수라 이 메서드를 쓰지 않는다). 자기 호출은 프록시를 거치지 않아 여기에도
+     * 트랜잭션을 건다
+     */
     @Transactional
     public long signUp(
             String email, String password, String shopName, String ownerName, String ownerPin) {
-        return signUp(email, password, shopName, ownerName, ownerPin, Shop.CATEGORIES);
+        return signUp(email, password, shopName, ownerName, ownerPin, null, Shop.CATEGORIES);
     }
 
     /**
+     * @param phone 매장 연락처 (F73). 형식 · 필수 검사는 가입 API({@code ShopController})가 한다
      * @param industries 켜 둘 매장 업종 (CONTRACTS 3절 「매장 업종」)
      * @return 만든 매장 ID
      * @throws ApiException 이메일이 이미 있으면 {@code duplicate} (F11), 업종이 규칙을 어기면 {@code invalid}
@@ -39,6 +43,7 @@ public class ShopSignupService {
             String shopName,
             String ownerName,
             String ownerPin,
+            String phone,
             List<String> industries) {
         if (shopRepository.existsByEmail(email)) {
             throw duplicateEmail();
@@ -48,7 +53,11 @@ public class ShopSignupService {
             shop =
                     shopRepository.saveAndFlush(
                             Shop.create(
-                                    email, passwordEncoder.encode(password), shopName, industries));
+                                    email,
+                                    passwordEncoder.encode(password),
+                                    shopName,
+                                    phone,
+                                    industries));
         } catch (DataIntegrityViolationException e) {
             // 같은 이메일로 동시에 가입하면 고유 제약(uk_shop_email)이 하나만 남긴다
             throw duplicateEmail();
