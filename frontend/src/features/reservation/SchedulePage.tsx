@@ -261,7 +261,7 @@ export default function SchedulePage() {
             <h1 className="h1">{t('reservation.schedule.title')}</h1>
             <p className="sub">{t('reservation.schedule.sub')}</p>
           </div>
-          <button type="button" className="btn btn-p" onClick={() => setCreating(true)} disabled={staff.length === 0}>
+          <button type="button" className="btn btn-p" onClick={() => setCreating(true)} disabled={staff.length === 0} data-guide="schedule-new">
             {t('reservation.schedule.new')}
           </button>
         </header>
@@ -269,7 +269,7 @@ export default function SchedulePage() {
         {anchor ? (
           <div className="layout">
             {/* ── 좌측: 미니 달력 · 날짜 요약 · 스탭 ── */}
-            <aside className="left card">
+            <aside className="left card" data-guide="schedule-calendar">
               <section className="mini">
                 <div className="mini-h">
                   <b className="serif">
@@ -364,7 +364,7 @@ export default function SchedulePage() {
                   </button>
                   <b className="c-title serif num">{title}</b>
                 </div>
-                <div className="seg" role="group" aria-label={t('reservation.schedule.viewUnit')}>
+                <div className="seg" role="group" aria-label={t('reservation.schedule.viewUnit')} data-guide="schedule-view">
                   <span className="seg-ind" style={{ transform: `translateX(${isDay ? 0 : 100}%)` }} aria-hidden="true"></span>
                   <button type="button" aria-pressed={isDay} onClick={() => changeView('day')}>
                     {t('reservation.view.day')}
@@ -374,7 +374,7 @@ export default function SchedulePage() {
                   </button>
                 </div>
               </div>
-              <div className="legend">
+              <div className="legend" data-guide="schedule-grid">
                 {STATES.map(([tone, text]) => (
                   <span key={tone}>
                     <i className={'sw s-' + tone}></i>

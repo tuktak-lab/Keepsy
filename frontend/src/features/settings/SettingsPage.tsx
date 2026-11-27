@@ -28,7 +28,7 @@ export default function SettingsPage() {
             <h1 className="st-h1">매장 설정</h1>
             <p className="st-sub">매장 정보와 영업시간, 예측 기준, 발송 규칙, 개인정보 보관 기간을 관리해요.</p>
           </div>
-          <nav className="st-nav" aria-label="설정 구역">
+          <nav className="st-nav" aria-label="설정 구역" data-guide="settings-nav">
             <a href="#st-shop">매장 정보 · 영업시간</a>
             <a href="#st-menu">시술 메뉴 · 기본 주기</a>
             <a href="#st-dayoff">휴무일</a>

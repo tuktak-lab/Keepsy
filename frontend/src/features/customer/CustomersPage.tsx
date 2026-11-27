@@ -118,14 +118,14 @@ export default function CustomersPage() {
             <h1 className="h1">고객 목록</h1>
             <p className="sub">이름이나 연락처 뒷자리로 찾고, 방문 횟수 · 시술 카테고리 · 예측 상태로 다시 만날 고객을 골라 보세요.</p>
           </div>
-          <div className="row" style={{ gap: '8px' }}>
+          <div className="row" style={{ gap: '8px' }} data-guide="customers-actions">
             <AppLink href="/customers/retention" className="btn">파기 대상</AppLink>
             <AppLink href="/customers/import" className="btn">CSV 일괄 등록</AppLink>
             <AppLink href="/customers/new" className="btn btn-p">+ 고객 등록</AppLink>
           </div>
         </div>
 
-        <div className="row" style={{ gap: '8px' }}>
+        <div className="row" style={{ gap: '8px' }} data-guide="customers-search">
           <input
             type="search"
             className="fld"
@@ -166,7 +166,7 @@ export default function CustomersPage() {
         </div>
 
         <section className="card" style={{ padding: '10px 0 6px', overflowX: 'auto' }}>
-          <div className="crow head">
+          <div className="crow head" data-guide="customers-list">
             <span>고객</span>
             <span>총 방문</span>
             <span>최근 방문</span>
@@ -202,7 +202,7 @@ export default function CustomersPage() {
         </section>
 
         {cur ? (
-          <section className="card">
+          <section className="card" data-guide="customers-detail">
             <div className="row between kp-slide" key={cur.customerId}>
             <div className="row" style={{ gap: '14px' }}>
               <Avatar who={cur.name} size="48" />

@@ -138,7 +138,7 @@ function Body() {
           <h1 className="cp-h1">캠페인 관리</h1>
           <p className="cp-sub">만든 캠페인의 상태와 발송 결과를 확인해요. 고객별 결과와 성과는 결과 화면에서 자세히 볼 수 있어요.</p>
         </div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }} data-guide="campaigns-actions">
           <AppLink href="/campaigns/templates" className="cp-btn">템플릿</AppLink>
           <AppLink href="/campaigns/reconfirm" className="cp-btn">동의 재확인</AppLink>
           <AppLink href="/virtual-phone" className="cp-btn">가상 휴대폰</AppLink>
@@ -146,7 +146,7 @@ function Body() {
         </div>
       </div>
 
-      <section className="cp-kpis cp-card" aria-label="캠페인 현황">
+      <section className="cp-kpis cp-card" aria-label="캠페인 현황" data-guide="campaigns-kpis">
         <div className="cp-kpi"><span>예약 발송 대기</span><b className="num"><CountUp value={scheduled} format={unit('건')} /></b><em>발송 전까지 취소 가능</em></div>
         <div className="cp-kpi"><span>이번 달 발송</span><b className="num"><CountUp value={sentThisMonth} format={unit('건')} /></b><em>발송한 캠페인 수 · 가상 발송</em></div>
         <div className="cp-kpi"><span>캠페인 수</span><b className="num"><CountUp value={total} format={unit('건')} /></b><em>작성 중 · 예약 · 완료 · 취소 포함</em></div>
@@ -157,7 +157,7 @@ function Body() {
         <div className="cp-warn" role="alert">{listError}</div>
       ) : (
         <div className="cp-grid">
-          <section className="cp-card cp-list" aria-label="캠페인 목록">
+          <section className="cp-card cp-list" aria-label="캠페인 목록" data-guide="campaigns-list">
             <h2>캠페인 목록</h2>
             {items === null && <p className="cp-note" style={{ padding: '0 10px' }}>불러오는 중…</p>}
             {items?.length === 0 && <p className="cp-note" style={{ padding: '0 10px' }}>아직 만든 캠페인이 없어요.</p>}
@@ -176,7 +176,7 @@ function Body() {
             {items && items.length < total && <p className="cp-note" style={{ padding: '6px 10px 0' }}>최근 {items.length}개만 보여요.</p>}
           </section>
 
-          <section className="cp-card cp-main" aria-label="캠페인 상세">
+          <section className="cp-card cp-main" aria-label="캠페인 상세" data-guide="campaigns-detail">
             {items?.length === 0 ? (
               <div className="cp-ok">
                 대상 선정부터 발송까지 단계별로 진행해요.{' '}
