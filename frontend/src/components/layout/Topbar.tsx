@@ -134,7 +134,7 @@ export function Topbar() {
             setQ(e.target.value);
             setMiss(false);
           }}
-          placeholder={miss ? '찾는 기능이 없어요. 다른 말로 검색해 보세요' : '기능 검색 (예: 지난달 매출, 고객 등록)  /'}
+          placeholder={miss ? '찾는 기능이 없어요. 다른 말로 검색해 보세요' : '기능 검색 (예: 매출, 고객 등록)  /'}
           aria-keyshortcuts="/ Control+K"
           aria-label="기능 검색"
           style={{ flex: 1, minWidth: 0, border: 0, outline: 0, background: 'transparent', font: "400 13px 'Noto Sans KR', sans-serif", color: '#3E3532' }}
