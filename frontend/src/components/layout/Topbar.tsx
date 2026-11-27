@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { isSearchShortcut, KEYWORDS_URL, matchFeature, type FeatureEntry } from '@/lib/featureSearch';
-import { changeLocale, isLocale, LOCALE_NAMES, LOCALES, locale, t } from '@/lib/i18n';
+import { LocaleSelect } from '@/components/common/LocaleSelect';
+import { t } from '@/lib/i18n';
 import { lockPin, logout, useSession, useWorkerRequired } from '@/lib/session';
 import { UsageGuideButton } from './UsageGuideButton';
 
@@ -143,30 +144,7 @@ export function Topbar() {
       </form>
       <UsageGuideButton />
       {/* 화면 언어 (FR-I18N-02). 브라우저별 저장, 바꾸면 새로고침 */}
-      <select
-        aria-label={t('locale.label')}
-        value={locale()}
-        onChange={(e) => {
-          if (isLocale(e.target.value)) changeLocale(e.target.value);
-        }}
-        style={{
-          height: '32px',
-          padding: '0 8px',
-          borderRadius: '999px',
-          border: '1px solid rgba(255,255,255,0.9)',
-          background: 'rgba(255,255,255,0.55)',
-          boxShadow: '0 0 0 1px rgba(150,100,108,0.12)',
-          font: "400 12.5px 'Noto Sans KR', sans-serif",
-          color: '#4A3F3B',
-          cursor: 'pointer',
-        }}
-      >
-        {LOCALES.map((l) => (
-          <option key={l} value={l}>
-            {LOCALE_NAMES[l]}
-          </option>
-        ))}
-      </select>
+      <LocaleSelect />
       {session?.pinStaff && (
         <span
           style={{

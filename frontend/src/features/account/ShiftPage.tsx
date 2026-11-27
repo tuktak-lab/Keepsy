@@ -1,10 +1,12 @@
 import { useState, type FormEvent } from 'react';
+import { LocaleCorner } from '@/components/common/LocaleSelect';
 import { useRouter } from 'next/navigation';
 import { api, ApiError } from '@/lib/api';
 import { logout, refreshSession, useSession } from '@/lib/session';
 import logoImg from '@/assets/images/keepsy-logo-thin.png';
 import type { WorkerRequest, WorkerResponse } from './types';
 import styles from './ShiftPage.module.css';
+import { t } from '@/lib/i18n';
 
 const PIN_MAX = 6; // PIN은 숫자 4~6자리 (C21)
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'clear', '0', 'back'] as const;
@@ -38,7 +40,7 @@ export default function ShiftPage() {
       await refreshSession(); // 상단 근무자 표시를 맞춘다 (lib/session.ts)
       router.replace('/dashboard');
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : '잠시 후 다시 시도해 주세요');
+      setError(err instanceof ApiError ? err.message : t('common.pin.tryLater'));
       setPin('');
       setPending(false);
     }
@@ -48,19 +50,20 @@ export default function ShiftPage() {
 
   return (
     <main className={styles.page}>
+      <LocaleCorner />
       <section className={styles.card} aria-labelledby="shift-title">
         <img className={styles.logo} src={logoImg.src} alt="Keepsy" />
         {session && <p className={styles.shop}>{session.shopName}</p>}
         <h1 id="shift-title" className={styles.title}>
-          {current ? '근무자 전환' : '근무 시작'}
+          {current ? t('shell.topbar.switchWorker') : t('account.shift.start')}
         </h1>
         <p className={styles.sub}>
           {current ? (
             <>
-              지금 근무자는 <strong className={styles.current}>{current.name}</strong>님입니다. 교대할 스탭의 PIN을 입력하세요.
+              {t('account.shift.currentPre')}<strong className={styles.current}>{current.name}</strong>{t('account.shift.currentPost')}
             </>
           ) : (
-            '본인 PIN을 입력하면 근무를 시작합니다.'
+            t('account.shift.ownPin')
           )}
         </p>
 
@@ -71,7 +74,7 @@ export default function ShiftPage() {
             inputMode="numeric"
             autoComplete="off"
             aria-label="PIN"
-            placeholder="PIN 4~6자리"
+            placeholder={t('account.shift.pinPlaceholder')}
             maxLength={PIN_MAX}
             value={pin}
             onChange={(e) => {
@@ -89,7 +92,7 @@ export default function ShiftPage() {
                 className={key.length === 1 ? styles.key : `${styles.key} ${styles.keySub}`}
                 onClick={() => press(key)}
               >
-                {key === 'clear' ? '전체 지움' : key === 'back' ? '← 지움' : key}
+                {key === 'clear' ? t('account.shift.clear') : key === 'back' ? t('account.shift.back') : key}
               </button>
             ))}
           </div>
@@ -101,14 +104,14 @@ export default function ShiftPage() {
           )}
 
           <button className={styles.submit} type="submit" disabled={pending || pin.length < 4}>
-            {pending ? '확인 중…' : current ? '전환' : '시작'}
+            {pending ? t('account.shift.checking') : current ? t('account.shift.switch') : t('account.shift.begin')}
           </button>
         </form>
 
         <p className={styles.foot}>
-          다른 매장 계정인가요?{' '}
+          {t('account.shift.otherShop')}{' '}
           <button type="button" className={styles.linkButton} onClick={logout}>
-            로그아웃
+            {t('shell.topbar.logout')}
           </button>
         </p>
       </section>

@@ -352,7 +352,7 @@ export default function DashboardPage() {
               <div className="kp-seg" role="group" aria-label={t('dashboard.channels.period')}>
                 {PERIODS.filter(([p]) => p !== 'CUSTOM').map(([p, label]) => (
                   <button type="button" key={p} aria-pressed={period === p} onClick={() => setPeriod(p)}>
-                    {label}
+                    {t(label)}
                   </button>
                 ))}
               </div>

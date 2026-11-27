@@ -1,13 +1,15 @@
 // 성과 분석 화면 계산 (순수 함수). 쿼리 규칙은 docs CONTRACTS 4장 「GET /api/analytics/summary」 (FR-ANL-06)
 
+import type { MessageKey } from './messages/ko.ts';
+
 export type Period = 'TODAY' | 'THIS_WEEK' | 'THIS_MONTH' | 'LAST_MONTH' | 'CUSTOM';
 
-export const PERIODS: [Period, string][] = [
-  ['TODAY', '오늘'],
-  ['THIS_WEEK', '이번 주'],
-  ['THIS_MONTH', '이번 달'],
-  ['LAST_MONTH', '지난달'],
-  ['CUSTOM', '직접 지정'],
+export const PERIODS: [Period, MessageKey][] = [
+  ['TODAY', 'analytics.period.today'],
+  ['THIS_WEEK', 'analytics.period.week'],
+  ['THIS_MONTH', 'analytics.period.month'],
+  ['LAST_MONTH', 'analytics.period.lastMonth'],
+  ['CUSTOM', 'analytics.period.custom'],
 ];
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;

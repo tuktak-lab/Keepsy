@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
+import { LocaleCorner } from '@/components/common/LocaleSelect';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { ApiError, api, type Page } from '@/lib/api';
@@ -6,6 +7,7 @@ import { formatDateTime } from '@/lib/format';
 import { normalizeEmail, splitBody } from '@/lib/mailbox';
 import logoImg from '@/assets/images/keepsy-logo-thin.png';
 import styles from '../campaign/VirtualPhonePage.module.css';
+import { t } from '@/lib/i18n';
 
 // 가상 메일함 (FR-ACC-06, F49 · F59). 비로그인 화면. GET /api/virtual-mailbox?email= (CONTRACTS 4장).
 // 재설정 메일은 실제로 오가지 않고 여기에만 쌓인다. 가상 휴대폰 화면과 같은 구성: 왼쪽 입력 카드, 오른쪽 받은 메일.
@@ -14,7 +16,7 @@ type Mail = { id: number; subject: string; body: string; sentAt: string };
 type Result = { email: string; items: Mail[]; total: number; error?: string };
 
 const SIZE = 20;
-const errorText = (err: unknown) => (err instanceof ApiError ? err.message : '잠시 후 다시 시도해 주세요');
+const errorText = (err: unknown) => (err instanceof ApiError ? err.message : t('common.pin.tryLater'));
 
 export default function VirtualMailboxPage() {
   const fromUrl = useSearchParams().get('email') ?? '';
@@ -39,7 +41,7 @@ export default function VirtualMailboxPage() {
   function open(e: FormEvent) {
     e.preventDefault();
     const email = normalizeEmail(input);
-    if (!email) return setInputError('이메일 형식이 올바르지 않아요 (예: shop@example.com)');
+    if (!email) return setInputError(t('account.mail.badEmail'));
     setInputError('');
     setTarget(email);
   }
@@ -62,23 +64,24 @@ export default function VirtualMailboxPage() {
 
   return (
     <main style={{ maxWidth: 1040, margin: '0 auto', padding: '40px 24px 56px', fontFamily: "'Noto Sans KR', sans-serif" }}>
+      <LocaleCorner />
       <div className={styles.head}>
         <div>
           <img src={logoImg.src} alt="Keepsy" style={{ height: 28, marginBottom: 12 }} />
-          <h1 className={styles.title}>가상 메일함</h1>
-          <p className={styles.sub}>시연용이에요. 실제 메일은 오가지 않고, 재설정 메일은 여기에만 쌓여요.</p>
+          <h1 className={styles.title}>{t('account.mail.title')}</h1>
+          <p className={styles.sub}>{t('account.mail.sub')}</p>
         </div>
         <Link href="/password-reset" className={styles.secondary}>
-          비밀번호 재설정으로
+          {t('account.mail.toReset')}
         </Link>
       </div>
 
       <div className={styles.layout} style={{ marginTop: 18 }}>
-        <section className={styles.card} aria-label="메일함 열기">
-          <h2 className={styles.cardTitle}>메일함 열기</h2>
+        <section className={styles.card} aria-label={t('account.mail.openLabel')}>
+          <h2 className={styles.cardTitle}>{t('account.mail.openLabel')}</h2>
           <form className={styles.field} onSubmit={open} noValidate>
             <label className={styles.label} htmlFor="vm-email">
-              받는 이메일
+              {t('account.mail.toEmail')}
             </label>
             <div className={styles.inputRow}>
               <input
@@ -94,7 +97,7 @@ export default function VirtualMailboxPage() {
                 onChange={(e) => setInput(e.target.value)}
               />
               <button type="submit" className={styles.primary} disabled={loading}>
-                열기
+                {t('account.mail.open')}
               </button>
             </div>
             {inputError && (
@@ -104,27 +107,27 @@ export default function VirtualMailboxPage() {
             )}
           </form>
           <p className={styles.hint}>
-            비밀번호 재설정을 요청한 매장 계정 이메일을 넣으면 받은 메일이 최신순으로 보여요.
+            {t('account.mail.help1')}
             <br />
-            메일 안의 재설정 링크는 30분 동안만 쓸 수 있어요.
+            {t('account.mail.help2')}
           </p>
         </section>
 
-        <section className={styles.card} aria-label="받은 메일">
+        <section className={styles.card} aria-label={t('account.mail.inbox')}>
           <h2 className={styles.cardTitle}>
-            받은 메일{' '}
-            {cur && !cur.error ? <span className="num" style={{ fontWeight: 400, color: '#6B605B' }}>{cur.total}건 · {cur.email}</span> : null}
+            {t('account.mail.inbox')}{' '}
+            {cur && !cur.error ? <span className="num" style={{ fontWeight: 400, color: '#6B605B' }}>{t('account.mail.count', { n: cur.total, email: cur.email })}</span> : null}
           </h2>
           {!target ? (
-            <p className={styles.empty}>왼쪽에서 이메일을 입력하면 받은 메일이 보여요.</p>
+            <p className={styles.empty}>{t('account.mail.hint')}</p>
           ) : loading ? (
-            <p className={styles.empty}>불러오는 중…</p>
+            <p className={styles.empty}>{t('common.loading')}</p>
           ) : cur?.error ? (
             <p className={styles.error} role="alert">
               {cur.error}
             </p>
           ) : cur && cur.items.length === 0 ? (
-            <p className={styles.empty}>받은 메일이 없어요. 비밀번호 재설정을 먼저 요청해 주세요.</p>
+            <p className={styles.empty}>{t('account.mail.none')}</p>
           ) : (
             cur?.items.map((m) => (
               <article key={m.id} style={{ padding: '14px 16px', borderRadius: 14, background: 'rgba(255,255,255,.6)', border: '1px solid #EFE8E2' }}>
@@ -149,7 +152,7 @@ export default function VirtualMailboxPage() {
           )}
           {cur && !cur.error && cur.items.length < cur.total ? (
             <button type="button" className={styles.more} disabled={moreBusy} onClick={() => void loadMore()}>
-              {moreBusy ? '불러오는 중…' : '더 보기'}
+              {moreBusy ? t('common.loading') : t('customer.moreBtn')}
             </button>
           ) : null}
         </section>

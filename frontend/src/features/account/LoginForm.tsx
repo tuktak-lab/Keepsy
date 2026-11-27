@@ -5,6 +5,7 @@ import { api, ApiError } from '@/lib/api';
 import { ChevronIcon, PasswordInput } from './AuthFields';
 import type { LoginRequest, LoginResponse } from './types';
 import styles from './AuthPage.module.css';
+import { t } from '@/lib/i18n';
 
 // 매장 로그인 (FR-ACC-02). 매장 PC에서 스탭 모두가 쓰는 공용 계정.
 // 로그인 직후에는 근무자가 없으므로 근무자 PIN 입력(/shift)으로 보낸다 (CONTRACTS 4장 POST /api/session).
@@ -28,7 +29,7 @@ export function LoginForm(props: { autoFocus: boolean; onSwitch: () => void }) {
       await login({ email: email.trim(), password });
       router.replace('/shift');
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : '잠시 후 다시 시도해 주세요');
+      setError(err instanceof ApiError ? err.message : t('common.pin.tryLater'));
       setPassword('');
       setPending(false);
     }
@@ -36,11 +37,11 @@ export function LoginForm(props: { autoFocus: boolean; onSwitch: () => void }) {
 
   return (
     <form className={`${styles.form} ${styles.login}`} onSubmit={onSubmit} aria-labelledby="login-title">
-      <h1 id="login-title">매장 로그인</h1>
-      <p className={styles.sub}>매장에서 함께 쓰는 계정으로 로그인하세요.</p>
+      <h1 id="login-title">{t('account.loginForm.title')}</h1>
+      <p className={styles.sub}>{t('account.loginForm.sub')}</p>
 
       <label className={styles.field}>
-        <span className={styles.label}>이메일</span>
+        <span className={styles.label}>{t('account.loginForm.email')}</span>
         <input
           className={styles.input}
           type="email"
@@ -57,17 +58,17 @@ export function LoginForm(props: { autoFocus: boolean; onSwitch: () => void }) {
       <div className={styles.field}>
         <div className={styles.fieldRow}>
           <label htmlFor="login-password" className={styles.label}>
-            비밀번호
+            {t('account.password.label')}
           </label>
           <Link href="/password-reset" className={styles.textLink}>
-            비밀번호를 잊으셨나요?
+            {t('account.loginForm.forgot')}
           </Link>
         </div>
         <PasswordInput
           id="login-password"
           name="password"
           autoComplete="current-password"
-          placeholder="비밀번호를 입력해주세요"
+          placeholder={t('account.password.placeholder')}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
@@ -81,15 +82,15 @@ export function LoginForm(props: { autoFocus: boolean; onSwitch: () => void }) {
       )}
 
       <button className={styles.submit} type="submit" disabled={pending}>
-        {pending ? '로그인 중…' : '로그인'}
+        {pending ? t('account.loginForm.pending') : t('account.hero.login')}
         {!pending && <ChevronIcon />}
       </button>
 
       {/* 모바일에서만 보인다 (데스크톱은 옆 패널 버튼을 쓴다) */}
       <p className={styles.formSwitch}>
-        처음이신가요?
+        {t('account.loginForm.newHere')}
         <button type="button" onClick={props.onSwitch}>
-          매장 가입
+          {t('account.hero.signup')}
         </button>
       </p>
     </form>
