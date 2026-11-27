@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AppLink } from '@/components/common/AppLink';
 import { PinGate } from '@/components/common/PinGate';
@@ -10,14 +10,19 @@ import {
   EXCLUSION_LABEL,
   RECOMMENDED_PURPOSE,
   TARGET_STATUSES,
+  canCreate,
+  currentTargets,
   isSeoulNight,
   parseIds,
+  parsePurpose,
+  resolveCategory,
   seoulLocalInput,
   seoulLocalToIso,
   type TargetStatus,
+  type TargetsResult,
 } from '@/lib/campaignNew';
 import { formatWon } from '@/lib/format';
-import { CATEGORIES, CATEGORY_LABEL, enabledCategories, pickCategory, type Category } from '@/lib/menus';
+import { CATEGORIES, CATEGORY_LABEL, enabledCategories, type Category } from '@/lib/menus';
 import { PURPOSES, type TemplatePurpose } from '@/lib/messageTemplate';
 import styleText from './CampaignsPage.css?inline';
 import { useIndustries } from '@/hooks/useIndustries';
@@ -64,18 +69,19 @@ function Body() {
   const params = useSearchParams();
   const id = Number(params.get('id'));
   // 캠페인이 바뀌면 2단계를 새로 만든다: 지난 캠페인의 미리보기 · 검토 체크가 남지 않게 (#344)
-  return Number.isInteger(id) && id > 0 ? <SendStep key={id} id={id} /> : <SetupStep presetIds={parseIds(params.get('customerIds'))} presetCategory={params.get('category')} />;
+  return Number.isInteger(id) && id > 0 ? <SendStep key={id} id={id} /> : <SetupStep presetIds={parseIds(params.get('customerIds'))} presetCategory={params.get('category')} presetPurpose={parsePurpose(params.get('purpose'))} />;
 }
 
 /** 1단계: 대상 · 템플릿 · 대조군을 정해 캠페인을 만든다 (FR-CMP-01 · 02 · 03 · 18) */
-function SetupStep(props: { presetIds: number[]; presetCategory: string | null }) {
+function SetupStep(props: { presetIds: number[]; presetCategory: string | null; presetPurpose: string | null }) {
   const router = useRouter();
-  const industries = useIndustries();
-  const [wantedCategory, setCategory] = useState<Category>(
-    (CATEGORIES as readonly string[]).includes(props.presetCategory ?? '') ? (props.presetCategory as Category) : 'NAIL',
-  );
-  // 꺼 둔 업종은 고를 수 없다. 처음 값(주소의 category · 기본 네일)이 꺼 둔 업종이면 켜 둔 첫 업종으로 시작한다
-  const category = pickCategory(wantedCategory, industries);
+  const [industriesTry, setIndustriesTry] = useState(0);
+  const industries = useIndustries(industriesTry);
+  // 주소로 받은 카테고리(인사이트 등)는 꺼 둔 업종이어도 다른 업종으로 바꾸지 않는다 (F72). 직접 들어오면 기본 네일
+  const explicitCategory = (CATEGORIES as readonly string[]).includes(props.presetCategory ?? '');
+  const [wantedCategory, setCategory] = useState<Category>(explicitCategory ? (props.presetCategory as Category) : 'NAIL');
+  // block이 있으면 만들 수 없다: 업종을 불러오는 중 · 불러오지 못함 · 꺼 둔 업종
+  const { category, block } = resolveCategory(wantedCategory, explicitCategory, industries);
   const [status, setStatus] = useState<TargetStatus | null>(props.presetIds.length ? null : 'DUE');
   const [customerIds, setCustomerIds] = useState(props.presetIds);
   const [more, setMore] = useState(false);
@@ -83,8 +89,7 @@ function SetupStep(props: { presetIds: number[]; presetCategory: string | null }
   const [visitMax, setVisitMax] = useState('');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
-  const [targets, setTargets] = useState<Targets | null>(null);
-  const [targetsError, setTargetsError] = useState('');
+  const [targetsResult, setTargetsResult] = useState<TargetsResult<Targets> | null>(null);
   const [templates, setTemplates] = useState<Template[] | null>(null);
   const [templateError, setTemplateError] = useState('');
   const [picked, setPicked] = useState<number | null>(null);
@@ -95,16 +100,17 @@ function SetupStep(props: { presetIds: number[]; presetCategory: string | null }
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   // 대상 조건 (POST /api/campaigns/targets · POST /api/campaigns 같은 칸). 빈 칸은 보내지 않는다
-  const conditions = useMemo(() => {
-    const c: Record<string, unknown> = { category };
-    if (status) c.predictionStatus = status;
-    if (customerIds.length) c.customerIds = customerIds;
-    if (visitMin !== '') c.visitCountMin = Number(visitMin);
-    if (visitMax !== '') c.visitCountMax = Number(visitMax);
-    if (from) c.lastServiceFrom = from;
-    if (to) c.lastServiceTo = to;
-    return c;
-  }, [category, status, customerIds, visitMin, visitMax, from, to]);
+  const conditions: Record<string, unknown> = { category };
+  if (status) conditions.predictionStatus = status;
+  if (customerIds.length) conditions.customerIds = customerIds;
+  if (visitMin !== '') conditions.visitCountMin = Number(visitMin);
+  if (visitMax !== '') conditions.visitCountMax = Number(visitMax);
+  if (from) conditions.lastServiceFrom = from;
+  if (to) conditions.lastServiceTo = to;
+  // 대상 수는 이 조건(키)으로 센 것만 쓴다. 조건을 바꾸면 바로 이전 결과를 버리고(대기 · 조회 중에는 만들 수 없음), 늦게 온 이전 응답도 쓰지 않는다
+  const conditionKey = JSON.stringify(conditions);
+  const current = currentTargets(targetsResult, conditionKey);
+  const targets = current?.data ?? null;
 
   useEffect(() => {
     api<Page<Template>>('/api/message-templates?page=0&size=100', { silent: true })
@@ -112,29 +118,33 @@ function SetupStep(props: { presetIds: number[]; presetCategory: string | null }
       .catch((err) => setTemplateError(errorText(err)));
   }, []);
 
-  // 조건을 바꿀 때마다 잠시 뒤 대상 수를 다시 센다 (저장하지 않음)
+  // 조건을 바꿀 때마다 잠시 뒤 대상 수를 다시 센다 (저장하지 않음). 응답은 보낸 조건의 키와 함께 둔다
   useEffect(() => {
     let alive = true;
     const timer = setTimeout(() => {
-      api<Targets>('/api/campaigns/targets', { method: 'POST', body: conditions, silent: true })
-        .then((t) => alive && (setTargets(t), setTargetsError('')))
-        .catch((err) => alive && (setTargets(null), setTargetsError(errorText(err))));
+      api<Targets>('/api/campaigns/targets', { method: 'POST', body: JSON.parse(conditionKey), silent: true })
+        .then((t) => alive && setTargetsResult({ key: conditionKey, data: t, error: '' }))
+        .catch((err) => alive && setTargetsResult({ key: conditionKey, data: null, error: errorText(err) }));
     }, 300);
     return () => {
       alive = false;
       clearTimeout(timer);
     };
-  }, [conditions]);
+  }, [conditionKey]);
 
-  const recommended = templates?.find((t) => status && t.purpose === RECOMMENDED_PURPOSE[status]) ?? null;
+  // 추천 템플릿: 상태로 고르면 그 상태의 용도, 고객을 받아 시작하면 주소의 purpose(인사이트 다음 액션). 직접 고른 템플릿(picked)이 늘 먼저다
+  const recommendedPurpose = status ? RECOMMENDED_PURPOSE[status] : props.presetPurpose;
+  const recommended = templates?.find((t) => recommendedPurpose !== null && t.purpose === recommendedPurpose) ?? null;
   const template = templates?.find((t) => t.id === picked) ?? recommended ?? templates?.[0] ?? null;
   const statusInfo = TARGET_STATUSES.find((s) => s.status === status);
   const defaultName = `${CATEGORY_LABEL[category]} ${statusInfo?.label ?? (customerIds.length ? '선택 고객' : '전체')} ${template ? PURPOSE_LABEL[template.purpose] : ''}`.trim();
   const controlCount = targets ? Math.floor((targets.targetCount * control) / 100) : 0;
   const sendCount = targets ? targets.targetCount - controlCount : 0;
 
+  const createReady = canCreate({ creating, hasTemplate: template !== null, block, current });
+
   async function create() {
-    if (!template) return;
+    if (!template || !createReady) return;
     setCreating(true);
     setCreateError('');
     setFieldErrors({});
@@ -162,9 +172,21 @@ function SetupStep(props: { presetIds: number[]; presetCategory: string | null }
             <button type="button" key={k} aria-pressed={category === k} onClick={() => setCategory(k)}>{CATEGORY_LABEL[k]}</button>
           ))}
         </div>
+        {block === 'disabled' && (
+          <div className="cp-warn" role="alert">
+            {CATEGORY_LABEL[category]} 업종은 매장 설정에서 꺼 두어 이 카테고리로는 캠페인을 만들 수 없어요. 위에서 켜 둔 업종을 고르거나{' '}
+            <AppLink href="/settings" style={{ color: '#8F2F2F', fontWeight: 600 }}>매장 설정에서 다시 켜 주세요 →</AppLink>
+          </div>
+        )}
+        {block === 'failed' && (
+          <div className="cp-warn" role="alert">
+            켜 둔 업종을 불러오지 못해 캠페인을 만들 수 없어요.{' '}
+            <button type="button" className="cp-lk" onClick={() => setIndustriesTry((n) => n + 1)}>다시 시도</button>
+          </div>
+        )}
         {customerIds.length > 0 ? (
           <div className="cp-ok">
-            재방문 관리에서 고른 고객 <b className="num">{customerIds.length}명</b>으로 시작했어요. 그중 {CATEGORY_LABEL[category]} 시술 기록이 있는 고객만 남아요.{' '}
+            고른 고객 <b className="num">{customerIds.length}명</b>으로 시작했어요. 그중 {CATEGORY_LABEL[category]} 시술 기록이 있는 고객만 남아요.{' '}
             <button type="button" className="cp-lk" onClick={() => { setCustomerIds([]); setStatus('DUE'); }}>조건으로 고르기</button>
           </div>
         ) : (
@@ -213,12 +235,13 @@ function SetupStep(props: { presetIds: number[]; presetCategory: string | null }
         )}
 
         <div className="cp-box" aria-live="polite">
-          {targetsError ? (
-            <span style={{ color: '#8F2F2F', fontSize: 13 }}>{targetsError}</span>
+          {current?.error ? (
+            <span style={{ color: '#8F2F2F', fontSize: 13 }}>{current.error}</span>
           ) : (
             <>
               <span style={{ fontWeight: 600 }} className="num">
                 발송할 수 있는 고객 <CountUp value={targets?.targetCount ?? 0} duration={300} format={unit('명')} />
+                {!current && <span className="cp-note" style={{ fontWeight: 400, marginLeft: 8 }}>다시 세는 중…</span>}
               </span>
               <div className="cp-excl">
                 {EXCLUSION_LABEL.map(([code, label]) => (
@@ -284,7 +307,7 @@ function SetupStep(props: { presetIds: number[]; presetCategory: string | null }
         {createError && <div className="cp-warn" role="alert">{createError}</div>}
         <div className="cp-btns">
           <span className="cp-note">만든 뒤 고객별 문구를 미리 보고, 검토 체크를 해야 발송할 수 있어요.</span>
-          <button type="button" className="cp-btn p" disabled={creating || !template || !targets || targets.targetCount === 0} onClick={create}>
+          <button type="button" className="cp-btn p" disabled={!createReady} onClick={create}>
             {creating ? '만드는 중…' : '캠페인 만들고 미리보기'}
           </button>
         </div>

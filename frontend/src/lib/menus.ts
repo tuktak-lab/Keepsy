@@ -22,12 +22,6 @@ export function enabledCategories(industries: readonly string[] | null | undefin
   return CATEGORIES.filter((c) => industries === null || industries.includes(c));
 }
 
-/** 쓰려던 카테고리가 꺼 둔 업종이면 켜 둔 첫 업종으로 바꾼다 (아직 모르는 동안에는 그대로) */
-export function pickCategory(wanted: Category, industries: readonly string[] | null | undefined): Category {
-  const list = enabledCategories(industries);
-  return list.includes(wanted) ? wanted : (list[0] ?? wanted);
-}
-
 /**
  * 새로 고를 수 있는 메뉴: 켜 둔 업종의 메뉴, 그리고 이미 골라 둔 메뉴(`keepIds`).
  * 끈 업종의 메뉴가 이미 예약 · 마감에 들어 있으면 그 선택은 끊기지 않게 계속 보인다.

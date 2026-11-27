@@ -50,3 +50,37 @@ export function parseIds(raw: string | null): number[] {
   if (!raw) return [];
   return [...new Set(raw.split(',').map(Number).filter((n) => Number.isInteger(n) && n > 0))];
 }
+
+/** 쿼리 `purpose`(인사이트의 다음 액션) → 추천할 광고 템플릿 용도. 재방문 · 안부 · 재방문 혜택 3개만 받고, 다른 값은 무시(null)한다 */
+export function parsePurpose(raw: string | null): string | null {
+  return raw !== null && Object.values(RECOMMENDED_PURPOSE).includes(raw) ? raw : null;
+}
+
+/** 캠페인을 만들 수 없는 업종 사정. loading: 켜 둔 업종을 불러오는 중, failed: 불러오지 못함, disabled: 고른 카테고리가 꺼 둔 업종 */
+export type CategoryBlock = 'loading' | 'failed' | 'disabled' | null;
+
+/**
+ * 쓸 카테고리와 만들기를 막는 사정 (F72: 꺼 둔 업종은 화면 선택지에서만 숨긴다).
+ * `explicit`: 주소의 `category`로 받은 값(인사이트 등). 꺼 둔 업종이어도 다른 업종으로 조용히 바꾸지 않고 막는다.
+ * 직접 들어온 경우(기본 네일)만 켜 둔 첫 업종으로 시작한다. `industries`는 GET /api/shop 순서(CONTRACTS 3절)다.
+ */
+export function resolveCategory<C extends string>(wanted: C, explicit: boolean, industries: readonly string[] | null | undefined): { category: C; block: CategoryBlock } {
+  if (industries === undefined) return { category: wanted, block: 'loading' };
+  if (industries === null) return { category: wanted, block: 'failed' };
+  if (industries.includes(wanted)) return { category: wanted, block: null };
+  if (explicit || industries.length === 0) return { category: wanted, block: 'disabled' };
+  return { category: industries[0] as C, block: null };
+}
+
+/** 대상 수 조회 결과. 어떤 조건(`key`)으로 센 것인지 함께 둔다 */
+export type TargetsResult<T> = { key: string; data: T | null; error: string };
+
+/** 지금 조건(`key`)으로 센 결과만 쓴다. 조건을 바꾼 직후(대기 · 조회 중)나 늦게 온 이전 응답은 null */
+export function currentTargets<T>(result: TargetsResult<T> | null, key: string): TargetsResult<T> | null {
+  return result !== null && result.key === key ? result : null;
+}
+
+/** 캠페인을 만들 수 있는지: 템플릿이 있고, 업종 사정이 없고, 지금 조건으로 센 대상이 1명 이상 */
+export function canCreate(p: { creating: boolean; hasTemplate: boolean; block: CategoryBlock; current: TargetsResult<{ targetCount: number }> | null }): boolean {
+  return !p.creating && p.hasTemplate && p.block === null && p.current !== null && (p.current.data?.targetCount ?? 0) > 0;
+}
