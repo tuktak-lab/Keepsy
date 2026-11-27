@@ -71,9 +71,9 @@
 .input {
   height: 58px;
   padding: 0 16px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--surface-field-border);
   border-radius: 14px;
-  background: #fff;
+  background: var(--surface-field);
   font: inherit;
   font-size: 17px;
   color: var(--ink);
