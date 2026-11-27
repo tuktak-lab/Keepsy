@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { AppLink } from '@/components/common/AppLink';
 import { api, ApiError } from '@/lib/api';
-import { consentChanges, OPTIONAL_CONSENTS, PRIVACY_TEXT, type ConsentChange, type ConsentState } from '@/lib/consents';
+import { consentChanges, OPTIONAL_CONSENTS, PRIVACY_LABEL, privacyDesc, type ConsentChange, type ConsentState } from '@/lib/consents';
+import { useShop } from '@/hooks/useIndustries';
 import type { ConsentItem } from './types';
 import logoImg from '@/assets/images/keepsy-logo-thin.png';
 import styles from './ConsentTabletPage.module.css';
@@ -16,7 +17,7 @@ type Consents = { current: ConsentState[] };
 type Step = 'loading' | 'form' | 'saving' | 'done' | 'error';
 
 const LABEL: Record<ConsentItem, string> = {
-  PRIVACY: PRIVACY_TEXT.label,
+  PRIVACY: PRIVACY_LABEL,
   ...(Object.fromEntries(OPTIONAL_CONSENTS.map(([item, label]) => [item, label])) as Record<Exclude<ConsentItem, 'PRIVACY'>, string>),
 };
 
@@ -48,11 +49,19 @@ export default function ConsentTabletPage() {
       });
   }, [customerId, valid]);
 
+  // 동의서의 보관 기간은 매장 설정값 (FR-SET-06). 모르는 동안은 개인정보 동의를 새로 받지 않는다 (선택 항목은 그대로 받는다)
+  const [shopTry, setShopTry] = useState(0);
+  const shop = useShop(shopTry);
+  const privacyText = privacyDesc(shop?.retentionYears);
   const privacyAgreed = current.some((c) => c.item === 'PRIVACY' && c.agreed);
   const toggle = (item: ConsentItem) => setChosen((c) => ({ ...c, [item]: !c[item] }));
 
   async function submit() {
     const changes = consentChanges(current, chosen);
+    if (!privacyText && changes.some((c) => c.item === 'PRIVACY')) {
+      setError('매장의 보관 기간을 불러오지 못해 개인정보 동의를 받을 수 없어요. 다시 시도해 주세요.');
+      return;
+    }
     setError('');
     setStep('saving');
     const done: ConsentChange[] = [];
@@ -116,14 +125,27 @@ export default function ConsentTabletPage() {
                 <input
                   type="checkbox"
                   checked={Boolean(chosen.PRIVACY)}
-                  disabled={privacyAgreed || step === 'saving'}
+                  disabled={privacyAgreed || step === 'saving' || (!privacyText && !chosen.PRIVACY)}
                   onChange={() => toggle('PRIVACY')}
                 />
                 <span>
                   <b>
-                    {PRIVACY_TEXT.label} <em>필수</em>
+                    {PRIVACY_LABEL} <em>필수</em>
                   </b>
-                  <span className={styles.desc}>{PRIVACY_TEXT.desc}</span>                </span>
+                  <span className={styles.desc}>
+                    {privacyText ??
+                      (shop === undefined ? (
+                        '매장의 보관 기간을 불러오는 중이에요.'
+                      ) : (
+                        <>
+                          매장의 보관 기간을 불러오지 못했어요. 직원에게 알려 주세요.{' '}
+                          <button type="button" className={styles.staffLink} onClick={() => setShopTry((n) => n + 1)}>
+                            다시 시도
+                          </button>
+                        </>
+                      ))}
+                  </span>
+                </span>
               </label>
 
               {OPTIONAL_CONSENTS.map(([item, label, desc]) => (
