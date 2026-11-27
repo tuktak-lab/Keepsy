@@ -1086,7 +1086,7 @@ export const en: Record<MessageKey, string> = {
   'account.signup.ownerPlaceholder': 'Enter the owner name',
   'account.signup.pinLabel': 'Owner PIN',
   'account.signup.pinPlaceholder': 'Enter 4 to 6 digits',
-  'account.signup.pinHint': 'Used to start work and unlock.',
+  'account.signup.pinHint': 'Used to identify the staff on duty and to unlock.',
   'account.signup.shopLabel': 'Shop name',
   'account.signup.shopPlaceholder': 'Enter the shop name',
   'account.signup.phoneLabel': 'Shop phone',

@@ -1086,7 +1086,7 @@ export const ko = {
   'account.signup.ownerPlaceholder': '대표자명을 입력해주세요',
   'account.signup.pinLabel': '원장 PIN',
   'account.signup.pinPlaceholder': '숫자 4~6자리로 입력해주세요',
-  'account.signup.pinHint': '근무 시작과 잠금 해제에 사용됩니다.',
+  'account.signup.pinHint': '근무자 확인과 잠금 해제에 사용됩니다.',
   'account.signup.shopLabel': '매장명',
   'account.signup.shopPlaceholder': '매장명을 입력해주세요',
   'account.signup.phoneLabel': '매장 연락처',
