@@ -314,9 +314,9 @@ export default function LandingPage() {
             ))}
           </ul>
           <p className={styles.answer}>
-            원장님 시간을 잡아먹는 일,{' '}
+            원장님 시간을 소모하는 일,{' '}
             <strong>
-              <img className={styles.heroLogo} src={logoImg.src} alt="Keepsy" />가 정리할게요.
+              <img className={styles.heroLogo} src={logoImg.src} alt="Keepsy" />가 할게요.
             </strong>
           </p>
         </section>
