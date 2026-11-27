@@ -7,7 +7,7 @@ a{color:#7A4450;text-decoration:none}
 .num{font-variant-numeric:tabular-nums}
 .col{display:flex;flex-direction:column}
 
-.wrap{padding:28px 32px 48px 50px;max-width:1360px;width:100%;box-sizing:border-box;display:flex;flex-direction:column;gap:16px}
+.wrap{padding:28px 32px 48px 50px;width:100%;box-sizing:border-box;display:flex;flex-direction:column;gap:16px}
 .head{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:4px}
 .head .sub{margin-top:6px}
 

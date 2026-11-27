@@ -5,7 +5,7 @@ a{color:inherit;text-decoration:none}a:hover{text-decoration:none}
 .num{font-variant-numeric:tabular-nums}
 .serif{font-family:'Playfair Display','Noto Serif KR',serif}
 
-.kp-wrap{padding:28px 32px 56px 50px;max-width:1280px;box-sizing:border-box;width:100%;display:flex;flex-direction:column;gap:20px}
+.kp-wrap{padding:28px 32px 56px 50px;box-sizing:border-box;width:100%;display:flex;flex-direction:column;gap:20px}
 .kp-hero{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:8px}
 .kp-hello{font-family:'Noto Serif KR','Playfair Display',serif;font-weight:500;font-size:34px;line-height:1.45;color:#221D1B;letter-spacing:-0.03em;word-break:keep-all}
 /* 슬로건 둘째 줄은 와인색 기울임으로 강조, 위에는 작은 영문 라벨 */

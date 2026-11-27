@@ -1,7 +1,7 @@
 body{margin:0;background:linear-gradient(135deg,#FFFFFF 0%,#FCF7F5 100%);background-attachment:fixed;color:#221D1B;font-family:'Noto Sans KR',system-ui,sans-serif;font-size:14px;line-height:1.6;letter-spacing:-0.01em;word-break:keep-all;text-wrap:pretty}
 h1,h2,h3,p,dl{margin:0}
 .num{font-variant-numeric:tabular-nums}
-.st-wrap{padding:28px 32px 56px 50px;max-width:1280px;width:100%;box-sizing:border-box;display:flex;flex-direction:column;gap:18px}
+.st-wrap{padding:28px 32px 56px 50px;width:100%;box-sizing:border-box;display:flex;flex-direction:column;gap:18px}
 .st-h1{font-size:28px;font-weight:600;letter-spacing:-0.02em;color:#221D1B}
 .st-sub{font-size:13.5px;color:#6B605B;margin-top:4px}
 .st-meta{font-size:12px;color:#6B605B;line-height:1.6}
