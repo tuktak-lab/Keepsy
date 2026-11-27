@@ -9,10 +9,12 @@ import {
   MAX_BODY_BYTES,
   messageKind,
   PURPOSES,
+  purposeLabel,
   type MessageKind,
   type TemplatePurpose,
 } from '@/lib/messageTemplate';
 import styles from './TemplatesPage.module.css';
+import { t as tr } from '@/lib/i18n';
 
 // 템플릿 관리 (FR-CMP-03). GET · POST · PATCH · DELETE /api/message-templates.
 // 보기는 CAMPAIGN_VIEW, 작성 · 수정 · 삭제는 CAMPAIGN_SEND 권한을 서버가 검사한다 (NFR-04).
@@ -20,8 +22,14 @@ import styles from './TemplatesPage.module.css';
 type Template = { id: number; name: string; body: string; purpose: TemplatePurpose; messageKind: MessageKind };
 type Field = 'name' | 'body' | 'purpose';
 
-const PURPOSE_LABEL = Object.fromEntries(PURPOSES) as Record<TemplatePurpose, string>;
-const KIND_LABEL: Record<MessageKind, string> = { AD: '광고', INFO: '안내' };
+const KIND_LABEL: Record<MessageKind, string> = {
+  get AD() {
+    return tr('campaign.kind.ad');
+  },
+  get INFO() {
+    return tr('campaign.kind.info');
+  },
+};
 const EMPTY = { name: '', body: '', purpose: 'REVISIT' as TemplatePurpose };
 
 export default function TemplatesPage() {
@@ -44,7 +52,7 @@ export default function TemplatesPage() {
       if (next) open(next);
       else startNew();
     } catch (err) {
-      setLoadError(err instanceof ApiError ? err.message : '잠시 후 다시 시도해 주세요');
+      setLoadError(err instanceof ApiError ? err.message : tr('common.pin.tryLater'));
     }
   }
   const loadRef = useRef(load);
@@ -90,7 +98,7 @@ export default function TemplatesPage() {
       for (const d of err.details as { field: string; reason: string }[]) byField[d.field as Field] ??= d.reason;
       setErrors(byField);
     } else {
-      setError(err instanceof ApiError ? err.message : '잠시 후 다시 시도해 주세요');
+      setError(err instanceof ApiError ? err.message : tr('common.pin.tryLater'));
     }
   }
 
@@ -103,11 +111,11 @@ export default function TemplatesPage() {
     try {
       if (selected === 'new') {
         const { id } = await api<{ id: number }>('/api/message-templates', { method: 'POST', body, silent: true });
-        toast(`'${body.name}' 템플릿을 만들었어요.`);
+        toast(tr('campaign.tpl.created', { name: body.name }));
         await load(id);
       } else {
         await api(`/api/message-templates/${selected}`, { method: 'PATCH', body, silent: true });
-        toast(`'${body.name}' 템플릿을 저장했어요.`);
+        toast(tr('campaign.tpl.saved', { name: body.name }));
         await load(selected);
       }
     } catch (err) {
@@ -122,7 +130,7 @@ export default function TemplatesPage() {
     setPending(true);
     try {
       await api(`/api/message-templates/${selected}`, { method: 'DELETE', silent: true });
-      toast(`'${form.name}' 템플릿을 지웠어요.`);
+      toast(tr('campaign.tpl.deleted', { name: form.name }));
       await load();
     } catch (err) {
       setConfirmDelete(false);
@@ -141,15 +149,15 @@ export default function TemplatesPage() {
       <div className={styles.wrap}>
         <div className={styles.head}>
           <div>
-            <h1 className={styles.title}>템플릿 관리</h1>
-            <p className={styles.sub}>캠페인 문구의 틀을 만들어 두고, 캠페인을 만들 때 골라 써요.</p>
+            <h1 className={styles.title}>{tr('campaign.tpl.title')}</h1>
+            <p className={styles.sub}>{tr('campaign.tpl.sub')}</p>
           </div>
           <div className={styles.headActions}>
             <AppLink href="/campaigns" className={styles.secondary}>
-              캠페인으로
+              {tr('campaign.tpl.toCampaigns')}
             </AppLink>
             <button type="button" className={styles.primary} onClick={startNew}>
-              새 템플릿
+              {tr('campaign.tpl.new')}
             </button>
           </div>
         </div>
@@ -160,11 +168,11 @@ export default function TemplatesPage() {
           </p>
         ) : (
           <div className={styles.layout}>
-            <section className={styles.list} aria-label="템플릿 목록">
+            <section className={styles.list} aria-label={tr('campaign.tpl.listLabel')}>
               {items === null ? (
-                <p className={styles.empty}>불러오는 중…</p>
+                <p className={styles.empty}>{tr('common.loading')}</p>
               ) : items.length === 0 ? (
-                <p className={styles.empty}>아직 템플릿이 없어요.</p>
+                <p className={styles.empty}>{tr('campaign.tpl.empty')}</p>
               ) : (
                 items.map((t) => (
                   <button
@@ -180,7 +188,7 @@ export default function TemplatesPage() {
                         {KIND_LABEL[t.messageKind]}
                       </span>
                     </span>
-                    <span className={styles.purpose}>{PURPOSE_LABEL[t.purpose]}</span>
+                    <span className={styles.purpose}>{purposeLabel(t.purpose)}</span>
                     <span className={styles.preview}>{t.body}</span>
                   </button>
                 ))
@@ -189,11 +197,11 @@ export default function TemplatesPage() {
 
             {selected !== null && (
               <form className={styles.editor} onSubmit={onSubmit}>
-                <h2 className={styles.cardTitle}>{selected === 'new' ? '새 템플릿' : '템플릿 수정'}</h2>
+                <h2 className={styles.cardTitle}>{selected === 'new' ? tr('campaign.tpl.new') : tr('campaign.tpl.edit')}</h2>
 
                 <label className={styles.field}>
                   <span className={styles.label}>
-                    이름 <em>필수</em>
+                    {tr('campaign.tpl.name')} <em>{tr('customer.required')}</em>
                   </span>
                   <input
                     className={styles.input}
@@ -208,9 +216,9 @@ export default function TemplatesPage() {
 
                 <div className={styles.field}>
                   <span className={styles.label}>
-                    용도 <em>필수</em>
+                    {tr('campaign.tpl.purpose')} <em>{tr('customer.required')}</em>
                   </span>
-                  <div className={styles.segment} role="radiogroup" aria-label="용도">
+                  <div className={styles.segment} role="radiogroup" aria-label={tr('campaign.tpl.purpose')}>
                     {PURPOSES.map(([value, label]) => (
                       <button
                         key={value}
@@ -219,24 +227,24 @@ export default function TemplatesPage() {
                         aria-checked={form.purpose === value}
                         onClick={() => setForm({ ...form, purpose: value })}
                       >
-                        {label}
+                        {tr(label)}
                       </button>
                     ))}
                   </div>
                   <span className={styles.hint}>
-                    메시지 종류: <b>{KIND_LABEL[kind]}</b>
+                    {tr('campaign.tpl.kindLabel')}<b>{KIND_LABEL[kind]}</b>
                     {kind === 'AD'
-                      ? ' — 보낼 때 (광고) 표기 같은 광고 문구가 붙고, 마케팅 수신 동의 고객에게만 가요.'
-                      : ' — 동의 재확인 안내라 광고 표기 없이 보내요.'}
+                      ? tr('campaign.tpl.kindAd')
+                      : tr('campaign.tpl.kindInfo')}
                   </span>
                   {errors.purpose && <span className={styles.fieldError}>{errors.purpose}</span>}
                 </div>
 
                 <div className={styles.field}>
                   <label className={styles.label} htmlFor="template-body">
-                    본문 <em>필수</em>
+                    {tr('campaign.tpl.body')} <em>{tr('customer.required')}</em>
                   </label>
-                  <div className={styles.vars} aria-label="변수 넣기">
+                  <div className={styles.vars} aria-label={tr('campaign.tpl.vars')}>
                     {allowedVariables(form.purpose).map((v) => (
                       <button key={v} type="button" onClick={() => insert(v)}>
                         {`{${v}}`}
@@ -256,10 +264,10 @@ export default function TemplatesPage() {
                   <div className={styles.bodyMeta}>
                     <span>
                       {wrongVars.length > 0 &&
-                        `이 용도에서 쓸 수 없는 변수: ${wrongVars.map((v) => `{${v}}`).join(' ')}`}
+                        tr('campaign.tpl.wrongVars', { vars: wrongVars.map((v) => `{${v}}`).join(' ') })}
                     </span>
                     <span className={bytes > MAX_BODY_BYTES ? styles.over : undefined}>
-                      {bytes.toLocaleString()} / {MAX_BODY_BYTES.toLocaleString()}바이트
+                      {tr('campaign.tpl.bytes', { n: bytes.toLocaleString(), max: MAX_BODY_BYTES.toLocaleString() })}
                     </span>
                   </div>
                   {errors.body && <span className={styles.fieldError}>{errors.body}</span>}
@@ -275,17 +283,17 @@ export default function TemplatesPage() {
                   {typeof selected === 'number' &&
                     (confirmDelete ? (
                       <span className={styles.confirm}>
-                        이 템플릿을 지울까요?
+                        {tr('campaign.tpl.askDelete')}
                         <button type="button" className={styles.danger} onClick={onDelete} disabled={pending}>
-                          지우기
+                          {tr('campaign.tpl.doDelete')}
                         </button>
                         <button type="button" className={styles.secondary} onClick={() => setConfirmDelete(false)}>
-                          그대로 두기
+                          {tr('campaign.tpl.keep')}
                         </button>
                       </span>
                     ) : (
                       <button type="button" className={styles.textButton} onClick={() => setConfirmDelete(true)}>
-                        삭제
+                        {tr('campaign.tpl.deleteBtn')}
                       </button>
                     ))}
                   <button
@@ -293,7 +301,7 @@ export default function TemplatesPage() {
                     type="submit"
                     disabled={pending || wrongVars.length > 0 || bytes > MAX_BODY_BYTES}
                   >
-                    {pending ? '저장 중…' : selected === 'new' ? '만들기' : '저장'}
+                    {pending ? tr('common.saving') : selected === 'new' ? tr('campaign.tpl.create') : tr('campaign.tpl.save')}
                   </button>
                 </div>
               </form>

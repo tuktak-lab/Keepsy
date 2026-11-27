@@ -1,5 +1,7 @@
 // 동의 재확인 대상 (FR-CMP-13, D1). 재확인 기한까지 남은 날을 화면 글자로 바꾼다.
 
+import { t } from './i18n.ts';
+
 /** 'YYYY-MM-DD' 두 날짜 사이의 일수 (to − from) */
 function daysBetween(from: string, to: string): number {
   const ms = Date.parse(`${to.slice(0, 10)}T00:00:00Z`) - Date.parse(`${from.slice(0, 10)}T00:00:00Z`);
@@ -10,6 +12,6 @@ function daysBetween(from: string, to: string): number {
 export function dueText(dueDate: string, today: string): { text: string; overdue: boolean } {
   const left = daysBetween(today, dueDate);
   if (left > 0) return { text: `D-${left}`, overdue: false };
-  if (left === 0) return { text: '오늘 기한', overdue: true };
-  return { text: `${-left}일 지남`, overdue: true };
+  if (left === 0) return { text: t('campaign.reconf.dueToday'), overdue: true };
+  return { text: t('campaign.reconf.overdue', { n: -left }), overdue: true };
 }
