@@ -1,6 +1,9 @@
 // 매장 가입 3단계 규칙 (FR-ACC-01). 요청 필드는 docs CONTRACTS 6장 POST /api/shops (F72 · F73). 서버가 다시 검사한다 (NFR-08).
 // 사업자등록번호 · 주소는 쓰는 기능이 없어 받지 않는다 (F73).
 
+import { t as tr } from './i18n.ts';
+import type { MessageKey } from './messages/ko.ts';
+
 // 전화번호 규칙은 매장 설정(lib/settings.ts PHONE_FORMAT, 서버 PUT /api/shop)과 같다. 순수 함수 파일끼리는 런타임 import를 쓰지 않아 여기에 같은 식을 둔다
 const PHONE_FORMAT = /^(0\d{1,2}-?\d{3,4}-?\d{4}|1[568]\d{2}-?\d{4})$/;
 
@@ -20,20 +23,20 @@ export const EMPTY_SIGNUP: SignUpValues = {
 };
 
 /** 단계마다 받는 칸. 순서: 개인정보 → 매장 정보 → 업종(카테고리) */
-export const STEPS: { title: string; fields: SignUpField[] }[] = [
-  { title: '개인정보', fields: ['email', 'password', 'passwordConfirm', 'ownerName', 'ownerPin'] },
-  { title: '매장 정보', fields: ['shopName', 'phone'] },
-  { title: '업종 설정', fields: ['industries'] },
+export const STEPS: { title: MessageKey; fields: SignUpField[] }[] = [
+  { title: 'account.signup.stepPersonal', fields: ['email', 'password', 'passwordConfirm', 'ownerName', 'ownerPin'] },
+  { title: 'account.signup.stepShop', fields: ['shopName', 'phone'] },
+  { title: 'account.signup.stepIndustry', fields: ['industries'] },
 ];
 
 // 매장 업종은 시술 카테고리 5개와 같은 값이다 (CONTRACTS 3절 「매장 업종」). lib/menus.ts의 CATEGORIES와 같은 순서 · 이름이고,
 // 순수 함수 파일끼리는 런타임 import를 쓰지 않아 여기에 같은 목록을 둔다 (PHONE_FORMAT과 같은 사정)
-export const INDUSTRIES: [string, string][] = [
-  ['NAIL', '네일'],
-  ['LASH', '속눈썹'],
-  ['WAXING', '왁싱'],
-  ['SEMI_PERMANENT', '반영구'],
-  ['ETC', '기타'],
+export const INDUSTRIES: [string, MessageKey][] = [
+  ['NAIL', 'category.nail'],
+  ['LASH', 'category.lash'],
+  ['WAXING', 'category.waxing'],
+  ['SEMI_PERMANENT', 'category.semi'],
+  ['ETC', 'category.etc'],
 ];
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -45,31 +48,31 @@ export function validateStep(step: number, v: SignUpValues): Partial<Record<Sign
     const t = f === 'industries' ? '' : v[f].trim();
     switch (f) {
       case 'email':
-        if (!EMAIL.test(t) || t.length > 255) e.email = '이메일 형식이 올바르지 않아요 (예: shop@example.com)';
+        if (!EMAIL.test(t) || t.length > 255) e.email = tr('account.signup.vEmail');
         break;
       case 'password':
-        if (v.password.length < 8 || v.password.length > 64) e.password = '비밀번호는 8~64자입니다';
+        if (v.password.length < 8 || v.password.length > 64) e.password = tr('account.signup.vPassword');
         break;
       case 'passwordConfirm':
-        if (v.passwordConfirm !== v.password) e.passwordConfirm = '비밀번호가 서로 다릅니다';
+        if (v.passwordConfirm !== v.password) e.passwordConfirm = tr('account.signup.vPasswordConfirm');
         break;
       case 'ownerName':
-        if (!t || t.length > 50) e.ownerName = '대표자 이름은 1~50자입니다';
+        if (!t || t.length > 50) e.ownerName = tr('account.signup.vOwnerName');
         break;
       case 'ownerPin':
-        if (!/^\d{4,6}$/.test(v.ownerPin)) e.ownerPin = 'PIN은 숫자 4~6자리입니다';
+        if (!/^\d{4,6}$/.test(v.ownerPin)) e.ownerPin = tr('account.signup.vOwnerPin');
         break;
       case 'shopName':
-        if (!t || t.length > 100) e.shopName = '매장명은 1~100자입니다';
+        if (!t || t.length > 100) e.shopName = tr('account.signup.vShopName');
         break;
       case 'phone':
-        if (!t) e.phone = '매장 연락처를 입력해 주세요';
-        else if (!PHONE_FORMAT.test(t)) e.phone = '전화번호 형식이 아닙니다 (예: 02-000-0000, 1588-0000)';
+        if (!t) e.phone = tr('account.signup.vPhoneEmpty');
+        else if (!PHONE_FORMAT.test(t)) e.phone = tr('account.signup.vPhoneFormat');
         break;
       case 'industries':
         // 하나 이상, 보기 안의 값만, 같은 값 두 번 없이
-        if (v.industries.length === 0) e.industries = '매장 업종을 하나 이상 선택해 주세요';
-        else if (v.industries.some((x) => !INDUSTRIES.some(([value]) => value === x)) || new Set(v.industries).size !== v.industries.length) e.industries = '선택할 수 없는 업종이에요';
+        if (v.industries.length === 0) e.industries = tr('account.signup.vIndustryEmpty');
+        else if (v.industries.some((x) => !INDUSTRIES.some(([value]) => value === x)) || new Set(v.industries).size !== v.industries.length) e.industries = tr('account.signup.vIndustryInvalid');
         break;
     }
   }

@@ -1,4 +1,5 @@
 import { useState, type FormEvent, type ReactNode } from 'react';
+import { LocaleCorner } from '@/components/common/LocaleSelect';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { api, ApiError } from '@/lib/api';
@@ -8,6 +9,7 @@ import type { PasswordResetRequest, PasswordResetConfirmRequest } from './types'
 import { ChevronIcon, PasswordInput } from './AuthFields';
 import styles from './AuthPage.module.css';
 import own from './PasswordResetPage.module.css';
+import { t } from '@/lib/i18n';
 
 type Violation = { field: string; reason: string };
 
@@ -31,14 +33,15 @@ function reasonFor(err: unknown, field: string): string | undefined {
 }
 
 function messageOf(err: unknown): string {
-  return err instanceof ApiError ? err.message : '잠시 후 다시 시도해 주세요';
+  return err instanceof ApiError ? err.message : t('common.pin.tryLater');
 }
 
 /** 로그인 화면과 같은 틀: 카드 위 로고, 왼쪽 폼, 오른쪽 와인 패널(로그인으로 돌아가기) */
 function ResetShell({ children }: { children: ReactNode }) {
   return (
     <main className={styles.page}>
-      <Link href="/" className={`${styles.logo} ${own.plain}`} aria-label="Keepsy 소개 화면으로">
+      <LocaleCorner />
+      <Link href="/" className={`${styles.logo} ${own.plain}`} aria-label={t('common.logoLabel')}>
         <img src={logoImg.src} alt="Keepsy" />
       </Link>
 
@@ -46,10 +49,10 @@ function ResetShell({ children }: { children: ReactNode }) {
         <div className={styles.cardBg} aria-hidden="true" />
 
         <div className={`${styles.hero} ${styles.login}`}>
-          <h2>비밀번호가 생각났나요?</h2>
-          <p>{'매장 계정으로 다시 로그인하고\n오늘 업무를 이어 가세요.'}</p>
+          <h2>{t('account.reset.remembered')}</h2>
+          <p>{t('account.reset.heroText')}</p>
           <Link href="/login" className={`${styles.switch} ${own.plain}`}>
-            로그인
+            {t('account.hero.login')}
             <ChevronIcon />
           </Link>
         </div>
@@ -88,28 +91,28 @@ function RequestForm() {
   return (
     <ResetShell>
       <form className={`${styles.form} ${styles.login}`} onSubmit={onSubmit} aria-labelledby="reset-title">
-        <h1 id="reset-title">비밀번호 재설정</h1>
+        <h1 id="reset-title">{t('account.reset.title')}</h1>
 
         {sent ? (
           <>
             {/* 가입된 이메일인지 드러내지 않도록 결과와 상관없이 같은 안내를 한다 (CONTRACTS 4장, F49) */}
             <p className={styles.sub} role="status">
-              가입된 매장 계정이면 <strong>{email.trim()}</strong>(으)로 재설정 링크를 보냈어요.
+              {t('account.reset.sentPre')}<strong>{email.trim()}</strong>{t('account.reset.sentPost')}
               <br />
-              링크는 30분 동안만 쓸 수 있어요.
+              {t('account.reset.linkValid')}
             </p>
             <Link href={`/virtual-mailbox?email=${encodeURIComponent(email.trim())}`} className={`${styles.submit} ${own.plain}`}>
-              가상 메일함 열기
+              {t('account.reset.openMailbox')}
               <ChevronIcon />
             </Link>
-            <p className={own.note}>시연용이라 실제 메일은 오가지 않아요.</p>
+            <p className={own.note}>{t('account.reset.demoNote')}</p>
           </>
         ) : (
           <>
-            <p className={styles.sub}>매장 계정 이메일로 재설정 링크를 보내 드려요.</p>
+            <p className={styles.sub}>{t('account.reset.sub')}</p>
 
             <label className={styles.field}>
-              <span className={styles.label}>매장 계정 이메일</span>
+              <span className={styles.label}>{t('account.reset.emailLabel')}</span>
               <input
                 className={`${styles.input} ${emailError ? styles.invalid : ''}`}
                 type="email"
@@ -135,7 +138,7 @@ function RequestForm() {
             )}
 
             <button className={styles.submit} type="submit" disabled={pending}>
-              {pending ? '보내는 중…' : '재설정 링크 받기'}
+              {pending ? t('account.reset.sending') : t('account.reset.sendBtn')}
               {!pending && <ChevronIcon />}
             </button>
           </>
@@ -143,9 +146,9 @@ function RequestForm() {
 
         {/* 모바일에서만 보인다 (데스크톱은 옆 패널 버튼을 쓴다) */}
         <p className={styles.formSwitch}>
-          비밀번호가 생각났나요?
+          {t('account.reset.remembered')}
           <Link href="/login" className={own.switchLink}>
-            로그인
+            {t('account.hero.login')}
           </Link>
         </p>
       </form>
@@ -170,13 +173,13 @@ function NewPasswordForm({ token }: { token: string }) {
     setPasswordError('');
     setConfirmError('');
     if (password !== confirm) {
-      setConfirmError('비밀번호가 서로 다릅니다');
+      setConfirmError(t('account.password.mismatch'));
       return;
     }
     setPending(true);
     try {
       await send('PUT', { token, newPassword: password });
-      toast('비밀번호를 바꿨어요. 새 비밀번호로 로그인해 주세요.');
+      toast(t('account.reset.done'));
       router.replace('/login');
     } catch (err) {
       const tokenReason = reasonFor(err, 'token');
@@ -197,18 +200,18 @@ function NewPasswordForm({ token }: { token: string }) {
   return (
     <ResetShell>
       <form className={`${styles.form} ${styles.login}`} onSubmit={onSubmit} aria-labelledby="reset-title">
-        <h1 id="reset-title">새 비밀번호 설정</h1>
-        <p className={styles.sub}>매장 계정에서 쓸 새 비밀번호를 정해 주세요.</p>
+        <h1 id="reset-title">{t('account.reset.newTitle')}</h1>
+        <p className={styles.sub}>{t('account.reset.newSub')}</p>
 
         <div className={styles.field}>
           <label htmlFor="reset-password" className={styles.label}>
-            새 비밀번호
+            {t('account.reset.newLabel')}
           </label>
           <PasswordInput
             id="reset-password"
             name="newPassword"
             autoComplete="new-password"
-            placeholder="8~64자로 입력해주세요"
+            placeholder={t('account.reset.newPlaceholder')}
             className={passwordError ? styles.invalid : ''}
             value={password}
             onChange={(e) => {
@@ -224,13 +227,13 @@ function NewPasswordForm({ token }: { token: string }) {
 
         <div className={styles.field}>
           <label htmlFor="reset-confirm" className={styles.label}>
-            새 비밀번호 확인
+            {t('account.reset.newConfirm')}
           </label>
           <PasswordInput
             id="reset-confirm"
             name="confirmPassword"
             autoComplete="new-password"
-            placeholder="비밀번호를 다시 입력해주세요"
+            placeholder={t('account.password.again')}
             className={confirmError ? styles.invalid : ''}
             value={confirm}
             onChange={(e) => {
@@ -251,21 +254,21 @@ function NewPasswordForm({ token }: { token: string }) {
 
         {tokenInvalid ? (
           <Link href="/password-reset" className={`${styles.submit} ${own.plain}`}>
-            재설정 링크 다시 받기
+            {t('account.reset.again')}
             <ChevronIcon />
           </Link>
         ) : (
           <button className={styles.submit} type="submit" disabled={pending}>
-            {pending ? '바꾸는 중…' : '비밀번호 바꾸기'}
+            {pending ? t('account.reset.changing') : t('account.reset.changeBtn')}
             {!pending && <ChevronIcon />}
           </button>
         )}
 
         {/* 모바일에서만 보인다 (데스크톱은 옆 패널 버튼을 쓴다) */}
         <p className={styles.formSwitch}>
-          비밀번호가 생각났나요?
+          {t('account.reset.remembered')}
           <Link href="/login" className={own.switchLink}>
-            로그인
+            {t('account.hero.login')}
           </Link>
         </p>
       </form>

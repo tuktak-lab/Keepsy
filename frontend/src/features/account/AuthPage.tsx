@@ -1,10 +1,12 @@
 import { useState, type ReactNode } from 'react';
+import { LocaleCorner } from '@/components/common/LocaleSelect';
 import Link from 'next/link';
 import logoImg from '@/assets/images/keepsy-logo-thin.png';
 import { ChevronIcon } from './AuthFields';
 import { LoginForm } from './LoginForm';
 import { SignUpForm } from './SignUpForm';
 import styles from './AuthPage.module.css';
+import { t } from '@/lib/i18n';
 
 type Mode = 'login' | 'register';
 
@@ -39,7 +41,8 @@ export default function AuthPage(props: { initial: Mode }) {
 
   return (
     <main className={styles.page}>
-      <Link href="/" className={styles.logo} aria-label="Keepsy 소개 화면으로">
+      <LocaleCorner />
+      <Link href="/" className={styles.logo} aria-label={t('common.logoLabel')}>
         <img src={logoImg.src} alt="Keepsy" />
       </Link>
 
@@ -48,14 +51,14 @@ export default function AuthPage(props: { initial: Mode }) {
 
         <Hero
           variant="register"
-          title="이미 계정이 있나요?"
+          title={t('account.hero.hasAccount')}
           text={
             <>
-              {'매장 계정으로 로그인하고\n오늘도 '}
-              <HeroLogo />와 함께하세요.
+              {t('account.hero.loginPre')}
+              <HeroLogo />{t('account.hero.loginPost')}
             </>
           }
-          buttonLabel="로그인"
+          buttonLabel={t('account.hero.login')}
           onSwitch={() => go('login')}
         />
         <SignUpForm
@@ -71,11 +74,13 @@ export default function AuthPage(props: { initial: Mode }) {
           variant="login"
           title={
             <>
-              <HeroLogo />가 처음이신가요?
+              {t('account.hero.newPre')}
+              <HeroLogo />
+              {t('account.hero.newPost')}
             </>
           }
-          text={'고객 기록과 재방문 흐름을\n한곳에서 관리할 수 있어요.'}
-          buttonLabel="매장 가입"
+          text={t('account.hero.newText')}
+          buttonLabel={t('account.hero.signup')}
           onSwitch={() => go('register')}
         />
         <LoginForm autoFocus={props.initial === 'login'} onSwitch={() => go('register')} />

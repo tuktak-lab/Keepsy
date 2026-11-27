@@ -1,5 +1,6 @@
 import { useState, type InputHTMLAttributes } from 'react';
 import styles from './AuthPage.module.css';
+import { t } from '@/lib/i18n';
 
 // 로그인 · 가입 폼이 같이 쓰는 작은 조각 (아이콘, 비밀번호 보기 칸)
 
@@ -38,7 +39,7 @@ export function PasswordInput(props: Omit<InputHTMLAttributes<HTMLInputElement>,
   return (
     <span className={styles.inputWrap}>
       <input {...rest} className={`${styles.input} ${styles.hasIcon} ${className ?? ''}`} type={shown ? 'text' : 'password'} />
-      <button type="button" className={styles.iconBtn} onClick={() => setShown((s) => !s)} aria-label={shown ? '비밀번호 숨기기' : '비밀번호 보기'} aria-pressed={shown}>
+      <button type="button" className={styles.iconBtn} onClick={() => setShown((s) => !s)} aria-label={shown ? t('account.password.hide') : t('account.password.show')} aria-pressed={shown}>
         {shown ? <EyeOffIcon /> : <EyeIcon />}
       </button>
     </span>
