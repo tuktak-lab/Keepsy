@@ -115,7 +115,7 @@ export default function AiInsightsPage() {
           <AppLink href="/campaigns" className="btn">{t('shell.nav.campaigns')}</AppLink>
         </header>
 
-        <section className="card summary" aria-label={t('prediction.summary.label')}>
+        <section className="card summary" aria-label={t('prediction.summary.label')} data-guide="insights-summary">
           <div className="sum-item">
             <span className="meta">{t('prediction.summary.total')}</span>
             <b className="num">{total === null ? '-' : <CountUp value={total} format={(n) => t('common.persons', { n })} />}</b>
@@ -129,7 +129,7 @@ export default function AiInsightsPage() {
         </section>
 
         <div className="col" style={{ gap: 12, minWidth: 0 }}>
-          <div className="toolbar">
+          <div className="toolbar" data-guide="insights-tabs">
             <div className="tabs" role="tablist" aria-label={t('prediction.summary.total')}>
               {STATUS_TABS.map((tb) => (
                 <button type="button" role="tab" aria-selected={tab === tb.status} onClick={() => setTab(tb.status)} key={tb.status}>
@@ -200,7 +200,7 @@ export default function AiInsightsPage() {
                         <b className="num">{md(r.lastServiceDate)}</b>
                         <span className="meta num">{t('common.elapsedDays', { days: r.elapsedDays })}</span>
                       </div>
-                      <div className="cell">
+                      <div className="cell" data-guide={i === 0 ? 'insights-action' : undefined}>
                         <span className="lbl-m">{t('prediction.col.action')}</span>
                         {r.nextAction && r.nextAction !== 'REQUEST_CONSENT' ? (
                           // 이 고객 · 카테고리로 새 캠페인을 시작하고, 다음 액션과 같은 용도의 템플릿을 추천한다 (FR-PRD-06 · FR-CMP-01)
@@ -211,7 +211,7 @@ export default function AiInsightsPage() {
                           <span className="meta">{r.nextAction ? nextActionLabel('REQUEST_CONSENT') : t('prediction.noAction')}</span>
                         )}
                       </div>
-                      <div className="acts">
+                      <div className="acts" data-guide={i === 0 ? 'insights-handling' : undefined}>
                         {HANDLING.map(([m, labelKey]) => (
                           <button
                             key={m}

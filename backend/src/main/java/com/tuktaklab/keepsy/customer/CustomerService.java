@@ -105,8 +105,9 @@ public class CustomerService {
                 customerRepository
                         .findByIdAndShopIdAndStatus(customerId, shopId, Customer.Status.ACTIVE)
                         .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND));
-        if (customerRepository.existsByShopIdAndPhoneAndIdNot(
-                shopId, Customer.normalizePhone(b.phone()), customerId)) {
+        if (b.phone() != null
+                && customerRepository.existsByShopIdAndPhoneAndIdNot(
+                        shopId, Customer.normalizePhone(b.phone()), customerId)) {
             throw duplicatePhone();
         }
         customer.changeBasicInfo(b);

@@ -120,14 +120,14 @@ export default function CustomersPage() {
             <h1 className="h1">{t('customer.list.title')}</h1>
             <p className="sub">{t('customer.list.sub')}</p>
           </div>
-          <div className="row" style={{ gap: '8px' }}>
+          <div className="row" style={{ gap: '8px' }} data-guide="customers-actions">
             <AppLink href="/customers/retention" className="btn">{t('customer.list.retention')}</AppLink>
             <AppLink href="/customers/import" className="btn">{t('customer.list.import')}</AppLink>
             <AppLink href="/customers/new" className="btn btn-p">{t('customer.list.new')}</AppLink>
           </div>
         </div>
 
-        <div className="row" style={{ gap: '8px' }}>
+        <div className="row" style={{ gap: '8px' }} data-guide="customers-search">
           <input
             type="search"
             className="fld"
@@ -168,7 +168,7 @@ export default function CustomersPage() {
         </div>
 
         <section className="card" style={{ padding: '10px 0 6px', overflowX: 'auto' }}>
-          <div className="crow head">
+          <div className="crow head" data-guide="customers-list">
             <span>{t('common.customer')}</span>
             <span>{t('customer.list.colVisits')}</span>
             <span>{t('customer.list.colLast')}</span>
@@ -204,7 +204,7 @@ export default function CustomersPage() {
         </section>
 
         {cur ? (
-          <section className="card">
+          <section className="card" data-guide="customers-detail">
             <div className="row between kp-slide" key={cur.customerId}>
             <div className="row" style={{ gap: '14px' }}>
               <Avatar who={cur.name} size="48" />

@@ -57,10 +57,10 @@ function Locked(props: { what: string }) {
   );
 }
 
-function Card(props: { title: string; sub?: string; head?: ReactNode; className?: string; children: ReactNode }) {
+function Card(props: { title: string; sub?: string; head?: ReactNode; className?: string; guide?: string; children: ReactNode }) {
   return (
     <section className={'kp-card ' + (props.className ?? 'kp-care')} aria-label={props.title}>
-      <div className="kp-card-head">
+      <div className="kp-card-head" data-guide={props.guide}>
         <div>
           <h2 className="kp-card-title">{props.title}</h2>
           {props.sub ? <p className="kp-card-sub" style={{ marginLeft: 0 }}>{props.sub}</p> : null}
@@ -187,7 +187,7 @@ export default function DashboardPage() {
           </AppLink>
         </div>
 
-        <section className="kp-kpis kp-card" aria-label={t('dashboard.kpi.label')}>
+        <section className="kp-kpis kp-card" aria-label={t('dashboard.kpi.label')} data-guide="dashboard-kpis">
           {kpi('/customers', t('dashboard.kpi.customers'), num(customers), !customerOpen ? t('dashboard.kpi.pinNote') : failed.customers ? t('dashboard.kpi.failedNote') : t('dashboard.kpi.customersNote'))}
           {kpi('/reservations', t('dashboard.kpi.today'), num(todayList?.length), todayList ? t('dashboard.kpi.todayNote', { confirmed: todayList.filter((r) => r.status === 'CONFIRMED').length, consult: todayList.filter((r) => r.consultFirst).length }) : failed.today ? t('dashboard.kpi.failedNote') : '')}
           {kpi('/reservations', t('dashboard.kpi.unclosed'), num(today?.unclosed.length), failed.today ? t('dashboard.kpi.failedNote') : t('dashboard.kpi.unclosedNote'))}
@@ -201,7 +201,7 @@ export default function DashboardPage() {
         </section>
 
         <div className="kp-low">
-          <Card title={t('dashboard.kpi.today')} sub={t('dashboard.today.sub')}>
+          <Card title={t('dashboard.kpi.today')} sub={t('dashboard.today.sub')} guide="dashboard-today">
             {!todayList ? (
               <p className="kp-card-sub">{loadingText('today')}</p>
             ) : todayList.length === 0 ? (
@@ -212,7 +212,16 @@ export default function DashboardPage() {
                   <span className="num" style={{ fontWeight: 600, color: '#8A6F66', fontSize: '13px', width: 44 }}>{hmOf(r.startAt)}</span>
                   <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
                     <AppLink href={r.customer ? `/customers/detail?id=${r.customer.id}` : `/reservations/detail?id=${r.id}`} style={{ fontWeight: 600, fontSize: '15px' }}>
-                      {r.customer?.hasCaution ? <span title={t('dashboard.today.cautionTitle')} aria-label={t('dashboard.today.cautionLabel')}>⚠️ </span> : null}
+                      {r.customer?.hasCaution ? (
+                        <span title={t('dashboard.today.cautionTitle')} aria-label={t('dashboard.today.cautionLabel')} role="img" style={{ display: 'inline-flex', verticalAlign: '-2px', marginRight: 4, color: '#8F2F2F' }}>
+                          {/* 경고 삼각형 (Lucide triangle-alert, ISC) */}
+                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                            <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" />
+                            <path d="M12 9v4" />
+                            <path d="M12 17h.01" />
+                          </svg>
+                        </span>
+                      ) : null}
                       {resvName(r)}
                     </AppLink>
                     <span style={{ fontSize: '12.5px', color: '#6B605B' }}>
@@ -231,7 +240,7 @@ export default function DashboardPage() {
             )}
           </Card>
 
-          <Card title={t('dashboard.kpi.unclosed')} sub={t('dashboard.unclosed.sub')} className="kp-act">
+          <Card title={t('dashboard.kpi.unclosed')} sub={t('dashboard.unclosed.sub')} className="kp-act" guide="dashboard-unclosed">
             {!today ? (
               <p className="kp-card-sub">{loadingText('today')}</p>
             ) : today.unclosed.length === 0 ? (
@@ -256,6 +265,7 @@ export default function DashboardPage() {
           <Card
             title={t('dashboard.care.title')}
             sub={t('dashboard.care.sub')}
+            guide="dashboard-care"
             head={insightOpen ? <AppLink href="/insights" className="kp-btn">{t('dashboard.care.all')}</AppLink> : null}
           >
             {!insightOpen ? (

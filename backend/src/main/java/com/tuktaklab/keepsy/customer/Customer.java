@@ -111,12 +111,13 @@ public class Customer {
             AcquisitionChannel acquisitionChannel) {}
 
     /** 형식은 요청 검증을 통과한 값. 휴대폰은 {@code 010-0000-0000}으로 맞춘다 */
+    /** 번호 · 선호 언어가 null이면 지금 값을 둔다. 화면은 전체 번호를 조회하지 않고 선호 언어를 받지 않는다 (F78, F76 ①) */
     void changeBasicInfo(BasicInfo b) {
         name = b.name();
-        phone = normalizePhone(b.phone());
+        if (b.phone() != null) phone = normalizePhone(b.phone());
         gender = b.gender();
         birthYear = b.birthYear();
-        preferredLanguage = b.preferredLanguage();
+        if (b.preferredLanguage() != null) preferredLanguage = b.preferredLanguage();
         acquisitionChannel = b.acquisitionChannel();
     }
 

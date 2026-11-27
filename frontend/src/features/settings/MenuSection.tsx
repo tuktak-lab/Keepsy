@@ -71,7 +71,7 @@ export function MenuSection({ industries }: { industries: string[] | null | unde
   if (loadFailed && !menus) {
     return (
       <section id="st-menu" className="st-card">
-        <h2>시술 메뉴 · 기본 주기</h2>
+        <h2 data-guide="settings-menu">시술 메뉴 · 기본 주기</h2>
         <p className="st-meta">
           불러오지 못했어요.{' '}
           <button
@@ -91,7 +91,7 @@ export function MenuSection({ industries }: { industries: string[] | null | unde
   if (!menus || !cycles || !cycleValues || !savedCycleValues || industries === undefined) {
     return (
       <section id="st-menu" className="st-card">
-        <h2>시술 메뉴 · 기본 주기</h2>
+        <h2 data-guide="settings-menu">시술 메뉴 · 기본 주기</h2>
         <p className="st-meta">불러오는 중…</p>
       </section>
     );
@@ -157,7 +157,7 @@ export function MenuSection({ industries }: { industries: string[] | null | unde
 
   return (
     <section id="st-menu" className="st-card">
-      <h2>시술 메뉴 · 기본 주기</h2>
+      <h2 data-guide="settings-menu">시술 메뉴 · 기본 주기</h2>
       <p className="st-meta">카테고리 기본 주기에서 시작하고, 메뉴마다 기본 주기(일)를 고칠 수 있어요. 고객 기록이 쌓이면 개인 평균 주기를 우선 적용해요.</p>
       <div className="st-note">
         <b>주기 계산 제외</b> : 반영구 리터치·무료 보수·아트 추가처럼 다음 방문 시점을 정하지 않는 메뉴예요. 방문으로 기록되지만 재방문 주기 계산에는 넣지 않아요.

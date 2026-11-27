@@ -25,7 +25,8 @@ const NAV: [string, MessageKey, string, string][] = [
     '/customers',
     'M9 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z M2.5 20c0-3.6 3-6 6.5-6s6.5 2.4 6.5 6 M17 11a2.5 2.5 0 1 0 0-5 M18 14c2.5.3 4 2.2 4 5',
   ],
-  ['insights', 'shell.nav.insights', '/insights', 'M20 11a8 8 0 1 0-2.3 5.7 M20 4v7h-7'],
+  // 인사이트: Lucide rotate-cw (화살표 머리가 원호 끝에 맞게 이어짐)
+  ['insights', 'shell.nav.insights', '/insights', 'M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8 M21 3v5h-5'],
   ['campaigns', 'shell.nav.campaigns', '/campaigns', 'M21 3L3 10.5l7 3 3 7z M21 3L10 13.5'],
   ['performance', 'shell.nav.performance', '/analytics', 'M5 20v-8 M12 20V5 M19 20v-5'],
   ['settings', 'shell.nav.settings', '/settings', 'M4 9l1.5-5h13L20 9 M4 9v11h16V9 M9 20v-6h6v6'],

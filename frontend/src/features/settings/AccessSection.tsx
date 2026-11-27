@@ -41,7 +41,7 @@ export function FeatureLockSection() {
 
   return (
     <section id="st-lock" className="st-card">
-      <h2>기능별 공용 / PIN</h2>
+      <h2 data-guide="settings-lock">기능별 공용 / PIN</h2>
       <p className="st-meta">「공용」은 근무 중인 스탭 누구나 쓰고, 「PIN」은 잠긴 기능 사용이 허용된 스탭이 PIN을 넣어야 열려요. 고정 항목은 바꿀 수 없어요. 저장하면 바로 적용돼요.</p>
       {!values ? (
         <p className="st-meta">불러오는 중…</p>
