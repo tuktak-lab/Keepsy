@@ -7,7 +7,6 @@ import {
   emptyMenuValues,
   enabledCategories,
   formatDuration,
-  pickCategory,
   pickableMenus,
   toCreateRequest,
   toCycleValues,
@@ -112,13 +111,6 @@ test('enabledCategories: 켜 둔 업종만 시술 카테고리 순서로, 모르
   assert.deepEqual(enabledCategories(['ETC', 'NAIL']), ['NAIL', 'ETC']);
   assert.deepEqual(enabledCategories(null), [...CATEGORIES]);
   assert.deepEqual(enabledCategories(undefined), []);
-});
-
-test('pickCategory: 꺼 둔 업종이면 켜 둔 첫 업종으로, 아직 모르면 그대로', () => {
-  assert.equal(pickCategory('NAIL', ['NAIL', 'ETC']), 'NAIL');
-  assert.equal(pickCategory('NAIL', ['LASH', 'ETC']), 'LASH');
-  assert.equal(pickCategory('NAIL', undefined), 'NAIL'); // 불러오는 중
-  assert.equal(pickCategory('ETC', null), 'ETC'); // 모름: 모두 보여 줌
 });
 
 test('pickableMenus: 켜 둔 업종의 메뉴와 이미 고른 메뉴만 보인다', () => {

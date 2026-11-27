@@ -202,7 +202,8 @@ export default function AiInsightsPage() {
                       <div className="cell">
                         <span className="lbl-m">다음 액션</span>
                         {r.nextAction && r.nextAction !== 'REQUEST_CONSENT' ? (
-                          <AppLink href="/campaigns" className="btn btn-p btn-sm">
+                          // 이 고객 · 카테고리로 새 캠페인을 시작하고, 다음 액션과 같은 용도의 템플릿을 추천한다 (FR-PRD-06 · FR-CMP-01)
+                          <AppLink href={`/campaigns/new?${new URLSearchParams({ customerIds: String(r.customerId), category: r.category, purpose: r.nextAction })}`} className="btn btn-p btn-sm">
                             {NEXT_ACTION_LABEL[r.nextAction] ?? r.nextAction} 캠페인
                           </AppLink>
                         ) : (
