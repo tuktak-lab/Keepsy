@@ -32,5 +32,12 @@ export const SEND_STATUS_LABEL: Record<string, string> = {
   },
 };
 
+/**
+ * 연결 매출 경로 (FR-ANL-02 · 04). 고객 ID를 주면 그 고객들의 연결 매출(`customers`, 보낸 순서)도 함께 받는다.
+ * 캠페인 상세 한 페이지(최대 100명)의 ID를 그대로 보낸다 (CONTRACTS 6장 `GET …/revenue`)
+ */
+export const revenuePath = (campaignId: number, customerIds: number[] = []): string =>
+  `/api/campaigns/${campaignId}/revenue` + (customerIds.length ? `?customerIds=${customerIds.join(',')}` : '');
+
 /** 전환율(%) 글자. 분모가 0이면 보이지 않는다 (CONTRACTS 퍼널 · 대조군 비교) */
 export const rateText = (count: number, base: number): string | null => (base > 0 ? `${Math.round((count / base) * 1000) / 10}%` : null);

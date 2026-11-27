@@ -859,6 +859,8 @@ export const ko = {
   'campaign.detail.colPhone': '수신 번호',
   'campaign.detail.colResult': '결과',
   'campaign.detail.colTime': '시각',
+  'campaign.detail.colLinks': '연결 기록',
+  'campaign.detail.colRevenue': '연결 매출',
   'campaign.detail.control': '대조군 (발송 안 함)',
   'campaign.detail.clickNote': '고객 이름을 누르면 고객 상세에서 이 캠페인 뒤의 예약 · 방문 · 결제 기록을 볼 수 있어요.',
   'campaign.detail.funnelSent': '발송',

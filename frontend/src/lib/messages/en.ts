@@ -859,6 +859,8 @@ export const en: Record<MessageKey, string> = {
   'campaign.detail.colPhone': 'Recipient number',
   'campaign.detail.colResult': 'Result',
   'campaign.detail.colTime': 'Time',
+  'campaign.detail.colLinks': 'Linked records',
+  'campaign.detail.colRevenue': 'Linked revenue',
   'campaign.detail.control': 'Control group (not sent)',
   'campaign.detail.clickNote': 'Select a customer name to see the bookings, visits and payments after this campaign in their details.',
   'campaign.detail.funnelSent': 'Sent',
