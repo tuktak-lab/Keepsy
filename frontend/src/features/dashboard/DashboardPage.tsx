@@ -39,6 +39,8 @@ type Channels = { from: string; to: string; total: number; channels: { channel: 
 const SEG_COLOR: Record<string, string> = { SCHEDULED: '#F0DAD6', DUE: '#7A4450', CHURN_SIGNAL: '#CC9A9E', LONG_ABSENT: '#C9BDB9' };
 /** 오늘 예약은 처음에 이만큼만 보이고 [모두 보기]로 펼친다 */
 const TODAY_FOLD = 6;
+/** 이번 주 예약 그래프 세로 눈금의 기본 최대 건수 */
+const WEEK_SCALE = 50;
 
 const SEGS: { status: string; label: MessageKey; rule: MessageKey }[] = [
   { status: 'SCHEDULED', label: 'dashboard.seg.scheduled', rule: 'dashboard.seg.ruleScheduled' },
@@ -172,11 +174,14 @@ export default function DashboardPage() {
   const todayList = today?.today.filter((r) => isActive(r.status)) ?? null;
   const ch = channels?.period === period ? channels.value : null;
   const weekOpen = (today?.week ?? []).filter((_, i) => !weekClosed?.[i]);
-  const weekMax = Math.max(1, ...weekOpen.map((d) => bookedCount(d.counts)));
+  // 세로 눈금은 0~50건 고정 (10건 간격). 50건을 넘는 날이 있으면 그 위 10단위까지 늘린다
+  const weekScale = Math.max(WEEK_SCALE, Math.ceil(Math.max(0, ...weekOpen.map((d) => bookedCount(d.counts))) / 10) * 10);
+  const weekTicks = Array.from({ length: weekScale / 10 + 1 }, (_, k) => k * 10);
+  const weekY = (n: number) => 100 - (n / weekScale) * 90;
   // 이번 주 예약 꺾은선: 날짜 칸 가운데(x)와 높이(y)를 0~100 비율로. 위쪽 18%는 값 글자 자리
   const weekPts = (today?.week ?? []).map((d, i) => {
     const n = bookedCount(d.counts);
-    return { date: d.date, n, x: ((i + 0.5) / 7) * 100, y: 88 - (n / weekMax) * 70, today: d.date === seoulToday(), closed: !!weekClosed?.[i] };
+    return { date: d.date, n, x: ((i + 0.5) / 7) * 100, y: weekY(n), today: d.date === seoulToday(), closed: !!weekClosed?.[i] };
   });
   // 휴무일은 점을 찍지 않고, 선은 문 연 날끼리만 잇는다
   const weekLine = weekPts.filter((p) => !p.closed).map((p, i) => `${i ? 'L' : 'M'}${p.x} ${p.y}`).join(' ');
@@ -240,6 +245,11 @@ export default function DashboardPage() {
             ) : (
               <div className="kp-line" role="img" aria-label={weekPts.map((p, i) => `${dowLabel(i)} ${md(p.date)} ${p.closed ? t('reservation.dayOff') : p.n}`).join(', ')}>
                 <div className="kp-line-plot" aria-hidden="true">
+                  {weekTicks.map((v) => (
+                    <span key={v} className="kp-line-tick" style={{ top: `${weekY(v)}%` }}>
+                      <em className="num">{v}</em>
+                    </span>
+                  ))}
                   <svg viewBox="0 0 100 100" preserveAspectRatio="none">
                     <path className="kp-line-path" d={weekLine} />
                   </svg>
