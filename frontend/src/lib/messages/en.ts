@@ -16,7 +16,7 @@ export const en: Record<MessageKey, string> = {
   'shell.nav.promo.line2': 'run your shop more smartly.',
   'shell.nav.promo.line3': 'Get started!',
   'shell.nav.promo.go': 'Go to Insights',
-  'shell.topbar.searchPlaceholder': 'Search features (in Korean)  /',
+  'shell.topbar.searchPlaceholder': 'Search features (e.g. sales, add customer)  /',
   'shell.topbar.searchMiss': 'No matching feature. Try different words',
   'shell.topbar.searchLabel': 'Search features',
   'shell.topbar.pinActive': '{name} · PIN verified',
