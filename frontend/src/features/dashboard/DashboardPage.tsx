@@ -204,7 +204,8 @@ export default function DashboardPage() {
           )}
         </section>
 
-        {/* 한눈에 보는 그래프를 위에: 이번 주 예약 · 예약 경로 | 고객 재방문 상태 */}
+        {/* 두 열을 각각 세로로 쌓는다. 맨 위에 그래프(이번 주 예약 | 고객 재방문 상태), 그 아래 오늘 할 일.
+            열마다 카드 높이가 내용만큼이라 짧은 카드가 옆 카드 높이로 늘어나지 않는다 */}
         <div className="kp-cols">
           <div className="kp-col">
             <Card title={t('dashboard.week.title')} sub={t('dashboard.week.sub')}>
@@ -228,83 +229,6 @@ export default function DashboardPage() {
               )}
             </Card>
 
-            <Card
-              title={t('dashboard.channels.title')}
-              sub={ch ? t('dashboard.channels.sub', { from: ch.from, to: ch.to, total: ch.total }) : t('dashboard.channels.subEmpty')}
-              className="kp-act"
-              head={
-                <div className="kp-seg" role="group" aria-label={t('dashboard.channels.period')}>
-                  {PERIODS.filter(([p]) => p !== 'CUSTOM').map(([p, label]) => (
-                    <button type="button" key={p} aria-pressed={period === p} onClick={() => setPeriod(p)}>
-                      {t(label)}
-                    </button>
-                  ))}
-                </div>
-              }
-            >
-              {!ch ? (
-                <p className="kp-card-sub">{loadingText(`channels-${period}`)}</p>
-              ) : (
-                ch.channels.map((c) => (
-                  <div key={c.channel} style={{ display: 'grid', gridTemplateColumns: '84px 1fr 56px', gap: 10, alignItems: 'center', padding: '8px 0' }}>
-                    <span style={{ fontSize: 13 }}>{CHANNEL_LABEL[c.channel] ?? c.channel}</span>
-                    <span style={{ height: 8, borderRadius: 99, background: '#EFE8E2', overflow: 'hidden' }}>
-                      <span style={{ display: 'block', height: '100%', width: `${c.ratio * 100}%`, background: '#7A4450' }} />
-                    </span>
-                    <span className="num" style={{ fontSize: 13, textAlign: 'right' }}>{ratioText(c.ratio)}</span>
-                  </div>
-                ))
-              )}
-            </Card>
-          </div>
-          <div className="kp-col">
-            <section className="kp-card kp-rel" aria-label={t('dashboard.rel.label')}>
-              <div className="kp-card-head">
-                <div>
-                  <h2 className="kp-card-title">{t('dashboard.rel.label')}</h2>
-                  <p className="kp-card-sub">{t('dashboard.rel.sub')}</p>
-                </div>
-              </div>
-              {!insightOpen ? (
-                <Locked what={t('dashboard.locked.insights')} />
-              ) : !segCounts ? (
-                <p className="kp-card-sub">{loadingText('segments')}</p>
-              ) : (
-                <div className="kp-rel-body">
-                  <div className="kp-donut">
-                    <svg width="224" height="224" viewBox="0 0 224 224" role="img" aria-label={t('dashboard.rel.donut', { list: SEGS.map((s) => `${t(s.label)} ${segCounts[s.status]}`).join(', ') })}>
-                      <g transform="rotate(-90 112 112)" fill="none" strokeWidth="30">
-                        {arcs.map((a, i) => (
-                          <circle cx="112" cy="112" r={R} stroke={a.color} strokeDasharray={drawn ? a.dash : `0 ${C}`} strokeDashoffset={a.off} className="kp-arc" style={{ transitionDelay: `${i * 90}ms` }} key={i}></circle>
-                        ))}
-                      </g>
-                    </svg>
-                    <div className="kp-donut-center">
-                      <b className="num">
-                        <CountUp value={segTotal} />
-                      </b>
-                      <span>{t('dashboard.rel.center')}</span>
-                    </div>
-                  </div>
-                  <div className="kp-seglist">
-                    {SEGS.map((s) => (
-                      <AppLink href="/insights" className="kp-segrow" key={s.status}>
-                        <span className="kp-dot" style={{ background: SEG_COLOR[s.status] }}></span>
-                        <span className="name">{t(s.label)}</span>
-                        <span className="rule">{t(s.rule)}</span>
-                        <span className="n num">{t('common.persons', { n: segCounts[s.status] })}</span>
-                      </AppLink>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </section>
-          </div>
-        </div>
-
-        {/* 할 일 목록 (왼쪽 예약 · 캠페인, 오른쪽 관리할 고객): 열마다 카드 높이가 내용만큼이라 짧은 카드가 옆 카드 높이로 늘어나지 않는다 */}
-        <div className="kp-cols">
-          <div className="kp-col">
             <Card title={t('dashboard.kpi.today')} sub={t('dashboard.today.sub')} guide="dashboard-today">
               {!todayList ? (
                 <p className="kp-card-sub">{loadingText('today')}</p>
@@ -392,8 +316,79 @@ export default function DashboardPage() {
                 ))
               )}
             </Card>
+
+            <Card
+              title={t('dashboard.channels.title')}
+              sub={ch ? t('dashboard.channels.sub', { from: ch.from, to: ch.to, total: ch.total }) : t('dashboard.channels.subEmpty')}
+              className="kp-act"
+              head={
+                <div className="kp-seg" role="group" aria-label={t('dashboard.channels.period')}>
+                  {PERIODS.filter(([p]) => p !== 'CUSTOM').map(([p, label]) => (
+                    <button type="button" key={p} aria-pressed={period === p} onClick={() => setPeriod(p)}>
+                      {t(label)}
+                    </button>
+                  ))}
+                </div>
+              }
+            >
+              {!ch ? (
+                <p className="kp-card-sub">{loadingText(`channels-${period}`)}</p>
+              ) : (
+                ch.channels.map((c) => (
+                  <div key={c.channel} style={{ display: 'grid', gridTemplateColumns: '84px 1fr 56px', gap: 10, alignItems: 'center', padding: '8px 0' }}>
+                    <span style={{ fontSize: 13 }}>{CHANNEL_LABEL[c.channel] ?? c.channel}</span>
+                    <span style={{ height: 8, borderRadius: 99, background: '#EFE8E2', overflow: 'hidden' }}>
+                      <span style={{ display: 'block', height: '100%', width: `${c.ratio * 100}%`, background: '#7A4450' }} />
+                    </span>
+                    <span className="num" style={{ fontSize: 13, textAlign: 'right' }}>{ratioText(c.ratio)}</span>
+                  </div>
+                ))
+              )}
+            </Card>
           </div>
           <div className="kp-col">
+            <section className="kp-card kp-rel" aria-label={t('dashboard.rel.label')}>
+              <div className="kp-card-head">
+                <div>
+                  <h2 className="kp-card-title">{t('dashboard.rel.label')}</h2>
+                  <p className="kp-card-sub">{t('dashboard.rel.sub')}</p>
+                </div>
+              </div>
+              {!insightOpen ? (
+                <Locked what={t('dashboard.locked.insights')} />
+              ) : !segCounts ? (
+                <p className="kp-card-sub">{loadingText('segments')}</p>
+              ) : (
+                <div className="kp-rel-body">
+                  <div className="kp-donut">
+                    <svg width="224" height="224" viewBox="0 0 224 224" role="img" aria-label={t('dashboard.rel.donut', { list: SEGS.map((s) => `${t(s.label)} ${segCounts[s.status]}`).join(', ') })}>
+                      <g transform="rotate(-90 112 112)" fill="none" strokeWidth="30">
+                        {arcs.map((a, i) => (
+                          <circle cx="112" cy="112" r={R} stroke={a.color} strokeDasharray={drawn ? a.dash : `0 ${C}`} strokeDashoffset={a.off} className="kp-arc" style={{ transitionDelay: `${i * 90}ms` }} key={i}></circle>
+                        ))}
+                      </g>
+                    </svg>
+                    <div className="kp-donut-center">
+                      <b className="num">
+                        <CountUp value={segTotal} />
+                      </b>
+                      <span>{t('dashboard.rel.center')}</span>
+                    </div>
+                  </div>
+                  <div className="kp-seglist">
+                    {SEGS.map((s) => (
+                      <AppLink href="/insights" className="kp-segrow" key={s.status}>
+                        <span className="kp-dot" style={{ background: SEG_COLOR[s.status] }}></span>
+                        <span className="name">{t(s.label)}</span>
+                        <span className="rule">{t(s.rule)}</span>
+                        <span className="n num">{t('common.persons', { n: segCounts[s.status] })}</span>
+                      </AppLink>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </section>
+
             <Card
               title={t('dashboard.care.title')}
               sub={t('dashboard.care.sub')}
