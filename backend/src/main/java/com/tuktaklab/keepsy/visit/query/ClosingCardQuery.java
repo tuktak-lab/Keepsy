@@ -38,7 +38,7 @@ public class ClosingCardQuery {
             List<String> consentsToRequest,
             List<Payment> payments) {}
 
-    /** 이 예약으로 등록한 결제 (F76). 취소된 결제도 이력으로 남긴다 */
+    /** 이 예약으로 등록한 결제 (F77). 취소된 결제도 이력으로 남긴다 */
     public record Payment(
             long paymentId, OffsetDateTime paidAt, int amount, String method, boolean canceled) {}
 
@@ -135,7 +135,7 @@ public class ClosingCardQuery {
         toRequest.removeAll(agreed);
         Long visitId = r.get("visit_id") == null ? null : ((Number) r.get("visit_id")).longValue();
         // 이 예약으로 등록한 결제만 (payment.reservation_id). 같은 방문에 묶인 다른 예약의 결제는 넣지 않는다. 확정 예약은 빈 목록이다:
-        // 방문 삭제(마감 되돌리기)로 확정이 된 예약에 남은 취소 결제는 다시 마감할 때의 결제가 아니다 (F8, F76)
+        // 방문 삭제(마감 되돌리기)로 확정이 된 예약에 남은 취소 결제는 다시 마감할 때의 결제가 아니다 (F8, F77)
         List<Payment> payments =
                 confirmed
                         ? List.of()
