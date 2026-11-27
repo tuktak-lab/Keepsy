@@ -153,6 +153,13 @@ export default function DashboardPage() {
   const todayList = today?.today.filter((r) => isActive(r.status)) ?? null;
   const ch = channels?.period === period ? channels.value : null;
   const weekMax = today ? Math.max(1, ...today.week.map((d) => bookedCount(d.counts))) : 1;
+  // 이번 주 예약 꺾은선: 날짜 칸 가운데(x)와 높이(y)를 0~100 비율로. 위쪽 18%는 값 글자 자리
+  const weekPts = (today?.week ?? []).map((d, i) => {
+    const n = bookedCount(d.counts);
+    return { date: d.date, n, x: ((i + 0.5) / 7) * 100, y: 88 - (n / weekMax) * 70, today: d.date === seoulToday() };
+  });
+  const weekLine = weekPts.map((p, i) => `${i ? 'L' : 'M'}${p.x} ${p.y}`).join(' ');
+  const weekArea = weekPts.length ? `${weekLine} L${weekPts[weekPts.length - 1].x} 100 L${weekPts[0].x} 100 Z` : '';
   const latest = recent?.[0];
 
   // 도넛 (관리 상태별 고객 × 시술 행)
@@ -211,21 +218,25 @@ export default function DashboardPage() {
             {!today ? (
               <p className="kp-card-sub">{loadingText('today')}</p>
             ) : (
-              <div className="kp-week">
-                {today.week.map((d, i) => {
-                  const n = bookedCount(d.counts);
-                  return (
-                    <div key={d.date} className={'kp-week-day' + (d.date === seoulToday() ? ' today' : '')}>
-                      <b className="num" style={{ fontSize: 14 }}>{n}</b>
-                      <span className="kp-week-bar" aria-hidden="true">
-                        <i style={{ height: `${(n / weekMax) * 100}%` }} />
-                      </span>
-                      <span style={{ fontSize: 12.5, color: '#6B605B' }}>
-                        {dowLabel(i)} <span className="num">{md(d.date)}</span>
-                      </span>
-                    </div>
-                  );
-                })}
+              <div className="kp-line" role="img" aria-label={weekPts.map((p, i) => `${dowLabel(i)} ${md(p.date)} ${p.n}`).join(', ')}>
+                <div className="kp-line-plot" aria-hidden="true">
+                  <svg viewBox="0 0 100 100" preserveAspectRatio="none">
+                    <path className="kp-line-area" d={weekArea} />
+                    <path className="kp-line-path" d={weekLine} />
+                  </svg>
+                  {weekPts.map((p) => (
+                    <span key={p.date} className={'kp-line-pt' + (p.today ? ' today' : '')} style={{ left: `${p.x}%`, top: `${p.y}%` }}>
+                      <b className="num">{p.n}</b>
+                    </span>
+                  ))}
+                </div>
+                <div className="kp-line-x" aria-hidden="true">
+                  {weekPts.map((p, i) => (
+                    <span key={p.date} className={p.today ? 'today' : undefined}>
+                      {dowLabel(i)} <span className="num">{md(p.date)}</span>
+                    </span>
+                  ))}
+                </div>
               </div>
             )}
           </Card>
