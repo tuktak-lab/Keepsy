@@ -9,9 +9,11 @@ import { PERIODS, type Period } from '@/lib/analytics';
 import { CHANNEL_LABEL, DOW_LABEL, hmOf, type Channel } from '@/lib/calendar';
 import { rateText } from '@/lib/campaignResult';
 import { bookedCount, isActive, ratioText } from '@/lib/dashboard';
-import { NEXT_ACTION_LABEL, STATUS_TABS } from '@/lib/insights';
+import { nextActionLabel, STATUS_TABS } from '@/lib/insights';
 import { CATEGORY_LABEL, type Category } from '@/lib/menus';
 import { useSession } from '@/lib/session';
+import { t } from '@/lib/i18n';
+import type { MessageKey } from '@/lib/messages/ko';
 
 // CRM 대시보드 (FR-DSH-01~06). 대시보드 자체는 DASHBOARD_SEARCH(공용 고정)이고, 아래 두 영역만 기능 키가 다르다 (명세서 2장):
 // - 오늘 관리할 고객 · 재방문 상태 · 주기 도래 숫자: INSIGHT / 최근 캠페인 성과 · 재예약 전환율: CAMPAIGN_VIEW
@@ -34,22 +36,22 @@ type Recent = { id: number; name: string; category: Category; sentAt: string; re
 type Channels = { from: string; to: string; total: number; channels: { channel: Channel; count: number; ratio: number }[] };
 
 const SEG_COLOR: Record<string, string> = { SCHEDULED: '#F0DAD6', DUE: '#7A4450', CHURN_SIGNAL: '#CC9A9E', LONG_ABSENT: '#C9BDB9' };
-const SEGS = [
-  { status: 'SCHEDULED', label: '예정', rule: '다음 방문 예측 기간 전' },
-  { status: 'DUE', label: '주기 도래', rule: '예측 기간 안 · 예약 없음' },
-  { status: 'CHURN_SIGNAL', label: '이탈 신호', rule: '예측 종료 후 이탈 신호 기간 안' },
-  { status: 'LONG_ABSENT', label: '장기 미방문', rule: '이탈 신호 기간 이후' },
+const SEGS: { status: string; label: MessageKey; rule: MessageKey }[] = [
+  { status: 'SCHEDULED', label: 'dashboard.seg.scheduled', rule: 'dashboard.seg.ruleScheduled' },
+  { status: 'DUE', label: 'prediction.status.due', rule: 'dashboard.seg.ruleDue' },
+  { status: 'CHURN_SIGNAL', label: 'prediction.status.churn', rule: 'dashboard.seg.ruleChurn' },
+  { status: 'LONG_ABSENT', label: 'prediction.status.long', rule: 'dashboard.seg.ruleLong' },
 ];
 const md = (iso: string) => `${Number(iso.slice(5, 7))}.${iso.slice(8, 10)}`;
-const resvName = (r: Resv) => r.customer?.name ?? `고객 없는 예약 · ${CHANNEL_LABEL[r.channel] ?? r.channel}`;
+const resvName = (r: Resv) => r.customer?.name ?? t('dashboard.noCustomerResv', { channel: CHANNEL_LABEL[r.channel] ?? r.channel });
 
 /** PIN으로 잠긴 영역: 가려 두고 버튼으로 PIN을 받는다 (인증되면 세션이 바뀌어 다시 불러온다) */
 function Locked(props: { what: string }) {
   return (
     <div style={{ padding: '18px 0', display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'flex-start' }}>
-      <p className="kp-card-sub" style={{ margin: 0 }}>「{props.what}」는 PIN으로 잠긴 기능이에요. PIN을 입력하면 보여요.</p>
+      <p className="kp-card-sub" style={{ margin: 0 }}>{t('dashboard.locked.body', { what: props.what })}</p>
       <button type="button" className="kp-btn p" onClick={() => void openPinDialog({ owner: false, message: '' })}>
-        PIN 입력
+        {t('dashboard.locked.button')}
       </button>
     </div>
   );
@@ -89,7 +91,7 @@ export default function DashboardPage() {
   // 카드별 불러오기 실패 (#346). 실패를 삼키지 않고 그 카드에 「불러오지 못함」을 보인다
   const [failed, setFailed] = useState<Record<string, boolean>>({});
   const markFailed = (key: string) => setFailed((f) => ({ ...f, [key]: true }));
-  const loadingText = (key: string) => (failed[key] ? '불러오지 못했어요. 잠시 후 새로고침해 주세요.' : '불러오는 중…');
+  const loadingText = (key: string) => (failed[key] ? t('dashboard.failed') : t('common.loading'));
 
   // 첫 진입 시 도넛이 0에서 채워지도록 다음 프레임에 켭니다
   useEffect(() => {
@@ -174,54 +176,54 @@ export default function DashboardPage() {
           <div>
             <p className="kp-eyebrow">KEEPSY · SMART BEAUTY CRM</p>
             <h1 className="kp-hello">
-              고객의 기록을 재방문의 기회로,
+              {t('dashboard.hero.line1')}
               <br />
-              <em>재방문의 기회를 매장의 성과로.</em>
+              <em>{t('dashboard.hero.line2')}</em>
             </h1>
-            <p className="kp-lead">오늘도 고객과 더 가까워지는 하루가 되길 바라요.</p>
+            <p className="kp-lead">{t('dashboard.hero.lead')}</p>
           </div>
           <AppLink href="/insights" className="kp-cta">
-            오늘 관리할 고객 보기
+            {t('dashboard.hero.cta')}
           </AppLink>
         </div>
 
-        <section className="kp-kpis kp-card" aria-label="고객 현황 요약">
-          {kpi('/customers', '전체 고객', num(customers), !customerOpen ? 'PIN 인증 후 표시' : failed.customers ? '불러오지 못함' : '삭제된 고객 제외')}
-          {kpi('/reservations', '오늘 예약', num(todayList?.length), todayList ? `확정 ${todayList.filter((r) => r.status === 'CONFIRMED').length} · 상담 후 진행 ${todayList.filter((r) => r.consultFirst).length}` : failed.today ? '불러오지 못함' : '')}
-          {kpi('/reservations', '마감 안 된 예약', num(today?.unclosed.length), failed.today ? '불러오지 못함' : '시작 시각 지남 · 마감 필요')}
-          {kpi('/insights', '주기 도래 고객', num(insightOpen ? segCounts?.DUE : null), !insightOpen ? 'PIN 인증 후 표시' : failed.segments ? '불러오지 못함' : '예약 없음 · 우선순위 순')}
+        <section className="kp-kpis kp-card" aria-label={t('dashboard.kpi.label')}>
+          {kpi('/customers', t('dashboard.kpi.customers'), num(customers), !customerOpen ? t('dashboard.kpi.pinNote') : failed.customers ? t('dashboard.kpi.failedNote') : t('dashboard.kpi.customersNote'))}
+          {kpi('/reservations', t('dashboard.kpi.today'), num(todayList?.length), todayList ? t('dashboard.kpi.todayNote', { confirmed: todayList.filter((r) => r.status === 'CONFIRMED').length, consult: todayList.filter((r) => r.consultFirst).length }) : failed.today ? t('dashboard.kpi.failedNote') : '')}
+          {kpi('/reservations', t('dashboard.kpi.unclosed'), num(today?.unclosed.length), failed.today ? t('dashboard.kpi.failedNote') : t('dashboard.kpi.unclosedNote'))}
+          {kpi('/insights', t('dashboard.kpi.due'), num(insightOpen ? segCounts?.DUE : null), !insightOpen ? t('dashboard.kpi.pinNote') : failed.segments ? t('dashboard.kpi.failedNote') : t('dashboard.kpi.dueNote'))}
           {kpi(
             latest ? `/campaigns/detail?id=${latest.id}` : '/analytics',
-            '재예약 전환율',
+            t('dashboard.kpi.rebook'),
             latest ? (rateText(latest.rebookedCount, latest.reachedCount) ?? '-') : '-',
-            !campaignOpen ? 'PIN 인증 후 표시' : failed.recent ? '불러오지 못함' : latest ? `최근 캠페인 · ${latest.name}` : '발송한 캠페인 없음',
+            !campaignOpen ? t('dashboard.kpi.pinNote') : failed.recent ? t('dashboard.kpi.failedNote') : latest ? t('dashboard.kpi.rebookNote', { name: latest.name }) : t('dashboard.kpi.noCampaign'),
           )}
         </section>
 
         <div className="kp-low">
-          <Card title="오늘 예약" sub="시간순 · 취소 · 노쇼 제외">
+          <Card title={t('dashboard.kpi.today')} sub={t('dashboard.today.sub')}>
             {!todayList ? (
               <p className="kp-card-sub">{loadingText('today')}</p>
             ) : todayList.length === 0 ? (
-              <p className="kp-card-sub">오늘 예약이 없어요.</p>
+              <p className="kp-card-sub">{t('dashboard.today.empty')}</p>
             ) : (
               todayList.map((r) => (
                 <div className="kp-care-row" key={r.id}>
                   <span className="num" style={{ fontWeight: 600, color: '#8A6F66', fontSize: '13px', width: 44 }}>{hmOf(r.startAt)}</span>
                   <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
                     <AppLink href={r.customer ? `/customers/detail?id=${r.customer.id}` : `/reservations/detail?id=${r.id}`} style={{ fontWeight: 600, fontSize: '15px' }}>
-                      {r.customer?.hasCaution ? <span title="주의사항이 있는 고객" aria-label="주의사항 있음">⚠️ </span> : null}
+                      {r.customer?.hasCaution ? <span title={t('dashboard.today.cautionTitle')} aria-label={t('dashboard.today.cautionLabel')}>⚠️ </span> : null}
                       {resvName(r)}
                     </AppLink>
                     <span style={{ fontSize: '12.5px', color: '#6B605B' }}>
                       {r.services.map((s) => s.name).join(' · ')} · {r.staff.name}
-                      {r.consultFirst ? ' · 상담 후 진행' : ''}
+                      {r.consultFirst ? ` · ${t('dashboard.today.consult')}` : ''}
                     </span>
                   </div>
-                  {r.status === 'COMPLETED' ? <span className="kp-tag" style={{ background: '#ECE6E1', color: '#4A3F3B' }}>완료</span> : null}
+                  {r.status === 'COMPLETED' ? <span className="kp-tag" style={{ background: '#ECE6E1', color: '#4A3F3B' }}>{t('dashboard.today.done')}</span> : null}
                   {!r.customer ? (
                     <AppLink href={`/reservations/detail?id=${r.id}`} className="kp-btn">
-                      고객 연결
+                      {t('dashboard.today.link')}
                     </AppLink>
                   ) : null}
                 </div>
@@ -229,11 +231,11 @@ export default function DashboardPage() {
             )}
           </Card>
 
-          <Card title="마감 안 된 예약" sub="시작 시각이 지났는데 마감 · 취소 · 노쇼 처리가 안 됐어요" className="kp-act">
+          <Card title={t('dashboard.kpi.unclosed')} sub={t('dashboard.unclosed.sub')} className="kp-act">
             {!today ? (
               <p className="kp-card-sub">{loadingText('today')}</p>
             ) : today.unclosed.length === 0 ? (
-              <p className="kp-card-sub">마감할 예약이 없어요.</p>
+              <p className="kp-card-sub">{t('dashboard.unclosed.empty')}</p>
             ) : (
               today.unclosed.map((r) => (
                 <AppLink href={`/reservations/closing?id=${r.id}`} className="kp-act-row" key={r.id} style={{ color: 'inherit' }}>
@@ -241,7 +243,7 @@ export default function DashboardPage() {
                   <span style={{ display: 'flex', flexDirection: 'column' }}>
                     <strong style={{ fontSize: '14px' }}>{resvName(r)}</strong>
                     <span style={{ fontSize: '13px', color: '#4A3F3B' }}>
-                      {r.services.map((s) => s.name).join(' · ')} · {hmOf(r.startAt)} · 시작 시각 지남 · 마감 필요
+                      {r.services.map((s) => s.name).join(' · ')} · {hmOf(r.startAt)} · {t('dashboard.kpi.unclosedNote')}
                     </span>
                   </span>
                 </AppLink>
@@ -252,19 +254,19 @@ export default function DashboardPage() {
 
         <div className="kp-low">
           <Card
-            title="오늘 관리할 고객"
-            sub="주기 도래 · 이탈 신호 중 우선순위 상위 10명 (경과 비율 → 수신 동의 → 최근 6개월 결제 순)"
-            head={insightOpen ? <AppLink href="/insights" className="kp-btn">전체 보기</AppLink> : null}
+            title={t('dashboard.care.title')}
+            sub={t('dashboard.care.sub')}
+            head={insightOpen ? <AppLink href="/insights" className="kp-btn">{t('dashboard.care.all')}</AppLink> : null}
           >
             {!insightOpen ? (
-              <Locked what="인사이트" />
+              <Locked what={t('dashboard.locked.insights')} />
             ) : !care ? (
               <p className="kp-card-sub">{loadingText('care')}</p>
             ) : care.length === 0 ? (
-              <p className="kp-card-sub">오늘 관리할 고객이 없어요.</p>
+              <p className="kp-card-sub">{t('dashboard.care.empty')}</p>
             ) : (
               care.map((c) => {
-                const t = STATUS_TABS.find((x) => x.status === c.status);
+                const tab = STATUS_TABS.find((x) => x.status === c.status);
                 return (
                   <div className="kp-care-row" key={`${c.customerId}-${c.category}`}>
                     <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
@@ -272,14 +274,14 @@ export default function DashboardPage() {
                         {c.name}
                       </AppLink>
                       <span style={{ fontSize: '12.5px', color: '#6B605B' }}>
-                        {CATEGORY_LABEL[c.category]} · {c.elapsedDays}일 경과 · {c.marketingConsent ? '수신 동의' : '수신 미동의'}
+                        {CATEGORY_LABEL[c.category]} · {t('common.elapsedDays', { days: c.elapsedDays })} · {c.marketingConsent ? t('common.consent') : t('common.noConsent')}
                       </span>
                     </div>
-                    {t ? <span className="kp-tag" style={{ background: c.status === 'DUE' ? '#F5EBD3' : '#F4E0DC', color: c.status === 'DUE' ? '#6B4509' : '#8F2F2F' }}>{t.label}</span> : null}
+                    {tab ? <span className="kp-tag" style={{ background: c.status === 'DUE' ? '#F5EBD3' : '#F4E0DC', color: c.status === 'DUE' ? '#6B4509' : '#8F2F2F' }}>{t(tab.labelKey)}</span> : null}
                     {c.nextAction && c.nextAction !== 'REQUEST_CONSENT' ? (
-                      <AppLink href="/campaigns" className="kp-btn p">{NEXT_ACTION_LABEL[c.nextAction]}</AppLink>
+                      <AppLink href="/campaigns" className="kp-btn p">{nextActionLabel(c.nextAction)}</AppLink>
                     ) : (
-                      <span style={{ fontSize: '12.5px', color: '#6B605B' }}>{c.nextAction ? NEXT_ACTION_LABEL.REQUEST_CONSENT : '액션 없음'}</span>
+                      <span style={{ fontSize: '12.5px', color: '#6B605B' }}>{c.nextAction ? nextActionLabel('REQUEST_CONSENT') : t('dashboard.care.noAction')}</span>
                     )}
                   </div>
                 );
@@ -287,20 +289,20 @@ export default function DashboardPage() {
             )}
           </Card>
 
-          <Card title="최근 캠페인 성과" sub="최근 3개 캠페인 재예약 전환율 (재예약 ÷ 도달)" className="kp-act">
+          <Card title={t('dashboard.recent.title')} sub={t('dashboard.recent.sub')} className="kp-act">
             {!campaignOpen ? (
-              <Locked what="캠페인 목록 · 결과 조회" />
+              <Locked what={t('dashboard.locked.campaigns')} />
             ) : !recent ? (
               <p className="kp-card-sub">{loadingText('recent')}</p>
             ) : recent.length === 0 ? (
-              <p className="kp-card-sub">아직 발송한 캠페인이 없어요.</p>
+              <p className="kp-card-sub">{t('dashboard.recent.empty')}</p>
             ) : (
               recent.map((c) => (
                 <AppLink href={`/campaigns/detail?id=${c.id}`} className="kp-act-row" key={c.id} style={{ color: 'inherit', gridTemplateColumns: '1fr auto' }}>
                   <span style={{ display: 'flex', flexDirection: 'column' }}>
                     <strong style={{ fontSize: '14px' }}>{c.name}</strong>
                     <span style={{ fontSize: '13px', color: '#4A3F3B' }}>
-                      {md(c.sentAt)} 발송 · {CATEGORY_LABEL[c.category] ?? c.category} · 재예약 {c.rebookedCount} / 도달 {c.reachedCount}명
+                      {t('dashboard.recent.row', { date: md(c.sentAt), category: CATEGORY_LABEL[c.category] ?? c.category, rebooked: c.rebookedCount, reached: c.reachedCount })}
                     </span>
                   </span>
                   <b className="num" style={{ fontSize: '20px', color: '#7A4450' }}>{rateText(c.rebookedCount, c.reachedCount) ?? '-'}</b>
@@ -311,7 +313,7 @@ export default function DashboardPage() {
         </div>
 
         <div className="kp-low">
-          <Card title="이번 주 예약" sub="요일별 예약 건수 (취소 · 노쇼 제외)">
+          <Card title={t('dashboard.week.title')} sub={t('dashboard.week.sub')}>
             {!today ? (
               <p className="kp-card-sub">{loadingText('today')}</p>
             ) : (
@@ -333,11 +335,11 @@ export default function DashboardPage() {
           </Card>
 
           <Card
-            title="예약 경로"
-            sub={ch ? `${ch.from} ~ ${ch.to} · ${ch.total}건 · 시드 데이터 비율이에요` : '기간 안 예약의 경로 비율'}
+            title={t('dashboard.channels.title')}
+            sub={ch ? t('dashboard.channels.sub', { from: ch.from, to: ch.to, total: ch.total }) : t('dashboard.channels.subEmpty')}
             className="kp-act"
             head={
-              <div className="kp-seg" role="group" aria-label="기간">
+              <div className="kp-seg" role="group" aria-label={t('dashboard.channels.period')}>
                 {PERIODS.filter(([p]) => p !== 'CUSTOM').map(([p, label]) => (
                   <button type="button" key={p} aria-pressed={period === p} onClick={() => setPeriod(p)}>
                     {label}
@@ -362,21 +364,21 @@ export default function DashboardPage() {
           </Card>
         </div>
 
-        <section className="kp-card kp-rel" aria-label="고객 재방문 상태">
+        <section className="kp-card kp-rel" aria-label={t('dashboard.rel.label')}>
           <div className="kp-card-head">
             <div>
-              <h2 className="kp-card-title">고객 재방문 상태</h2>
-              <p className="kp-card-sub">시술별 방문 주기 예측으로 보는 현재 상태 (고객 × 시술 카테고리, 다음 예약 · 관리 종료 제외)</p>
+              <h2 className="kp-card-title">{t('dashboard.rel.label')}</h2>
+              <p className="kp-card-sub">{t('dashboard.rel.sub')}</p>
             </div>
           </div>
           {!insightOpen ? (
-            <Locked what="인사이트" />
+            <Locked what={t('dashboard.locked.insights')} />
           ) : !segCounts ? (
             <p className="kp-card-sub">{loadingText('segments')}</p>
           ) : (
             <div className="kp-rel-body">
               <div className="kp-donut">
-                <svg width="224" height="224" viewBox="0 0 224 224" role="img" aria-label={`재방문 상태 분포: ${SEGS.map((s) => `${s.label} ${segCounts[s.status]}`).join(', ')}`}>
+                <svg width="224" height="224" viewBox="0 0 224 224" role="img" aria-label={t('dashboard.rel.donut', { list: SEGS.map((s) => `${t(s.label)} ${segCounts[s.status]}`).join(', ') })}>
                   <g transform="rotate(-90 112 112)" fill="none" strokeWidth="30">
                     {arcs.map((a, i) => (
                       <circle cx="112" cy="112" r={R} stroke={a.color} strokeDasharray={drawn ? a.dash : `0 ${C}`} strokeDashoffset={a.off} className="kp-arc" style={{ transitionDelay: `${i * 90}ms` }} key={i}></circle>
@@ -387,16 +389,16 @@ export default function DashboardPage() {
                   <b className="num">
                     <CountUp value={segTotal} />
                   </b>
-                  <span>관리 대상</span>
+                  <span>{t('dashboard.rel.center')}</span>
                 </div>
               </div>
               <div className="kp-seglist">
                 {SEGS.map((s) => (
                   <AppLink href="/insights" className="kp-segrow" key={s.status}>
                     <span className="kp-dot" style={{ background: SEG_COLOR[s.status] }}></span>
-                    <span className="name">{s.label}</span>
-                    <span className="rule">{s.rule}</span>
-                    <span className="n num">{segCounts[s.status]}명</span>
+                    <span className="name">{t(s.label)}</span>
+                    <span className="rule">{t(s.rule)}</span>
+                    <span className="n num">{t('common.persons', { n: segCounts[s.status] })}</span>
                   </AppLink>
                 ))}
               </div>
@@ -404,7 +406,7 @@ export default function DashboardPage() {
           )}
         </section>
 
-        <p className="kp-foot">모의 데이터로 생성한 값이에요. 예약 경로 비율은 시드 데이터 기준이에요.</p>
+        <p className="kp-foot">{t('dashboard.foot')}</p>
       </div>
     </>
   );
