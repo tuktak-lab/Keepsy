@@ -1,0 +1,41 @@
+/* 「맨 위로」 버튼: 오른쪽 아래. 토스트(z-index 100, 아래 24px)와 모달(50)보다 낮고, 토스트 한 개가 가리지 않게 그 위에 둔다 */
+.btn {
+  position: fixed;
+  right: 38px;
+  bottom: 88px;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  border-radius: 50%;
+  background: linear-gradient(180deg, #98505f 0%, #7a3a49 100%);
+  box-shadow: 0 12px 24px -10px rgba(122, 58, 73, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  color: #fff;
+  cursor: pointer;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(8px);
+  transition: opacity 0.2s, transform 0.2s, visibility 0.2s, filter 0.15s;
+}
+
+.show {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+}
+
+.btn:hover {
+  filter: brightness(1.08);
+}
+
+.btn:active {
+  transform: translateY(1px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn {
+    transition: none;
+  }
+}
