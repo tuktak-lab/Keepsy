@@ -134,9 +134,9 @@ export function Topbar() {
             setQ(e.target.value);
             setMiss(false);
           }}
-          placeholder={miss ? '찾는 기능이 없어요. 다른 말로 검색해 보세요' : '기능 검색 (예: 매출, 고객 등록)  /'}
+          placeholder={miss ? t('shell.topbar.searchMiss') : t('shell.topbar.searchPlaceholder')}
           aria-keyshortcuts="/ Control+K"
-          aria-label="기능 검색"
+          aria-label={t('shell.topbar.searchLabel')}
           style={{ flex: 1, minWidth: 0, border: 0, outline: 0, background: 'transparent', font: "400 13px 'Noto Sans KR', sans-serif", color: '#3E3532' }}
         />
       </form>
@@ -189,7 +189,7 @@ export function Topbar() {
             <path d="M15 16V13a2 2 0 0 1 3.9-.6" />
             <rect width="8" height="5" x="13" y="16" rx=".9" />
           </svg>
-          {session.pinStaff.name} PIN 인증 중
+          {t('shell.topbar.pinActive', { name: session.pinStaff.name })}
           <button
             type="button"
             onClick={() => void lockPin()}
@@ -204,7 +204,7 @@ export function Topbar() {
               cursor: 'pointer',
             }}
           >
-            잠금
+            {t('shell.topbar.lock')}
           </button>
         </span>
       )}
@@ -227,7 +227,7 @@ export function Topbar() {
         >
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#221D1B', fontWeight: 600, fontSize: '16px', whiteSpace: 'nowrap' }}>
             <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#7A4450' }} />
-            {session?.currentStaff ? `근무자 ${session.currentStaff.name}` : '근무자 확인 중'}
+            {session?.currentStaff ? t('shell.topbar.worker', { name: session.currentStaff.name }) : t('shell.topbar.workerChecking')}
           </span>
           <svg
             width="14"
@@ -260,10 +260,10 @@ export function Topbar() {
             }}
           >
             <button type="button" role="menuitem" style={menuItem} onClick={() => router.push('/shift')}>
-              근무자 전환
+              {t('shell.topbar.switchWorker')}
             </button>
             <button type="button" role="menuitem" style={menuItem} onClick={() => void logout()}>
-              로그아웃
+              {t('shell.topbar.logout')}
             </button>
           </span>
         )}
@@ -285,7 +285,7 @@ export function Topbar() {
               whiteSpace: 'nowrap',
             }}
           >
-            근무자 전환하기
+            {t('shell.topbar.switchWorkerLong')}
           </button>
         </>
       )}

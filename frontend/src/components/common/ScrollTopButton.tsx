@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import styles from './ScrollTopButton.module.css';
+import { t } from '@/lib/i18n';
 
 // 아래로 내려가면 나타나는 「맨 위로」 버튼. 모든 화면 공통 자리(ClientEffects)에 한 번만 둔다.
 // 화면은 문서(window) 스크롤이라 window.scrollY만 본다. 움직임 줄이기 설정이면 부드럽게 올라가지 않고 바로 간다.
@@ -26,8 +27,8 @@ export function ScrollTopButton() {
       type="button"
       className={`${styles.btn} ${visible ? styles.show : ''}`}
       onClick={toTop}
-      aria-label="맨 위로 이동"
-      title="맨 위로"
+      aria-label={t('common.scrollTop.label')}
+      title={t('common.scrollTop.title')}
       tabIndex={visible ? 0 : -1}
       aria-hidden={!visible}
     >

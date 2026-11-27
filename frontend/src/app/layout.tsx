@@ -31,8 +31,11 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         />
       </head>
       <body>
-        <LocaleRoot>{children}</LocaleRoot>
-        <ClientEffects />
+        {/* 맨 위로 버튼 · 토스트 · PIN 창도 저장된 언어로 다시 그려지도록 LocaleRoot 안에 둔다 */}
+        <LocaleRoot>
+          {children}
+          <ClientEffects />
+        </LocaleRoot>
       </body>
     </html>
   );

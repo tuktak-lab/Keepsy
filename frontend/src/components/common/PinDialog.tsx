@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ApiError, type PinPrompt } from '@/lib/api';
 import { authenticatePin } from '@/lib/session';
+import { t } from '@/lib/i18n';
 
 // 잠긴 기능 PIN 입력 (FR-ACC-08). PIN 확인은 서버(POST /api/session/pin)가 한다 (NFR-04).
 // 원장 PIN도 같은 API로 인증하고, 원장인지는 서버가 잠긴 기능 요청에서 검사한다 (ARCHITECTURE 6장).
@@ -23,7 +24,7 @@ export function PinForm(props: { title: string; owner?: boolean; message?: strin
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!PIN_FORMAT.test(pin)) {
-      setError('PIN은 숫자 4~6자리입니다');
+      setError(t('common.pin.invalidFormat'));
       return;
     }
     setBusy(true);
@@ -32,7 +33,7 @@ export function PinForm(props: { title: string; owner?: boolean; message?: strin
       props.onDone();
     } catch (err) {
       // pin_invalid · pin_locked · invalid는 서버 message를 그대로 보여 준다. 그 밖의 권한 code는 api.ts가 화면을 옮긴다
-      setError(err instanceof ApiError ? err.message : '잠시 후 다시 시도해 주세요');
+      setError(err instanceof ApiError ? err.message : t('common.pin.tryLater'));
       setPin('');
     } finally {
       setBusy(false);
@@ -40,8 +41,8 @@ export function PinForm(props: { title: string; owner?: boolean; message?: strin
   }
 
   const guide = props.owner
-    ? '원장 PIN이 필요한 기능입니다. 원장 PIN을 입력해 주세요.'
-    : '잠긴 기능입니다. 사용이 허용된 스탭의 PIN을 입력해 주세요.';
+    ? t('common.pin.guideOwner')
+    : t('common.pin.guideStaff');
 
   return (
     <form
@@ -131,7 +132,7 @@ export function PinForm(props: { title: string; owner?: boolean; message?: strin
           cursor: 'pointer',
         }}
       >
-        {busy ? '확인 중…' : '열기'}
+        {busy ? t('common.pin.busy') : t('common.pin.open')}
       </button>
       {props.onCancel && (
         <button
@@ -139,7 +140,7 @@ export function PinForm(props: { title: string; owner?: boolean; message?: strin
           onClick={props.onCancel}
           style={{ height: '40px', border: 0, borderRadius: '12px', background: 'transparent', color: '#6B605B', font: "400 13px 'Noto Sans KR', sans-serif", cursor: 'pointer' }}
         >
-          취소
+          {t('common.pin.cancel')}
         </button>
       )}
     </form>
@@ -178,12 +179,12 @@ export function PinDialogHost() {
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="PIN 입력"
+      aria-label={t('common.pin.dialogLabel')}
       onKeyDown={(e) => e.key === 'Escape' && close(false)}
       style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px', background: 'rgba(34,29,27,.32)' }}
     >
       <PinForm
-        title={open.owner ? '원장 PIN' : 'PIN 인증'}
+        title={open.owner ? t('common.pin.titleOwner') : t('common.pin.titleStaff')}
         owner={open.owner}
         message={open.message}
         onDone={() => close(true)}
