@@ -4,7 +4,8 @@ import { CountUp } from '@/components/common/CountUp';
 import { toast } from '@/components/common/Toast';
 import { useStyleSheet } from '@/hooks/useStyleSheet';
 import { ApiError, api, type Page } from '@/lib/api';
-import { HANDLING, NEXT_ACTION_LABEL, STATUS_TABS, nextMark, type HandlingMark, type InsightStatus } from '@/lib/insights';
+import { t } from '@/lib/i18n';
+import { HANDLING, STATUS_TABS, nextActionLabel, nextMark, type HandlingMark, type InsightStatus } from '@/lib/insights';
 import { CATEGORY_LABEL, type Category } from '@/lib/menus';
 import styleText from './AiInsightsPage.css?inline';
 
@@ -28,7 +29,7 @@ type Row = {
 
 const SIZE = 20;
 const md = (d: string) => `${Number(d.slice(5, 7))}.${d.slice(8, 10)}`;
-const errorText = (err: unknown) => (err instanceof ApiError ? err.message : '잠시 후 다시 시도해 주세요');
+const errorText = (err: unknown) => (err instanceof ApiError ? err.message : t('common.pin.tryLater'));
 
 export default function AiInsightsPage() {
   useStyleSheet('AiInsightsPage', styleText);
@@ -42,7 +43,7 @@ export default function AiInsightsPage() {
   // 탭마다 인원 (요약 카드 · 탭 숫자)
   useEffect(() => {
     let cancelled = false;
-    Promise.all(STATUS_TABS.map((t) => api<Page<Row>>(`/api/insights?status=${t.status}&page=0&size=1`, { silent: true }).then((p) => [t.status, p.totalElements] as const)))
+    Promise.all(STATUS_TABS.map((tb) => api<Page<Row>>(`/api/insights?status=${tb.status}&page=0&size=1`, { silent: true }).then((p) => [tb.status, p.totalElements] as const)))
       .then((pairs) => !cancelled && setCounts(Object.fromEntries(pairs) as Record<InsightStatus, number>))
       .catch(() => {});
     return () => {
@@ -61,7 +62,7 @@ export default function AiInsightsPage() {
   }, [tab]);
 
   const cur = list?.tab === tab ? list : null;
-  const total = counts ? STATUS_TABS.reduce((a, t) => a + counts[t.status], 0) : null;
+  const total = counts ? STATUS_TABS.reduce((a, tb) => a + counts[tb.status], 0) : null;
 
   async function loadMore() {
     if (!cur || moreTab === tab) return; // 같은 탭에서 이미 불러오는 중이면 다시 부르지 않는다 (같은 페이지가 두 번 붙는 것 방지)
@@ -76,7 +77,7 @@ export default function AiInsightsPage() {
         return { ...l, rows: [...l.rows, ...p.items.filter((r) => !have.has(`${r.customerId}-${r.category}`))], total: p.totalElements };
       });
     } catch (err) {
-      toast(`더 불러오지 못했어요. ${errorText(err)}`, 'warn');
+      toast(t('prediction.loadMoreFailed', { reason: errorText(err) }), 'warn');
     } finally {
       setMoreTab((m) => (m === asked ? null : m));
     }
@@ -95,7 +96,7 @@ export default function AiInsightsPage() {
         return { ...l, rows: l.rows.map((x) => (x === r ? { ...x, handlingMark: next } : x)) };
       });
       if (next === 'CLOSED') setCounts((c) => (c ? { ...c, [r.status]: c[r.status] - 1 } : c));
-      toast(next ? `${r.name} 님을 「${HANDLING.find(([m]) => m === next)?.[1]}」로 표시했어요` : `${r.name} 님의 처리 표시를 지웠어요`);
+      toast(next ? t('prediction.marked', { name: r.name, mark: t(HANDLING.find(([m]) => m === next)![1]) }) : t('prediction.unmarked', { name: r.name }));
     } catch (err) {
       toast(errorText(err), 'warn');
     } finally {
@@ -108,69 +109,69 @@ export default function AiInsightsPage() {
       <div className="wrap">
         <header className="head">
           <div>
-            <h1 className="h1">재방문 관리</h1>
-            <p className="sub">왜 관리가 필요한지 이해하고, 고객에게 맞는 다음 행동을 결정하세요.</p>
+            <h1 className="h1">{t('prediction.title')}</h1>
+            <p className="sub">{t('prediction.sub')}</p>
           </div>
-          <AppLink href="/campaigns" className="btn">캠페인 관리</AppLink>
+          <AppLink href="/campaigns" className="btn">{t('shell.nav.campaigns')}</AppLink>
         </header>
 
-        <section className="card summary" aria-label="관리 대상 요약">
+        <section className="card summary" aria-label={t('prediction.summary.label')}>
           <div className="sum-item">
-            <span className="meta">관리 대상</span>
-            <b className="num">{total === null ? '-' : <CountUp value={total} format={(n) => n + '명'} />}</b>
+            <span className="meta">{t('prediction.summary.total')}</span>
+            <b className="num">{total === null ? '-' : <CountUp value={total} format={(n) => t('common.persons', { n })} />}</b>
           </div>
-          {STATUS_TABS.map((t) => (
-            <div className="sum-item" key={t.status}>
-              <span className="meta">{t.label}</span>
-              <b className="num">{counts ? <CountUp value={counts[t.status]} format={(n) => n + '명'} /> : '-'}</b>
+          {STATUS_TABS.map((tb) => (
+            <div className="sum-item" key={tb.status}>
+              <span className="meta">{t(tb.labelKey)}</span>
+              <b className="num">{counts ? <CountUp value={counts[tb.status]} format={(n) => t('common.persons', { n })} /> : '-'}</b>
             </div>
           ))}
         </section>
 
         <div className="col" style={{ gap: 12, minWidth: 0 }}>
           <div className="toolbar">
-            <div className="tabs" role="tablist" aria-label="관리 대상">
-              {STATUS_TABS.map((t) => (
-                <button type="button" role="tab" aria-selected={tab === t.status} onClick={() => setTab(t.status)} key={t.status}>
-                  {t.label} <span className="num">{counts ? counts[t.status] : ''}</span>
+            <div className="tabs" role="tablist" aria-label={t('prediction.summary.total')}>
+              {STATUS_TABS.map((tb) => (
+                <button type="button" role="tab" aria-selected={tab === tb.status} onClick={() => setTab(tb.status)} key={tb.status}>
+                  {t(tb.labelKey)} <span className="num">{counts ? counts[tb.status] : ''}</span>
                 </button>
               ))}
             </div>
             <button type="button" className="rule-toggle" aria-expanded={showRule} onClick={() => setShowRule(!showRule)}>
-              우선순위 규칙 {showRule ? '닫기' : '보기'}
+              {showRule ? t('prediction.rule.hide') : t('prediction.rule.show')}
             </button>
           </div>
 
           {showRule && (
             <section className="card rules">
               <ol>
-                <li>경과 비율 높은 순 — (오늘 − 예측 종료일) ÷ 이탈 신호 기간</li>
-                <li>마케팅 수신 동의 고객 먼저</li>
-                <li>최근 6개월 결제 합계 높은 순</li>
+                <li>{t('prediction.rule.1')}</li>
+                <li>{t('prediction.rule.2')}</li>
+                <li>{t('prediction.rule.3')}</li>
               </ol>
-              <p className="meta">다음 예약이 있는 고객과 「관리 종료」로 표시한 고객은 이 목록에서 빠져요. 수신 동의가 없는 고객에게는 캠페인을 보낼 수 없어요.</p>
+              <p className="meta">{t('prediction.rule.note')}</p>
             </section>
           )}
 
-          <section className="card list" aria-label="관리 대상 고객">
+          <section className="card list" aria-label={t('prediction.list.label')}>
             <div className="irow ihead" aria-hidden="true">
               <span></span>
-              <span>고객 · 관리 상태</span>
-              <span>예상 방문 기간</span>
-              <span>마지막 시술 · 경과</span>
-              <span>다음 액션</span>
-              <span>처리 표시</span>
+              <span>{t('prediction.col.customer')}</span>
+              <span>{t('prediction.col.period')}</span>
+              <span>{t('prediction.col.last')}</span>
+              <span>{t('prediction.col.action')}</span>
+              <span>{t('prediction.col.handling')}</span>
             </div>
             {!cur ? (
-              <p className="meta list-foot">불러오는 중…</p>
+              <p className="meta list-foot">{t('common.loading')}</p>
             ) : cur.error ? (
-              <p className="meta list-foot">불러오지 못했어요. {cur.error}</p>
+              <p className="meta list-foot">{t('prediction.loadFailed', { reason: cur.error })}</p>
             ) : cur.rows.length === 0 ? (
-              <p className="meta list-foot">이 상태의 관리 대상이 없어요.</p>
+              <p className="meta list-foot">{t('prediction.empty')}</p>
             ) : (
               <div className="kp-fade" key={tab}>
                 {cur.rows.map((r, i) => {
-                  const t = STATUS_TABS.find((x) => x.status === r.status);
+                  const stat = STATUS_TABS.find((x) => x.status === r.status);
                   const key = `${r.customerId}-${r.category}`;
                   return (
                     <article className="irow" key={key}>
@@ -183,35 +184,35 @@ export default function AiInsightsPage() {
                           <AppLink href={`/customers/detail?id=${r.customerId}`} style={{ color: '#221D1B' }}>
                             <strong>{r.name}</strong>
                           </AppLink>
-                          {t ? <span className={'chip ' + t.cls}>{t.label}</span> : null}
+                          {stat ? <span className={'chip ' + stat.cls}>{t(stat.labelKey)}</span> : null}
                         </span>
-                        <span className="meta">{r.marketingConsent ? '수신 동의' : '수신 미동의'}</span>
+                        <span className="meta">{r.marketingConsent ? t('common.consent') : t('common.noConsent')}</span>
                       </div>
                       <div className="cell">
-                        <span className="lbl-m">예상 방문 기간</span>
+                        <span className="lbl-m">{t('prediction.col.period')}</span>
                         <b className="num">
                           {md(r.startDate)} ~ {md(r.endDate)}
                         </b>
                         <span className="meta">{CATEGORY_LABEL[r.category]}</span>
                       </div>
                       <div className="cell">
-                        <span className="lbl-m">마지막 시술 · 경과</span>
+                        <span className="lbl-m">{t('prediction.col.last')}</span>
                         <b className="num">{md(r.lastServiceDate)}</b>
-                        <span className="meta num">{r.elapsedDays}일 경과</span>
+                        <span className="meta num">{t('common.elapsedDays', { days: r.elapsedDays })}</span>
                       </div>
                       <div className="cell">
-                        <span className="lbl-m">다음 액션</span>
+                        <span className="lbl-m">{t('prediction.col.action')}</span>
                         {r.nextAction && r.nextAction !== 'REQUEST_CONSENT' ? (
                           // 이 고객 · 카테고리로 새 캠페인을 시작하고, 다음 액션과 같은 용도의 템플릿을 추천한다 (FR-PRD-06 · FR-CMP-01)
                           <AppLink href={`/campaigns/new?${new URLSearchParams({ customerIds: String(r.customerId), category: r.category, purpose: r.nextAction })}`} className="btn btn-p btn-sm">
-                            {NEXT_ACTION_LABEL[r.nextAction] ?? r.nextAction} 캠페인
+                            {t('prediction.actionCampaign', { action: nextActionLabel(r.nextAction) })}
                           </AppLink>
                         ) : (
-                          <span className="meta">{r.nextAction ? NEXT_ACTION_LABEL.REQUEST_CONSENT : '없음 (수신 거부)'}</span>
+                          <span className="meta">{r.nextAction ? nextActionLabel('REQUEST_CONSENT') : t('prediction.noAction')}</span>
                         )}
                       </div>
                       <div className="acts">
-                        {HANDLING.map(([m, label]) => (
+                        {HANDLING.map(([m, labelKey]) => (
                           <button
                             key={m}
                             type="button"
@@ -221,7 +222,7 @@ export default function AiInsightsPage() {
                             disabled={busyKey === key}
                             onClick={() => void mark(r, m)}
                           >
-                            {label}
+                            {t(labelKey)}
                           </button>
                         ))}
                       </div>
@@ -232,10 +233,10 @@ export default function AiInsightsPage() {
             )}
             {cur && !cur.error && cur.rows.length > 0 ? (
               <p className="meta list-foot">
-                {cur.total}명 중 우선순위 상위 {cur.rows.length}명 표시 · 연락함 · 보류는 중복 연락을 막는 표시이고, 다음 방문이 생기면 자동으로 풀려요.
+                {t('prediction.foot', { total: cur.total, shown: cur.rows.length })}
                 {cur.rows.length < cur.total ? (
                   <button type="button" className="btn btn-sm" style={{ marginLeft: 8 }} disabled={moreTab === tab} onClick={() => void loadMore()}>
-                    {moreTab === tab ? '불러오는 중…' : '더 보기'}
+                    {moreTab === tab ? t('common.loading') : t('prediction.more')}
                   </button>
                 ) : null}
               </p>
