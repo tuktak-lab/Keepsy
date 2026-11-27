@@ -4,6 +4,7 @@
 
 import { t } from './i18n.ts';
 import type { MessageKey } from './messages/ko.ts';
+import type { AcquisitionChannel, Gender } from '../features/customer/types';
 
 export type ConsentMethod = 'TABLET' | 'PAPER' | 'VERBAL';
 
@@ -15,6 +16,20 @@ export const CONSENT_METHODS: [ConsentMethod, MessageKey][] = [
 ];
 
 export const PHONE_FORMAT = /^010-?\d{4}-?\d{4}$/;
+
+/** 성별 · 유입 경로 선택지. 고객 등록과 기본 정보 수정이 같이 쓴다 */
+export const GENDERS: [Gender, MessageKey][] = [
+  ['FEMALE', 'customer.gender.female'],
+  ['MALE', 'customer.gender.male'],
+  ['OTHER', 'customer.gender.other'],
+];
+export const CHANNELS: [AcquisitionChannel, MessageKey][] = [
+  ['INSTAGRAM', 'customer.channel.instagram'],
+  ['NAVER_SEARCH', 'customer.channel.naver'],
+  ['REFERRAL', 'customer.channel.referral'],
+  ['PASSING_BY', 'customer.channel.passing'],
+  ['ETC', 'customer.channel.etc'],
+];
 
 export type NewCustomerValues = {
   name: string;

@@ -3,7 +3,7 @@ import { useRouter } from 'next/navigation';
 import { AppLink } from '@/components/common/AppLink';
 import { toast } from '@/components/common/Toast';
 import { api, ApiError } from '@/lib/api';
-import { CONSENT_METHODS } from '@/lib/newCustomer';
+import { CHANNELS, CONSENT_METHODS, GENDERS } from '@/lib/newCustomer';
 import { OPTIONAL_CONSENTS, privacyDesc, privacyLabel } from '@/lib/consents';
 import { useShop } from '@/hooks/useIndustries';
 import type {
@@ -22,18 +22,6 @@ import { t } from '@/lib/i18n';
 // 개인정보 수집 · 이용 동의(PRIVACY)가 없으면 고객으로 등록하지 않는다 (E3) — 그런 손님은 고객 없는 예약으로 시간만 막는다.
 // 고객 선호 언어는 받지 않는다 (FR-I18N-01 범위 제외, F76). API 필드는 선택이라 보내지 않아도 된다.
 
-const GENDERS: [Gender, MessageKey][] = [
-  ['FEMALE', 'customer.gender.female'],
-  ['MALE', 'customer.gender.male'],
-  ['OTHER', 'customer.gender.other'],
-];
-const CHANNELS: [AcquisitionChannel, MessageKey][] = [
-  ['INSTAGRAM', 'customer.channel.instagram'],
-  ['NAVER_SEARCH', 'customer.channel.naver'],
-  ['REFERRAL', 'customer.channel.referral'],
-  ['PASSING_BY', 'customer.channel.passing'],
-  ['ETC', 'customer.channel.etc'],
-];
 type Field = 'name' | 'phone' | 'birthYear' | 'consents' | 'consentMethod';
 
 export default function CustomerNewPage() {

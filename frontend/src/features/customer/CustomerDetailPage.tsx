@@ -7,6 +7,7 @@ import type { CustomerConsents, CustomerDetail } from './types';
 import { AreaError, errorText } from './detail/common';
 import { ConsentSection } from './detail/ConsentSection';
 import { DeleteCustomer } from './detail/DeleteCustomer';
+import { EditBasicInfo } from './detail/EditBasicInfo';
 import { HistoryTab } from './detail/HistoryTab';
 import { MemoTab } from './detail/MemoTab';
 import { MessagesTab } from './detail/MessagesTab';
@@ -69,7 +70,12 @@ export default function CustomerDetailPage() {
           <AppLink href="/customers" className="meta">
             {t('customer.detail.back')}
           </AppLink>
-          {detail && <DeleteCustomer customerId={customerId} name={detail.name} />}
+          {detail && (
+            <span className="row" style={{ gap: 8, alignItems: 'flex-start' }}>
+              <EditBasicInfo customerId={customerId} detail={detail} onSaved={reload} />
+              <DeleteCustomer customerId={customerId} name={detail.name} />
+            </span>
+          )}
         </div>
 
         {error && <AreaError text={error} />}
