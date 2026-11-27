@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
+import { t } from '@/lib/i18n';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AppLink } from '@/components/common/AppLink';
 import { toast } from '@/components/common/Toast';
 import { useIndustries } from '@/hooks/useIndustries';
 import { useStyleSheet } from '@/hooks/useStyleSheet';
 import { ApiError, api } from '@/lib/api';
-import { CHANNEL_LABEL, DOW_LABEL, dayIndex, formatMinutes, seoulParts, type Channel } from '@/lib/calendar';
+import { CHANNEL_LABEL, dayIndex, dowLabel, formatMinutes, monthDayText, seoulParts, type Channel } from '@/lib/calendar';
 import {
   PAYMENT_METHODS,
   asksMenuExclusion,
@@ -130,7 +131,7 @@ export default function ClosingPage() {
     const m = menus.find((x) => x.id === menuId);
     const c = closing?.services.find((x) => x.serviceMenuId === menuId);
     return {
-      name: m?.name ?? c?.name ?? `시술 ${menuId}`,
+      name: m?.name ?? c?.name ?? t('reservation.closing.serviceFallback', { id: menuId }),
       price: m?.price ?? c?.price ?? 0,
       attribute: m?.predictionAttribute ?? c?.predictionAttribute ?? 'NORMAL',
     };
@@ -163,9 +164,9 @@ export default function ClosingPage() {
       setMenus((cur) => cur.map((m) => (m.id === ask.menuId ? { ...m, predictionAttribute: 'EXCLUDE' } : m)));
       setExcluded(ask.menuId, true);
       setAsk(null);
-      toast(`앞으로 ${info(ask.menuId).name} 메뉴는 주기 계산에서 제외돼요.`);
+      toast(t('reservation.closing.excludedToast', { name: info(ask.menuId).name }));
     } catch (err) {
-      setAsk({ ...ask, busy: false, error: err instanceof ApiError ? err.message : '잠시 후 다시 시도해 주세요' });
+      setAsk({ ...ask, busy: false, error: err instanceof ApiError ? err.message : t('common.pin.tryLater') });
     }
   }
   // [아니요]: 이번 방문만 제외한다
@@ -180,12 +181,12 @@ export default function ClosingPage() {
     setError('');
     try {
       const res = await api<{ notice: string | null }>(`/api/reservations/${id}/customer`, { method: 'PUT', body: { customerId: c.id }, silent: true });
-      toast(`${c.name} 고객을 연결했어요.`);
+      toast(t('reservation.linkedToast', { name: c.name }));
       if (res?.notice) toast(res.notice, 'warn');
       setNoCustomer(false);
       setReload((n) => n + 1);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : '잠시 후 다시 시도해 주세요');
+      setError(err instanceof ApiError ? err.message : t('common.pin.tryLater'));
     }
   }
 
@@ -201,7 +202,7 @@ export default function ClosingPage() {
     setError('');
     try {
       const res = await api<{ visitId: number }>(`/api/reservations/${id}/closing`, { method: 'POST', body: toClosingRequest(values, mode), silent: true });
-      toast(completed ? '추가 결제를 저장했어요.' : '시술 마감을 저장했어요.');
+      toast(completed ? t('reservation.closing.savedExtra') : t('reservation.closing.savedClosing'));
       const toUpload = photoAllowed ? photos : [];
       if (toUpload.length > 0 && res?.visitId) {
         const failed = await uploadPhotos(res.visitId, toUpload);
@@ -210,11 +211,11 @@ export default function ClosingPage() {
           setRetry({ visitId: res.visitId, failed, busy: false });
           return;
         }
-        toast(`사진 ${toUpload.length}장을 올렸어요.`);
+        toast(t('reservation.closing.uploaded', { n: toUpload.length }));
       }
       router.push(`/reservations/detail?id=${id}`);
     } catch (err) {
-      setError(err instanceof ApiError ? (err.code === 'invalid' ? (detailsText(err.details) ?? err.message) : err.message) : '잠시 후 다시 시도해 주세요');
+      setError(err instanceof ApiError ? (err.code === 'invalid' ? (detailsText(err.details) ?? err.message) : err.message) : t('common.pin.tryLater'));
       // 실패했을 때만 다시 제출할 수 있다. 성공하면 화면을 떠날 때까지 버튼을 막아 둔다
       sending.current = false;
       setBusy(false);
@@ -226,7 +227,7 @@ export default function ClosingPage() {
     setRetry({ ...retry, busy: true });
     const failed = await uploadPhotos(retry.visitId, retry.failed.map((f) => f.file));
     if (failed.length === 0) {
-      toast('남은 사진을 모두 올렸어요.');
+      toast(t('reservation.closing.uploadedRest'));
       router.push(`/reservations/detail?id=${id}`);
     } else setRetry({ ...retry, failed, busy: false });
   }
@@ -241,29 +242,29 @@ export default function ClosingPage() {
       <div className="wrap">
         <header className="head">
           <div>
-            <h1 className="h1">{completed ? '추가 결제' : '시술 마감'}</h1>
+            <h1 className="h1">{completed ? t('reservation.closing.extraTitle') : t('reservation.closing.title')}</h1>
             <p className="sub">
               <AppLink href={backHref} className="p-link">
-                ‹ 예약 상세로
+                {t('reservation.closing.toDetail')}
               </AppLink>
             </p>
           </div>
         </header>
 
-        <section className="card detail-card" aria-label="시술 마감 카드">
+        <section className="card detail-card" aria-label={t('reservation.closing.cardLabel')}>
           {!validId || current?.error === 'notfound' ? (
-            <p className="meta">찾을 수 없는 예약이에요. 예약 캘린더에서 다시 골라 주세요.</p>
+            <p className="meta">{t('reservation.notFound')}</p>
           ) : current?.error === 'conflict' ? (
-            <p className="meta">{current.message ?? '취소 · 노쇼한 예약은 시술 마감을 할 수 없어요.'}</p>
+            <p className="meta">{current.message ?? t('reservation.closing.cannotClose')}</p>
           ) : current?.error === 'error' ? (
-            <p className="meta">시술 마감 카드를 불러오지 못했어요. 잠시 후 다시 열어 주세요.</p>
+            <p className="meta">{t('reservation.closing.cardFailed')}</p>
           ) : !closing ? (
-            <p className="meta">불러오는 중…</p>
+            <p className="meta">{t('common.loading')}</p>
           ) : retry ? (
             <div className="detail">
               <div className="box warn" role="alert">
                 <p>
-                  <b>{completed ? '추가 결제는' : '시술 마감은'} 저장됐어요.</b> 사진 {retry.failed.length}장을 올리지 못했어요. 마감은 다시 저장하지 않아도 돼요.
+                  <b>{t('reservation.closing.savedBold', { what: completed ? t('reservation.closing.extraPaymentIs') : t('reservation.closing.closingIs') })}</b> {t('reservation.closing.photoFailed', { n: retry.failed.length })}
                 </p>
                 <ul style={{ margin: '8px 0 0', paddingLeft: 18 }}>
                   {retry.failed.map((f, i) => (
@@ -275,25 +276,25 @@ export default function ClosingPage() {
               </div>
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
                 <AppLink href={backHref} className="btn">
-                  사진 없이 끝내기
+                  {t('reservation.closing.skipPhotos')}
                 </AppLink>
                 <button type="button" className="btn btn-p" disabled={retry.busy} onClick={() => void retryPhotos()}>
-                  {retry.busy ? '올리는 중…' : `${retry.failed.length}장 다시 올리기`}
+                  {retry.busy ? t('reservation.closing.uploading') : t('reservation.closing.retryUpload', { n: retry.failed.length })}
                 </button>
               </div>
             </div>
           ) : (
             <form className="detail" onSubmit={submit}>
               <dl className="d-dl">
-                <dt>고객</dt>
+                <dt>{t('common.customer')}</dt>
                 <dd className="strong">
-                  {closing.customer ? (closing.customer.name ?? '이름 없음') : needsCustomer && noCustomer ? '고객 없음으로 마감' : '고객 정보 없음'}
+                  {closing.customer ? (closing.customer.name ?? t('reservation.noName')) : needsCustomer && noCustomer ? t('reservation.closing.customerNone') : t('reservation.closing.customerNoInfo')}
                 </dd>
                 {summary && at ? (
                   <>
-                    <dt>예약</dt>
+                    <dt>{t('reservation.closing.booking')}</dt>
                     <dd className="num">
-                      {Number(at.date.slice(5, 7))}월 {Number(at.date.slice(8, 10))}일 ({DOW_LABEL[dayIndex(at.date)]}) {formatMinutes(at.minutes)} –{' '}
+                      {monthDayText(at.date)} ({dowLabel(dayIndex(at.date))}) {formatMinutes(at.minutes)} –{' '}
                       {formatMinutes(at.minutes + summary.minutes)} · {CHANNEL_LABEL[summary.channel] ?? summary.channel}
                     </dd>
                   </>
@@ -303,18 +304,18 @@ export default function ClosingPage() {
               {needsChoice ? (
                 <>
                   <div className="box warn" role="note">
-                    <p>고객 없는 예약이에요. 시술 마감 전에 고객을 연결하거나, 손님이 동의를 거부했다면 「고객 없음」으로 마감해 주세요.</p>
+                    <p>{t('reservation.closing.noCustomerHelp')}</p>
                   </div>
                   <div>
-                    <span className="lbl">고객 연결</span>
+                    <span className="lbl">{t('reservation.linkCustomer')}</span>
                     <CustomerSearch onPick={(c) => void linkCustomer(c)} />
                   </div>
                   <div className="box">
                     <p>
-                      <b>고객 없음으로 마감</b> — 실제 시술 · 담당 스탭 · 금액 · 결제 수단만 기록하고, 사진 · 메모 · 동의 받기 · 주기 계산은 없어요.
+                      <b>{t('reservation.closing.noCustomerClose')}</b> {t('reservation.closing.noCustomerCloseDesc')}
                     </p>
                     <button type="button" className="btn btn-sm" style={{ marginTop: 8 }} onClick={() => setNoCustomer(true)}>
-                      고객 없음으로 마감하기
+                      {t('reservation.closing.closeWithout')}
                     </button>
                   </div>
                 </>
@@ -323,25 +324,25 @@ export default function ClosingPage() {
                   {needsCustomer && noCustomer ? (
                     <div className="box" role="note">
                       <p>
-                        고객 없음으로 마감해요. 메모와 주기 계산은 기록하지 않아요.{' '}
+                        {t('reservation.closing.closingWithout')}{' '}
                         <button type="button" className="lk" onClick={() => setNoCustomer(false)}>
-                          고객 연결하기
+                          {t('reservation.closing.linkIt')}
                         </button>
                       </p>
                     </div>
                   ) : null}
                   {completed ? (
                     <div className="box" role="note">
-                      <p>이미 마감된 예약이에요. 결제(추가 결제)와 메모만 더할 수 있고, 실제 시술은 방문 수정에서 바꿀 수 있어요.</p>
+                      <p>{t('reservation.closing.alreadyClosed')}</p>
                     </div>
                   ) : closing.servicesConfirmRequired ? (
                     <div className="box warn" role="note">
-                      <p>상담 후 진행 예약이에요. 실제로 한 시술을 확인해 주세요.</p>
+                      <p>{t('reservation.closing.consultNote')}</p>
                     </div>
                   ) : null}
 
                   <div>
-                    <span className="lbl">실제 시술{completed ? '' : ' (1개 이상)'}</span>
+                    <span className="lbl">{t('reservation.closing.services')}{completed ? '' : t('reservation.closing.servicesRule')}</span>
                     <ul className="svc-list">
                       {rows.map((r) => {
                         const { name, price, attribute } = info(r.serviceMenuId);
@@ -355,14 +356,14 @@ export default function ClosingPage() {
                               <span className="meta">{staff.find((s) => s.id === r.staffId)?.name ?? closing.services.find((s) => s.serviceMenuId === r.serviceMenuId)?.staff.name}</span>
                             ) : (
                               <>
-                                <select className="inp" aria-label={`${name} 담당 스탭`} value={r.staffId} onChange={(e) => changeStaff(r.serviceMenuId, Number(e.target.value))}>
+                                <select className="inp" aria-label={t('reservation.closing.staffOf', { name })} value={r.staffId} onChange={(e) => changeStaff(r.serviceMenuId, Number(e.target.value))}>
                                   {staff.map((s) => (
                                     <option key={s.id} value={s.id}>
                                       {s.name}
                                     </option>
                                   ))}
                                 </select>
-                                <button type="button" className="ib" aria-label={`${name} 빼기`} onClick={() => removeService(r.serviceMenuId)}>
+                                <button type="button" className="ib" aria-label={t('reservation.closing.removeService', { name })} onClick={() => removeService(r.serviceMenuId)}>
                                   ×
                                 </button>
                               </>
@@ -371,11 +372,11 @@ export default function ClosingPage() {
                             {excludable && canExcludeFromCycle(attribute) ? (
                               <label className="chk svc-opt">
                                 <input type="checkbox" checked={!!r.cycleExcluded} onChange={(e) => toggleExcluded(r.serviceMenuId, e.target.checked)} />
-                                <span>이번 시술 주기 계산 제외</span>
+                                <span>{t('reservation.closing.excludeThis')}</span>
                               </label>
                             ) : null}
-                            {hasCustomer && !completed && !canExcludeFromCycle(attribute) ? <span className="meta svc-opt">주기 계산에서 항상 제외되는 메뉴예요</span> : null}
-                            {completed && r.cycleExcluded ? <span className="meta svc-opt">이번 시술은 주기 계산에서 제외됐어요</span> : null}
+                            {hasCustomer && !completed && !canExcludeFromCycle(attribute) ? <span className="meta svc-opt">{t('reservation.closing.alwaysExcluded')}</span> : null}
+                            {completed && r.cycleExcluded ? <span className="meta svc-opt">{t('reservation.closing.wasExcluded')}</span> : null}
                           </li>
                         );
                       })}
@@ -392,12 +393,12 @@ export default function ClosingPage() {
                   </div>
 
                   <div>
-                    <span className="lbl">{completed ? '추가 결제 금액' : '결제 금액'}</span>
+                    <span className="lbl">{completed ? t('reservation.closing.extraAmount') : t('reservation.closing.amount')}</span>
                     <input
                       className="inp"
                       inputMode="numeric"
-                      aria-label="결제 금액"
-                      placeholder={completed ? '추가로 받은 금액 (원)' : '0'}
+                      aria-label={t('reservation.closing.amount')}
+                      placeholder={completed ? t('reservation.closing.extraPlaceholder') : '0'}
                       value={shownAmount}
                       onChange={(e) => {
                         setError('');
@@ -409,11 +410,11 @@ export default function ClosingPage() {
                   </div>
 
                   <div>
-                    <span className="lbl">결제 수단</span>
+                    <span className="lbl">{t('reservation.closing.method')}</span>
                     <div className="pills">
                       {PAYMENT_METHODS.map(([value, label]) => (
                         <button key={value} type="button" className="pill" aria-pressed={method === value} onClick={() => setMethod(value)}>
-                          {label}
+                          {t(label)}
                         </button>
                       ))}
                     </div>
@@ -421,8 +422,8 @@ export default function ClosingPage() {
 
                   {hasCustomer ? (
                     <div>
-                      <span className="lbl">방문 메모</span>
-                      <textarea className="inp" maxLength={1000} value={memo} onChange={(e) => setMemo(e.target.value)} placeholder="다음 방문에 참고할 내용" />
+                      <span className="lbl">{t('reservation.closing.visitMemo')}</span>
+                      <textarea className="inp" maxLength={1000} value={memo} onChange={(e) => setMemo(e.target.value)} placeholder={t('reservation.closing.memoPlaceholder')} />
                     </div>
                   ) : null}
 
@@ -433,7 +434,7 @@ export default function ClosingPage() {
                   {photoAllowed ? (
                     <PhotoPicker files={photos} onChange={setPhotos} disabled={busy} />
                   ) : hasCustomer ? (
-                    <p className="meta">사진 동의가 없는 고객이라 사진을 올릴 수 없어요. 위 「동의 받기」에서 시술 사진 동의를 받으면 사진 칸이 열려요.</p>
+                    <p className="meta">{t('reservation.closing.needPhotoConsent')}</p>
                   ) : null}
                 </>
               )}
@@ -446,11 +447,11 @@ export default function ClosingPage() {
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
                 <AppLink href={backHref} className="btn">
-                  돌아가기
+                  {t('common.back')}
                 </AppLink>
                 {!needsChoice ? (
                   <button type="submit" className="btn btn-p" disabled={busy}>
-                    {busy ? '저장 중…' : completed ? '추가 결제 저장' : '시술 마감 저장'}
+                    {busy ? t('common.saving') : completed ? t('reservation.closing.saveExtra') : t('reservation.closing.saveClosing')}
                   </button>
                 ) : null}
               </div>
@@ -461,12 +462,12 @@ export default function ClosingPage() {
 
       {ask ? (
         <div className="overlay">
-          <div className="card modal" role="dialog" aria-modal="true" aria-label="주기 계산 제외 확인">
+          <div className="card modal" role="dialog" aria-modal="true" aria-label={t('reservation.closing.excludeAria')}>
             <h2 className="h2" style={{ fontSize: '19px' }}>
-              앞으로 {info(ask.menuId).name} 메뉴를 모두 주기 계산에서 제외할까요?
+              {t('reservation.closing.askExclude', { name: info(ask.menuId).name })}
             </h2>
             <p className="meta">
-              [예]를 고르면 메뉴의 예측 속성이 「주기 계산 제외」로 바뀌어요. 매장 설정 권한(원장 PIN)이 필요해요. [아니요]를 고르면 이번 방문만 제외해요.
+              {t('reservation.closing.askBody')}
             </p>
             {ask.error ? (
               <span className="err" role="alert">
@@ -475,10 +476,10 @@ export default function ClosingPage() {
             ) : null}
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
               <button type="button" className="btn" disabled={ask.busy} onClick={excludeThisVisitOnly}>
-                아니요 (이번 방문만)
+                {t('reservation.closing.no')}
               </button>
               <button type="button" className="btn btn-p" disabled={ask.busy} onClick={() => void excludeWholeMenu()}>
-                {ask.busy ? '변경 중…' : '예 (메뉴 전체 제외)'}
+                {ask.busy ? t('reservation.closing.changing') : t('reservation.closing.yes')}
               </button>
             </div>
           </div>

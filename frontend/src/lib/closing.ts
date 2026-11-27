@@ -2,14 +2,17 @@
 // POST /api/reservations/{id}/closing: 결제 · 방문 생성 · 방문 메모 · 예약 완료를 한 번에 저장한다.
 // 완료된 예약에는 결제(추가 결제) · 메모만 더하고, 실제 시술은 보내지 않는다 (E4).
 
+import { t } from './i18n.ts';
+import type { MessageKey } from './messages/ko.ts';
+
 export type PaymentMethod = 'CARD' | 'CASH' | 'TRANSFER' | 'ETC';
 
 /** CONTRACTS 3장 「결제 수단」 */
-export const PAYMENT_METHODS: [PaymentMethod, string][] = [
-  ['CARD', '카드'],
-  ['CASH', '현금'],
-  ['TRANSFER', '계좌이체'],
-  ['ETC', '기타'],
+export const PAYMENT_METHODS: [PaymentMethod, MessageKey][] = [
+  ['CARD', 'reservation.pay.card'],
+  ['CASH', 'reservation.pay.cash'],
+  ['TRANSFER', 'reservation.pay.transfer'],
+  ['ETC', 'reservation.pay.etc'],
 ];
 
 /** `cycleExcluded`: 이번 방문만 주기 계산에서 제외 (FR-VIS-05). 고객이 있는 마감에서만 보낸다 */
@@ -51,11 +54,11 @@ export const asksMenuExclusion = (attribute: string): boolean => attribute === '
 /** 저장 전에 화면에서 먼저 거르는 입력 오류. 첫 번째 사유를 돌려주고, 없으면 null. 서버가 다시 검사한다 (NFR-08) */
 export function validateClosing(v: ClosingValues, mode: ClosingMode): string | null {
   if (!mode.completed) {
-    if (v.services.length === 0) return '실제 시술을 1개 이상 선택해 주세요';
-    if (v.services.some((s) => !s.staffId)) return '시술마다 담당 스탭을 선택해 주세요';
+    if (v.services.length === 0) return t('reservation.closing.needService');
+    if (v.services.some((s) => !s.staffId)) return t('reservation.closing.needStaff');
   }
-  if (parseAmount(v.amount) === null) return '결제 금액을 0 이상의 숫자로 입력해 주세요';
-  if (v.memo.length > 1000) return '메모는 1,000자 이하입니다';
+  if (parseAmount(v.amount) === null) return t('reservation.closing.needAmount');
+  if (v.memo.length > 1000) return t('common.memoMax');
   return null;
 }
 
@@ -86,11 +89,19 @@ export function toClosingRequest(v: ClosingValues, mode: ClosingMode) {
 // 동의는 POST /api/customers/{customerId}/consents, 사진은 마감 저장 응답의 방문 ID로 POST /api/visits/{visitId}/photos (CONTRACTS 4장)
 
 /** 마감 카드에서 받는 동의 항목 (GET …/closing의 consentsToRequest 값, 3절 순서) */
+const consentItem = (label: MessageKey, desc: MessageKey) => ({
+  get label() {
+    return t(label);
+  },
+  get desc() {
+    return t(desc);
+  },
+});
 export const CONSENT_REQUEST_LABEL: Record<string, { label: string; desc: string }> = {
-  PHOTO: { label: '시술 사진', desc: '시술 전후 사진을 기록하고 히스토리북에 보관합니다' },
-  MARKETING: { label: '마케팅 수신', desc: '재방문 안내 · 이벤트 문자를 받습니다' },
-  NIGHT_AD: { label: '야간 광고 수신', desc: '오후 9시 ~ 오전 8시 사이 광고 문자도 받습니다' },
-  HEALTH: { label: '건강 정보', desc: '알레르기 등 시술에 필요한 건강 주의사항을 기록합니다' },
+  PHOTO: consentItem('reservation.consent.photo', 'reservation.consent.photoDesc'),
+  MARKETING: consentItem('reservation.consent.marketing', 'reservation.consent.marketingDesc'),
+  NIGHT_AD: consentItem('reservation.consent.nightAd', 'reservation.consent.nightAdDesc'),
+  HEALTH: consentItem('reservation.consent.health', 'reservation.consent.healthDesc'),
 };
 
 /** 한 방문에 올릴 수 있는 사진 수 · 한 장 크기 (서버와 같음) */
@@ -99,11 +110,11 @@ export const PHOTO_MAX_BYTES = 10 * 1024 * 1024;
 
 /** 고른 사진의 첫 번째 오류 사유. 없으면 null. 형식은 서버가 파일 앞 바이트로 다시 판단한다 (NFR-08) */
 export function validatePhotos(files: { size: number; type: string }[]): string | null {
-  if (files.length > PHOTO_MAX) return `사진은 한 번에 ${PHOTO_MAX}장까지 올릴 수 있어요`;
+  if (files.length > PHOTO_MAX) return t('reservation.photo.tooMany', { max: PHOTO_MAX });
   for (const f of files) {
-    if (f.type !== 'image/jpeg' && f.type !== 'image/png') return 'JPG · PNG 사진만 올릴 수 있어요';
-    if (f.size === 0) return '빈 파일은 올릴 수 없어요';
-    if (f.size > PHOTO_MAX_BYTES) return '사진 한 장은 10MB 이하여야 해요';
+    if (f.type !== 'image/jpeg' && f.type !== 'image/png') return t('reservation.photo.badType');
+    if (f.size === 0) return t('reservation.photo.empty');
+    if (f.size > PHOTO_MAX_BYTES) return t('reservation.photo.tooBig');
   }
   return null;
 }

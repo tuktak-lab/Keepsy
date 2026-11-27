@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useState } from 'react';
+import { t } from '@/lib/i18n';
+import type { MessageKey } from '@/lib/messages/ko';
 import { useSearchParams } from 'next/navigation';
 import { AppLink } from '@/components/common/AppLink';
 import { toast } from '@/components/common/Toast';
 import { useStyleSheet } from '@/hooks/useStyleSheet';
 import { ApiError, api } from '@/lib/api';
-import { CHANNEL_LABEL, DOW_LABEL, dayIndex, endMs, formatMinutes, seoulParts, todayInSeoul, toneOf, type Channel, type ReservationStatus } from '@/lib/calendar';
+import { CHANNEL_LABEL, dayIndex, dowLabel, endMs, formatMinutes, fullDateText, seoulParts, todayInSeoul, toneOf, type Channel, type ReservationStatus } from '@/lib/calendar';
 import { useNowMs } from '@/lib/clock';
 import { formatWon } from '@/lib/format';
-import { ACTION_TEXT, actionPath, canClose, canMarkNoShow, closeTooEarly, confirmText, NO_SHOW_TOO_EARLY, type StatusAction } from '@/lib/reservationActions';
+import { ACTION_TEXT, actionPath, canClose, canMarkNoShow, closeTooEarly, confirmText, noShowTooEarly, type StatusAction } from '@/lib/reservationActions';
 import { CustomerSearch, type CustomerPick } from './CustomerSearch';
 import { PastVisits } from './PastVisits';
 import { ReservationForm } from './ReservationForm';
@@ -33,11 +35,11 @@ type Detail = {
 };
 type Loaded = { id: number; detail?: Detail; error?: 'notfound' | 'error' };
 
-const STATUS_CHIP: Record<ReservationStatus, [string, string]> = {
-  CONFIRMED: ['예약 확정', 'booked'],
-  COMPLETED: ['시술 완료', 'done'],
-  CANCELED: ['예약 취소', 'canceled'],
-  NO_SHOW: ['노쇼', 'noshow'],
+const STATUS_CHIP: Record<ReservationStatus, [MessageKey, string]> = {
+  CONFIRMED: ['reservation.status.confirmed', 'booked'],
+  COMPLETED: ['reservation.status.completed', 'done'],
+  CANCELED: ['reservation.status.canceled', 'canceled'],
+  NO_SHOW: ['reservation.status.noShow', 'noshow'],
 };
 
 export default function ReservationDetailPage() {
@@ -99,7 +101,7 @@ export default function ReservationDetailPage() {
       refresh();
     } catch (err) {
       setConfirming(null);
-      setError(err instanceof ApiError ? err.message : '잠시 후 다시 시도해 주세요'); // 예: 이미 처리된 예약, 시작 전 노쇼
+      setError(err instanceof ApiError ? err.message : t('common.pin.tryLater')); // 예: 이미 처리된 예약, 시작 전 노쇼
       if (err instanceof ApiError && err.code === 'conflict') refresh();
     } finally {
       setBusy(false);
@@ -111,18 +113,18 @@ export default function ReservationDetailPage() {
     try {
       const res = await api<{ notice: string | null }>(`/api/reservations/${id}/customer`, { method: 'PUT', body: { customerId: c.id }, silent: true });
       setLinking(false);
-      toast(`${c.name} 고객을 연결했어요.`);
+      toast(t('reservation.linkedToast', { name: c.name }));
       if (res?.notice) toast(res.notice, 'warn'); // 예약 제한 고객은 PIN 없이 연결하되 안내만 한다 (FR-CUS-14, E3)
       refresh();
     } catch (err) {
-      setLinkError(err instanceof ApiError ? err.message : '잠시 후 다시 시도해 주세요');
+      setLinkError(err instanceof ApiError ? err.message : t('common.pin.tryLater'));
       if (err instanceof ApiError && err.code === 'conflict') refresh();
     }
   }
 
   const at = detail ? seoulParts(detail.startAt) : null;
   const tone = detail && nowMs ? toneOf(detail.status, endMs(detail.startAt, detail.minutes), nowMs) : null;
-  const [chipLabel, chipClass] = detail ? (tone === 'unclosed' ? ['종료 시각 지남 · 마감 필요', 'unclosed'] : STATUS_CHIP[detail.status]) : ['', ''];
+  const [chipLabel, chipClass]: [MessageKey | '', string] = detail ? (tone === 'unclosed' ? ['reservation.state.unclosed', 'unclosed'] : STATUS_CHIP[detail.status]) : ['', ''];
   const confirmed = detail?.status === 'CONFIRMED';
   const hasCustomer = detail?.customer != null;
   const startMs = detail ? Date.parse(detail.startAt) : 0;
@@ -135,9 +137,9 @@ export default function ReservationDetailPage() {
 
   const notes: string[] = [];
   if (detail) {
-    if (detail.consultFirst) notes.push('상담 후 진행 — 시술을 정하지 못한 예약이에요.');
-    if (!hasCustomer && confirmed) notes.push('고객 없는 예약 — 다른 앱으로 받은 예약이라 시간만 막아 두었어요. 손님이 오면 고객을 연결하세요.');
-    if (tone === 'unclosed') notes.push('종료 시각 지남 · 마감 필요 — 시술 종료 시각이 지났는데 결제 · 방문 기록이 아직 없어요.');
+    if (detail.consultFirst) notes.push(t('reservation.detail.noteConsult'));
+    if (!hasCustomer && confirmed) notes.push(t('reservation.detail.noteNoCustomer'));
+    if (tone === 'unclosed') notes.push(t('reservation.detail.noteUnclosed'));
   }
 
   return (
@@ -145,10 +147,10 @@ export default function ReservationDetailPage() {
       <div className="wrap">
         <header className="head">
           <div>
-            <h1 className="h1">예약 상세</h1>
+            <h1 className="h1">{t('reservation.detail.title')}</h1>
             <p className="sub">
               <AppLink href={backHref} className="p-link">
-                ‹ 예약 캘린더로
+                {t('reservation.detail.toSchedule')}
               </AppLink>
             </p>
           </div>
@@ -156,23 +158,23 @@ export default function ReservationDetailPage() {
 
         {/* 예약 상세 오른쪽에 지난 방문 (#445). 좁은 화면은 아래로 쌓인다 */}
         <div className="detail-row">
-          <section className="card detail-card" aria-label="예약 상세">
+          <section className="card detail-card" aria-label={t('reservation.detail.title')}>
             {!validId || current?.error === 'notfound' ? (
-              <p className="meta">찾을 수 없는 예약이에요. 예약 캘린더에서 다시 골라 주세요.</p>
+              <p className="meta">{t('reservation.notFound')}</p>
             ) : current?.error === 'error' ? (
               <p className="meta">
-                예약을 불러오지 못했어요.{' '}
+                {t('reservation.loadFailed')}{' '}
                 <button type="button" className="btn btn-sm" onClick={() => setReload((n) => n + 1)}>
-                  다시 시도
+                  {t('common.retry')}
                 </button>
               </p>
             ) : !detail || !at ? (
-              <p className="meta">불러오는 중…</p>
+              <p className="meta">{t('common.loading')}</p>
             ) : (
               <div className="detail">
                 <div className="d-top">
-                  <span className={'st-chip s-' + chipClass}>{chipLabel}</span>
-                  <span className="meta num">예약 번호 {detail.id}</span>
+                  <span className={'st-chip s-' + chipClass}>{chipLabel ? t(chipLabel) : ''}</span>
+                  <span className="meta num">{t('reservation.detail.number', { id: detail.id })}</span>
                 </div>
 
                 <div className="d-name">
@@ -181,26 +183,26 @@ export default function ReservationDetailPage() {
                       {detail.customer.name ? (
                         <AppLink href={`/customers/detail?id=${detail.customer.id}`}>{detail.customer.name}</AppLink>
                       ) : (
-                        '이름 없음'
+                        t('reservation.noName')
                       )}
                     </b>
                   ) : (
-                    <b>고객 정보 없음</b>
+                    <b>{t('reservation.detail.noCustomerInfo')}</b>
                   )}
                 </div>
 
                 {detail.customer?.serviceCaution || detail.customer?.healthCaution ? (
-                  <div className="box warn" role="note" aria-label="고객 주의사항">
+                  <div className="box warn" role="note" aria-label={t('reservation.detail.cautionLabel')}>
                     {detail.customer.serviceCaution ? (
                       <>
-                        <span className="lbl">시술 주의사항</span>
+                        <span className="lbl">{t('reservation.detail.serviceCaution')}</span>
                         <p>{detail.customer.serviceCaution}</p>
                       </>
                     ) : null}
                     {detail.customer.healthCaution ? (
                       <>
                         <span className="lbl" style={{ marginTop: detail.customer.serviceCaution ? 8 : 0 }}>
-                          건강 주의사항
+                          {t('reservation.detail.healthCaution')}
                         </span>
                         <p>{detail.customer.healthCaution}</p>
                       </>
@@ -209,16 +211,16 @@ export default function ReservationDetailPage() {
                 ) : null}
 
                 <dl className="d-dl">
-                  <dt>일시</dt>
+                  <dt>{t('reservation.detail.when')}</dt>
                   <dd className="strong num">
-                    {at.date.slice(0, 4)}년 {Number(at.date.slice(5, 7))}월 {Number(at.date.slice(8, 10))}일 ({DOW_LABEL[dayIndex(at.date)]}){' '}
-                    {formatMinutes(at.minutes)} – {formatMinutes(at.minutes + detail.minutes)} ({detail.minutes}분)
+                    {fullDateText(at.date)} ({dowLabel(dayIndex(at.date))}){' '}
+                    {formatMinutes(at.minutes)} – {formatMinutes(at.minutes + detail.minutes)} ({t('common.minutes', { n: detail.minutes })})
                   </dd>
-                  <dt>담당 스탭</dt>
+                  <dt>{t('common.staff')}</dt>
                   <dd>{detail.staff.name}</dd>
-                  <dt>예약 경로</dt>
+                  <dt>{t('reservation.form.channel')}</dt>
                   <dd>{route}</dd>
-                  <dt>예정 시술</dt>
+                  <dt>{t('reservation.detail.services')}</dt>
                   <dd>
                     {detail.services.map((s) => (
                       <div key={s.serviceMenuId}>
@@ -226,18 +228,18 @@ export default function ReservationDetailPage() {
                       </div>
                     ))}
                   </dd>
-                  <dt>예상 금액</dt>
-                  <dd className="strong num">{detail.consultFirst ? '상담 후 결정' : formatWon(total)}</dd>
+                  <dt>{t('reservation.detail.estimate')}</dt>
+                  <dd className="strong num">{detail.consultFirst ? t('reservation.detail.decideAfter') : formatWon(total)}</dd>
                   {detail.memo ? (
                     <>
-                      <dt>메모</dt>
+                      <dt>{t('common.memo')}</dt>
                       <dd style={{ whiteSpace: 'pre-line' }}>{detail.memo}</dd>
                     </>
                   ) : null}
                   {detail.visitId !== null ? (
                     <>
-                      <dt>방문 기록</dt>
-                      <dd>시술 마감까지 끝났어요.</dd>
+                      <dt>{t('reservation.detail.visitRecord')}</dt>
+                      <dd>{t('reservation.detail.closedDone')}</dd>
                     </>
                   ) : null}
                 </dl>
@@ -260,14 +262,14 @@ export default function ReservationDetailPage() {
 
                 {confirmed ? (
                   confirming ? (
-                    <div className="confirm" role="alertdialog" aria-label={`${ACTION_TEXT[confirming].button} 확인`}>
+                    <div className="confirm" role="alertdialog" aria-label={t('reservation.confirmAria', { action: ACTION_TEXT[confirming].button })}>
                       <p>{confirmText(confirming, hasCustomer)}</p>
                       <div className="confirm-actions">
                         <button type="button" className="btn btn-sm" disabled={busy} onClick={() => setConfirming(null)}>
-                          돌아가기
+                          {t('common.back')}
                         </button>
                         <button type="button" className="btn btn-sm btn-danger" disabled={busy} onClick={() => void changeStatus(confirming)}>
-                          {busy ? '처리 중…' : ACTION_TEXT[confirming].button}
+                          {busy ? t('common.processing') : ACTION_TEXT[confirming].button}
                         </button>
                       </div>
                     </div>
@@ -275,23 +277,23 @@ export default function ReservationDetailPage() {
                     <div className="d-acts">
                       {canCloseNow ? (
                         <AppLink href={`/reservations/closing?id=${id}`} className="btn btn-p btn-w">
-                          시술 마감
+                          {t('reservation.closing.title')}
                         </AppLink>
                       ) : (
                         <>
                           <button type="button" className="btn btn-p btn-w" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>
-                            시술 마감
+                            {t('reservation.closing.title')}
                           </button>
                           {at ? <p className="meta">{closeTooEarly(at.date)}</p> : null}
                         </>
                       )}
                       <div className="act-2">
                         <button type="button" className="btn btn-w" onClick={() => setEditing(true)} disabled={staff.length === 0}>
-                          일정 변경
+                          {t('reservation.detail.reschedule')}
                         </button>
                         {!hasCustomer ? (
                           <button type="button" className="btn btn-w" onClick={() => { setLinkError(''); setLinking(true); }}>
-                            고객 연결
+                            {t('reservation.linkCustomer')}
                           </button>
                         ) : null}
                       </div>
@@ -303,7 +305,7 @@ export default function ReservationDetailPage() {
                           type="button"
                           className="lk danger"
                           disabled={!canNoShow}
-                          title={canNoShow ? undefined : NO_SHOW_TOO_EARLY}
+                          title={canNoShow ? undefined : noShowTooEarly()}
                           onClick={() => setConfirming('no-show')}
                           style={canNoShow ? undefined : { opacity: 0.5, cursor: 'not-allowed' }}
                         >
@@ -316,10 +318,10 @@ export default function ReservationDetailPage() {
                   <div className="d-acts">
                     {detail.status === 'COMPLETED' ? (
                       <AppLink href={`/reservations/closing?id=${id}`} className="btn btn-w">
-                        추가 결제 · 메모
+                        {t('reservation.detail.extra')}
                       </AppLink>
                     ) : null}
-                    <p className="meta">완료 · 취소 · 노쇼한 예약은 일정을 바꿀 수 없어요.</p>
+                    <p className="meta">{t('reservation.detail.locked')}</p>
                   </div>
                 )}
               </div>
@@ -335,13 +337,13 @@ export default function ReservationDetailPage() {
 
       {linking ? (
         <div className="overlay" onClick={() => setLinking(false)}>
-          <div className="card modal" role="dialog" aria-modal="true" aria-label="고객 연결" onClick={(e) => e.stopPropagation()}>
+          <div className="card modal" role="dialog" aria-modal="true" aria-label={t('reservation.linkCustomer')} onClick={(e) => e.stopPropagation()}>
             <h2 className="h2" style={{ fontSize: '19px' }}>
-              고객 연결
+              {t('reservation.linkCustomer')}
             </h2>
-            <p className="meta">손님이 온 뒤 이 예약에 고객을 연결해요. 검색에 없으면 바로 등록할 수 있어요.</p>
+            <p className="meta">{t('reservation.detail.linkHelp')}</p>
             <div>
-              <span className="lbl">고객</span>
+              <span className="lbl">{t('common.customer')}</span>
               <CustomerSearch onPick={(c) => void linkCustomer(c)} />
             </div>
             {linkError ? (
@@ -351,7 +353,7 @@ export default function ReservationDetailPage() {
             ) : null}
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
               <button type="button" className="btn" onClick={() => setLinking(false)}>
-                닫기
+                {t('common.close')}
               </button>
             </div>
           </div>

@@ -1,6 +1,7 @@
 // 예약 등록 · 수정 폼 계산 (순수 함수). 요청 규칙은 docs CONTRACTS 6장 「예약 (RSV)」 POST · PATCH /api/reservations.
 // (타입만 가져온다: Node 테스트 실행기는 확장자 없는 상대 import를 읽지 못해 런타임 import를 두지 않는다)
 import type { Channel, DateStr } from './calendar';
+import { t } from './i18n.ts';
 
 /** 소요 시간 고르기: 30분 단위, 30분 ~ 8시간 (FR-RSV-01) */
 export const MINUTE_STEPS = Array.from({ length: 16 }, (_, i) => (i + 1) * 30);
@@ -30,13 +31,13 @@ export type FormValues = {
 /** 저장 전에 화면에서 먼저 거르는 입력 오류. 첫 번째 사유를 돌려주고, 없으면 null. 서버가 다시 검사한다 (NFR-08) */
 export function validate(v: FormValues, editing: boolean): string | null {
   if (!editing && v.customerMode === 'pick' && v.customerId === null) {
-    return '고객을 고르거나 "고객 없이 시간만 막기"를 선택해 주세요';
+    return t('reservation.form.noCustomerFirst');
   }
-  if (v.staffId === null) return '담당 스탭을 선택해 주세요';
-  if (v.menuIds.length === 0) return '예정 시술을 1개 이상 선택해 주세요';
-  if (!v.date) return '날짜를 선택해 주세요';
-  if (!v.startTime) return '시작 시각을 선택해 주세요';
-  if (v.memo.length > 1000) return '메모는 1,000자 이하입니다';
+  if (v.staffId === null) return t('reservation.form.needStaff');
+  if (v.menuIds.length === 0) return t('reservation.form.needMenu');
+  if (!v.date) return t('reservation.form.needDate');
+  if (!v.startTime) return t('reservation.form.needTime');
+  if (v.memo.length > 1000) return t('common.memoMax');
   return null;
 }
 

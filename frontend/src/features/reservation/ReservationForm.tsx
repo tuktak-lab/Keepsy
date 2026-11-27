@@ -3,9 +3,10 @@ import { toast } from '@/components/common/Toast';
 import { useIndustries } from '@/hooks/useIndustries';
 import { ApiError, api } from '@/lib/api';
 import { CHANNEL_LABEL, hmOf, seoulParts, type Channel, type DateStr } from '@/lib/calendar';
+import { t } from '@/lib/i18n';
 import { pickableMenus } from '@/lib/menus';
 import { defaultMinutes, detailsText, MINUTE_STEPS, toRequest, validate, type FormValues } from '@/lib/reservationForm';
-import { ACTION_TEXT, actionPath, canMarkNoShow, confirmText, NO_SHOW_TOO_EARLY, type StatusAction } from '@/lib/reservationActions';
+import { ACTION_TEXT, actionPath, canMarkNoShow, confirmText, noShowTooEarly, type StatusAction } from '@/lib/reservationActions';
 import { CustomerSearch, type CustomerPick } from './CustomerSearch';
 
 // 예약 등록 · 일정 변경 폼 (FR-RSV-01 · 04). 요청 규칙은 docs CONTRACTS 6장 「예약 (RSV)」.
@@ -174,14 +175,14 @@ export function ReservationForm(props: {
       // 겹침 · 입력 오류는 이 창 안에서 보여 주려고 silent. 로그인 · PIN 관련 code는 api.ts가 처리한다 (원장 PIN 창은 예약 제한 고객일 때)
       if (editing) await api(`/api/reservations/${editId}`, { method: 'PATCH', body, silent: true });
       else await api('/api/reservations', { method: 'POST', body, silent: true });
-      toast(editing ? '예약을 변경했어요.' : '예약을 등록했어요.');
+      toast(editing ? t('reservation.form.updated') : t('reservation.form.created'));
       onSaved(values.date);
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.code === 'invalid' ? (detailsText(err.details) ?? err.message) : err.message);
         if (err.code === 'reservation_conflict') setTick((n) => n + 1); // 그 사이 시간이 찼을 수 있어 가능 시각을 다시 읽는다
       } else {
-        setError('잠시 후 다시 시도해 주세요');
+        setError(t('common.pin.tryLater'));
       }
     } finally {
       setBusy(false);
@@ -199,7 +200,7 @@ export function ReservationForm(props: {
       onSaved(own.date);
     } catch (err) {
       setConfirming(null);
-      setError(err instanceof ApiError ? err.message : '잠시 후 다시 시도해 주세요'); // 예: 이미 처리된 예약(conflict), 시작 전 노쇼
+      setError(err instanceof ApiError ? err.message : t('common.pin.tryLater')); // 예: 이미 처리된 예약(conflict), 시작 전 노쇼
       if (err instanceof ApiError && err.code === 'conflict') onStale();
     } finally {
       setBusy(false);
@@ -207,7 +208,7 @@ export function ReservationForm(props: {
   }
 
   const canNoShow = own !== null && canMarkNoShow(own.startMs, openedAt);
-  const title = editing ? '일정 변경' : '예약 등록';
+  const title = editing ? t('reservation.form.editTitle') : t('reservation.form.newTitle');
 
   return (
     <div className="overlay" onClick={() => !busy && onClose()}>
@@ -217,11 +218,11 @@ export function ReservationForm(props: {
         </h2>
 
         {!ready ? (
-          <p className="meta">불러오는 중…</p>
+          <p className="meta">{t('common.loading')}</p>
         ) : (
           <>
             <div>
-              <span className="lbl">예약 경로</span>
+              <span className="lbl">{t('reservation.form.channel')}</span>
               <div className="pills">
                 {STORE_FIRST.map((c) => (
                   <button key={c} type="button" className="pill" aria-pressed={v.channel === c} onClick={() => set({ channel: c })}>
@@ -232,16 +233,16 @@ export function ReservationForm(props: {
             </div>
 
             <div>
-              <span className="lbl">고객</span>
+              <span className="lbl">{t('common.customer')}</span>
               {editing ? (
-                <p className="cust-fixed">{hadCustomer ? customerName || '이름 없음' : '고객 없는 예약'}</p>
+                <p className="cust-fixed">{hadCustomer ? customerName || t('reservation.noName') : t('reservation.legend.noCustomer')}</p>
               ) : (
                 <>
                   {v.customerMode === 'pick' && v.customerId !== null ? (
                     <div className="cust-sel">
                       <b>{customerName}</b>
-                      {noShow !== null ? <span className={'num' + (noShow > 0 ? ' warn' : '')}>노쇼 {noShow}회</span> : null}
-                      <button type="button" className="ib" aria-label="고객 다시 고르기" onClick={() => set({ customerId: null })}>
+                      {noShow !== null ? <span className={'num' + (noShow > 0 ? ' warn' : '')}>{t('reservation.form.noShow', { n: noShow })}</span> : null}
+                      <button type="button" className="ib" aria-label={t('reservation.form.pickAgain')} onClick={() => set({ customerId: null })}>
                         ×
                       </button>
                     </div>
@@ -255,7 +256,7 @@ export function ReservationForm(props: {
                       checked={v.customerMode === 'none'}
                       onChange={(e) => set(e.target.checked ? { customerMode: 'none', customerId: null, memo: '' } : { customerMode: 'pick' })}
                     />
-                    <span>고객 없이 시간만 막기 (다른 앱으로 받은 예약)</span>
+                    <span>{t('reservation.form.blockOnly')}</span>
                   </label>
                 </>
               )}
@@ -263,11 +264,11 @@ export function ReservationForm(props: {
 
             <div className="grid3">
               <div>
-                <span className="lbl">날짜</span>
+                <span className="lbl">{t('reservation.form.date')}</span>
                 <input className="inp" type="date" value={v.date} onChange={(e) => set({ date: e.target.value })} />
               </div>
               <div>
-                <span className="lbl">담당 스탭</span>
+                <span className="lbl">{t('common.staff')}</span>
                 <select className="inp" value={v.staffId ?? ''} onChange={(e) => set({ staffId: Number(e.target.value) })}>
                   {staff.map((s) => (
                     <option key={s.id} value={s.id}>
@@ -277,7 +278,7 @@ export function ReservationForm(props: {
                 </select>
               </div>
               <div>
-                <span className="lbl">소요 시간</span>
+                <span className="lbl">{t('reservation.form.duration')}</span>
                 <select
                   className="inp"
                   value={minutes}
@@ -288,7 +289,7 @@ export function ReservationForm(props: {
                 >
                   {MINUTE_STEPS.map((m) => (
                     <option key={m} value={m}>
-                      {m >= 60 ? `${Math.floor(m / 60)}시간${m % 60 ? ' 30분' : ''}` : '30분'}
+                      {m >= 60 ? (m % 60 ? t('reservation.form.hoursHalf', { h: Math.floor(m / 60) }) : t('reservation.form.hours', { h: Math.floor(m / 60) })) : t('reservation.form.min30')}
                     </option>
                   ))}
                 </select>
@@ -296,26 +297,26 @@ export function ReservationForm(props: {
             </div>
 
             <div>
-              <span className="lbl">시작 시각</span>
+              <span className="lbl">{t('reservation.form.startTime')}</span>
               <select className="inp" value={startTime} disabled={loaded === null} onChange={(e) => set({ startTime: e.target.value })}>
-                <option value="">{loaded === null ? '불러오는 중…' : '시각 선택'}</option>
-                {options.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
+                <option value="">{loaded === null ? t('common.loading') : t('reservation.form.pickTime')}</option>
+                {options.map((opt) => (
+                  <option key={opt} value={opt}>
+                    {opt}
                   </option>
                 ))}
               </select>
               {loaded !== null && options.length === 0 ? (
                 <p className="hint" style={{ marginTop: 8 }}>
-                  이 날짜에는 예약할 수 있는 시각이 없어요. 영업시간 밖이거나 휴무일, 또는 이미 예약이 찬 시간이에요.
+                  {t('reservation.form.noSlots')}
                 </p>
               ) : null}
             </div>
 
             <div>
-              <span className="lbl">예정 시술 (1개 이상 필수)</span>
+              <span className="lbl">{t('reservation.form.services')}</span>
               {menus !== null && industries !== undefined && pickable.length === 0 ? (
-                <p className="hint">켜 둔 업종에 등록된 시술 메뉴가 없어요. 매장 설정에서 메뉴를 먼저 등록하거나 업종을 켜 주세요.</p>
+                <p className="hint">{t('reservation.form.noMenus')}</p>
               ) : (
                 <div className="pills">
                   {pickable.map((m) => {
@@ -328,7 +329,7 @@ export function ReservationForm(props: {
                         aria-pressed={on}
                         onClick={() => set({ menuIds: on ? v.menuIds.filter((id) => id !== m.id) : [...v.menuIds, m.id] })}
                       >
-                        {m.name} · {m.durationMinutes}분
+                        {t('reservation.form.menuLine', { name: m.name, minutes: m.durationMinutes })}
                       </button>
                     );
                   })}
@@ -336,13 +337,13 @@ export function ReservationForm(props: {
               )}
               <label className="chk" style={{ marginTop: '8px' }}>
                 <input type="checkbox" checked={v.consultFirst} onChange={(e) => set({ consultFirst: e.target.checked })} />
-                <span>상담 후 진행 — 손님이 시술을 정하지 못했어요. 가장 가능성 높은 시술을 골라 주세요.</span>
+                <span>{t('reservation.form.consentLine')}</span>
               </label>
             </div>
 
             {hasCustomer ? (
               <div>
-                <span className="lbl">메모</span>
+                <span className="lbl">{t('common.memo')}</span>
                 <textarea className="inp" maxLength={1000} value={v.memo} onChange={(e) => set({ memo: e.target.value })} />
               </div>
             ) : null}
@@ -356,14 +357,14 @@ export function ReservationForm(props: {
         )}
 
         {confirming ? (
-          <div className="confirm" role="alertdialog" aria-label={`${ACTION_TEXT[confirming].button} 확인`}>
+          <div className="confirm" role="alertdialog" aria-label={t('reservation.confirmAria', { action: ACTION_TEXT[confirming].button })}>
             <p>{confirmText(confirming, hadCustomer)}</p>
             <div className="confirm-actions">
               <button type="button" className="btn btn-sm" disabled={busy} onClick={() => setConfirming(null)}>
-                돌아가기
+                {t('common.back')}
               </button>
               <button type="button" className="btn btn-sm btn-danger" disabled={busy} onClick={() => void changeStatus(confirming)}>
-                {busy ? '처리 중…' : ACTION_TEXT[confirming].button}
+                {busy ? t('common.processing') : ACTION_TEXT[confirming].button}
               </button>
             </div>
           </div>
@@ -378,7 +379,7 @@ export function ReservationForm(props: {
                   type="button"
                   className="btn btn-danger-o"
                   disabled={busy || !canNoShow}
-                  title={canNoShow ? undefined : NO_SHOW_TOO_EARLY}
+                  title={canNoShow ? undefined : noShowTooEarly()}
                   onClick={() => setConfirming('no-show')}
                 >
                   {ACTION_TEXT['no-show'].button}
@@ -387,10 +388,10 @@ export function ReservationForm(props: {
             ) : null}
             <div className="form-actions-main">
               <button type="button" className="btn" disabled={busy} onClick={onClose}>
-                {editing ? '닫기' : '취소'}
+                {editing ? t('common.close') : t('common.cancel')}
               </button>
               <button type="submit" className="btn btn-p" disabled={busy || !ready}>
-                {busy ? '저장 중…' : editing ? '변경 저장' : '등록'}
+                {busy ? t('common.saving') : editing ? t('reservation.form.saveChanges') : t('reservation.form.create')}
               </button>
             </div>
           </div>
