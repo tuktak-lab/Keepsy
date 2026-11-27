@@ -75,10 +75,30 @@ class CustomerUpdateTest {
                 .containsEntry("preferred_language", "KO")
                 .containsEntry("acquisition_channel", "INSTAGRAM");
 
-        // 빠진 선택 칸은 비운다
+        // 빠진 선택 칸은 비운다. 선호 언어는 빠지면 그대로 둔다 (F78 ②)
         update(shop, customer, "{\"name\":\"바뀐 고객\",\"phone\":\"010-0000-9999\"}", true)
                 .andExpect(status().isNoContent());
-        assertThat(row()).containsEntry("gender", null).containsEntry("birth_year", null);
+        assertThat(row())
+                .containsEntry("gender", null)
+                .containsEntry("birth_year", null)
+                .containsEntry("preferred_language", "KO");
+    }
+
+    @Test
+    void 번호를_보내지_않으면_지금_번호를_그대로_둔다() throws Exception {
+        String before = phoneOf(customer);
+        // 다른 고객의 번호와 겹치는지는 번호를 보낼 때만 본다
+        data.customer(shop, false, null);
+
+        update(shop, customer, "{\"name\":\"이름만 바꿈\",\"phone\":null}", true)
+                .andExpect(status().isNoContent());
+        update(shop, customer, "{\"name\":\"이름만 또 바꿈\",\"gender\":\"MALE\"}", true)
+                .andExpect(status().isNoContent());
+
+        assertThat(row())
+                .containsEntry("name", "이름만 또 바꿈")
+                .containsEntry("phone", before)
+                .containsEntry("gender", "MALE");
     }
 
     @Test
@@ -108,7 +128,7 @@ class CustomerUpdateTest {
                 new String[] {
                     BODY.formatted(" ", "010-0000-9999"),
                     BODY.formatted("모의 고객", "02-000-0000"),
-                    "{\"name\":\"모의 고객\"}",
+                    "{\"phone\":\"010-0000-9999\"}",
                     "{\"name\":\"모의 고객\",\"phone\":\"010-0000-9999\",\"birthYear\":2999}"
                 }) {
             update(shop, customer, body, true)

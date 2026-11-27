@@ -66,12 +66,11 @@ class CustomerController {
 
     record RegisterResponse(long customerId) {}
 
-    /** 등록 요청에서 동의 칸을 뺀 기본 정보. 통째로 보낸다 (CONTRACTS 6장) */
+    /** 등록 요청에서 동의 칸을 뺀 기본 정보. 통째로 보내되 번호 · 선호 언어는 없으면 그대로 둔다 (CONTRACTS 6장, F78) */
     record UpdateRequest(
             @NotBlank(message = "이름을 입력해 주세요") @Size(max = 50, message = "이름은 50자 이하입니다")
                     String name,
-            @NotNull(message = "휴대폰 번호를 입력해 주세요")
-                    @Pattern(regexp = "010-?\\d{4}-?\\d{4}", message = "휴대폰 번호는 010으로 시작하는 11자리입니다")
+            @Pattern(regexp = "010-?\\d{4}-?\\d{4}", message = "휴대폰 번호는 010으로 시작하는 11자리입니다")
                     String phone,
             Customer.Gender gender,
             @Min(value = 1900, message = "출생 연도는 1900년 이후입니다") Integer birthYear,
