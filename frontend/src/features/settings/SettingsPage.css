@@ -183,11 +183,9 @@ html:has(.st-wrap){scroll-behavior:smooth}
 .st-lines{white-space:pre-line}
 /* 왼쪽 마지막 안내(업종)가 오른쪽 영업시간 안내와 같은 높이에서 끝나게: 두 열을 같은 높이로 늘리고 왼쪽 업종 묶음을 아래로 붙인다 */
 .st-shop-col:first-child>:nth-last-child(2){margin-top:auto}
-/* 카테고리 묶음 상자: 인사이트 화면 카드와 같은 유리 면(흰 반투명 + 흰 윗선 + 옅은 와인 윤곽). 흰 구역 카드 안이라 옅은 분홍을 깔아 구분한다 */
-.st-catbox{padding:4px 14px 10px;border-radius:18px;background:linear-gradient(180deg,rgba(247,236,236,.92),rgba(243,230,231,.8));border:1px solid var(--glass-border);box-shadow:var(--glass-shadow),0 0 0 1px var(--glass-edge)}
-.st-catbox .st-cat{padding:12px 0 6px;border-bottom:1px solid rgba(122,68,80,.14)}
-.st-catbox .st-row{border-top-color:rgba(122,68,80,.10)}
-.st-catbox .st-cat+.st-row{border-top:0}
+/* 카테고리 묶음 상자: 인사이트 카드와 같은 유리 테두리 · 그림자. 제목 줄(카테고리 · 기본값)만 옅은 분홍, 아래 메뉴 줄은 흰 바탕 */
+.st-catbox{padding:0 0 10px;overflow:hidden;border-radius:18px;background:#fff;border:1px solid var(--glass-border);box-shadow:var(--glass-shadow),0 0 0 1px var(--glass-edge)}
+.st-catbox .st-cat{padding:12px 14px 8px;background:linear-gradient(180deg,rgba(247,236,236,.95),rgba(243,230,231,.85));border-bottom:1px solid rgba(122,68,80,.14)}
+.st-catbox>:not(.st-cat){margin-left:14px;margin-right:14px}
 .st-catbox .st-row{gap:8px 12px}
-.st-catbox .st-tag{background:#fff;box-shadow:0 0 0 1px rgba(122,68,80,.12)}
-.st-catbox .st-tag.w{background:#fff;color:#8F2F2F}
+.st-catbox .st-cat+.st-row{border-top:0}
