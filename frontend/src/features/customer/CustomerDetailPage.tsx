@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { AppLink } from '@/components/common/AppLink';
 import { Avatar } from '@/components/common/Avatar';
-import { useShellTitle } from '@/components/layout/ShellTitle';
 import { api } from '@/lib/api';
 import type { CustomerConsents, CustomerDetail } from './types';
 import { AreaError, errorText } from './detail/common';
@@ -47,7 +46,6 @@ export default function CustomerDetailPage() {
     ]),
   );
   const [detail, consents] = load.data ?? [null, null];
-  useShellTitle(detail?.name); // 상단 경로 표시에 고객 이름
   const error = valid ? (load.error ? errorText(load.error) : '') : '고객을 고르지 않았어요. 고객 목록에서 열어 주세요.';
   const reload = load.reload;
 
