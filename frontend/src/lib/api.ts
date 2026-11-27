@@ -1,6 +1,8 @@
 // 모든 화면의 API 호출 래퍼. 화면 코드는 fetch('/api/…')를 직접 부르지 않고 이 파일의 api()를 쓴다.
 // 오류 code별 화면 동작은 docs ARCHITECTURE 4장 「API 호출 규칙」, 오류 모양은 CONTRACTS 2장을 따른다.
 
+import { errorText } from './i18n.ts';
+
 // CSRF: Spring Security SPA 방식(csrf.spa()) 기본값으로 가정한다. 백엔드 #3에서 확정되면 이 두 값만 맞춘다.
 export const CSRF_COOKIE = 'XSRF-TOKEN';
 export const CSRF_HEADER = 'X-XSRF-TOKEN';
@@ -17,7 +19,8 @@ export class ApiError extends Error {
   readonly details: unknown;
 
   constructor(status: number, code: string, message: string, details?: unknown) {
-    super(message);
+    // 한국어가 아니면 code로 번역한 안내를 message로 쓴다 (F74 ③). 화면은 지금처럼 message를 보여 주면 된다
+    super(errorText(code, message));
     this.name = 'ApiError';
     this.status = status;
     this.code = code;
