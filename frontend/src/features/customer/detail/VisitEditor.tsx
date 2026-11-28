@@ -10,7 +10,7 @@ import {
   type VisitRow,
 } from "@/lib/visitEdit";
 import type { StaffRef } from "../types";
-import { errorText } from "./common";
+import { AreaError, errorText } from "./common";
 import { t } from "@/lib/i18n";
 
 // 방문의 실제 시술 · 시술별 담당 · 이번 시술 주기 계산 제외 수정 (FR-VIS-03 · 05, F76). PATCH /api/visits/{id}는 CUSTOMER_EDIT(기본 PIN).
@@ -33,20 +33,29 @@ export function VisitEditor(props: {
   const [staff, setStaff] = useState<StaffRef[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const industries = useIndustries();
+  // 선택지 불러오기 실패는 저장 오류와 따로 둔다 (「다시 시도」가 고치던 값을 지우지 않게)
+  const [loadError, setLoadError] = useState("");
+  const [loadTry, setLoadTry] = useState(0);
+  const industries = useIndustries(loadTry);
 
   useEffect(() => {
     let cancelled = false;
-    api<Menu[]>("/api/service-menus", { silent: true })
-      .then((list) => !cancelled && setMenus(list))
-      .catch((err) => !cancelled && setError(errorText(err)));
-    api<StaffRef[]>("/api/staff", { silent: true })
-      .then((list) => !cancelled && setStaff(list))
-      .catch((err) => !cancelled && setError(errorText(err)));
+    Promise.all([
+      api<Menu[]>("/api/service-menus", { silent: true }),
+      api<StaffRef[]>("/api/staff", { silent: true }),
+    ]).then(
+      ([menuList, staffList]) => {
+        if (cancelled) return;
+        setMenus(menuList);
+        setStaff(staffList);
+        setLoadError("");
+      },
+      (err) => !cancelled && setLoadError(errorText(err)),
+    );
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [loadTry]);
 
   const menu = (id: number) => menus.find((m) => m.id === id);
   const chosen = rows.map((r) => r.serviceMenuId);
@@ -203,6 +212,13 @@ export function VisitEditor(props: {
           ))}
         </select>
       )}
+      <AreaError
+        text={
+          loadError ||
+          (industries === null ? t("common.partialLoadFailed") : "")
+        }
+        onRetry={() => setLoadTry((n) => n + 1)}
+      />
       {error && (
         <p className="note" role="alert" style={{ color: "#8A2F3F" }}>
           {error}

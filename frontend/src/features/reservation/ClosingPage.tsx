@@ -75,28 +75,35 @@ export default function ClosingPage() {
   const [busy, setBusy] = useState(false);
   const sending = useRef(false); // 같은 틱의 연속 제출 차단 (setBusy는 다음 렌더에야 버튼을 막는다). 서버 멱등성은 아님 (#352)
   const [reload, setReload] = useState(0);
-  const industries = useIndustries(reload); // 꺼 둔 업종의 메뉴는 시술 추가 선택지에서 뺀다 (이미 담긴 시술은 그대로 보인다)
+  const [choicesFailed, setChoicesFailed] = useState(false); // 스탭 · 메뉴 · 예약 요약 중 하나라도 못 받음
+  const [choicesTry, setChoicesTry] = useState(0);
+  const industries = useIndustries(reload + choicesTry); // 꺼 둔 업종의 메뉴는 시술 추가 선택지에서 뺀다 (이미 담긴 시술은 그대로 보인다)
   const [noCustomer, setNoCustomer] = useState(false); // 고객 없는 예약을 「고객 없음」으로 마감 (E3)
   const [ask, setAsk] = useState<{ menuId: number; error: string; busy: boolean } | null>(null); // 「앞으로 이 메뉴를 모두 제외할까요?」 (FR-VIS-05)
   const [agreed, setAgreed] = useState<string[]>([]); // 이 카드에서 방금 받은 동의 (목록에서 빼고, 사진 동의면 사진 칸을 연다)
   const [photos, setPhotos] = useState<File[]>([]);
   const [retry, setRetry] = useState<PhotoRetry | null>(null);
 
-  // 시술별 담당 스탭 · 시술 추가에 쓰는 목록
+  // 시술별 담당 스탭 · 시술 추가 선택지 · 위쪽 요약용 예약 정보. 이것만 다시 받으면 입력하던 값은 그대로다
   useEffect(() => {
     let cancelled = false;
-    api<StaffRef[]>('/api/staff')
-      .then((list) => !cancelled && setStaff(list))
-      .catch(() => {});
-    api<Menu[]>('/api/service-menus')
-      .then((list) => !cancelled && setMenus(list))
-      .catch(() => {});
+    Promise.allSettled([
+      api<StaffRef[]>('/api/staff', { silent: true }),
+      api<Menu[]>('/api/service-menus', { silent: true }),
+      validId ? api<Summary>(`/api/reservations/${id}`, { silent: true }) : Promise.resolve(null),
+    ]).then(([s, m, d]) => {
+      if (cancelled) return;
+      if (s.status === 'fulfilled') setStaff(s.value);
+      if (m.status === 'fulfilled') setMenus(m.value);
+      if (d.status === 'fulfilled') setSummary(d.value);
+      setChoicesFailed([s, m, d].some((r) => r.status === 'rejected'));
+    });
     return () => {
       cancelled = true;
     };
-  }, [reload]); // 「다시 시도」를 누르면 스탭 · 메뉴 목록도 다시 받는다
+  }, [id, validId, reload, choicesTry]);
 
-  // 마감 카드 값 (예정 시술로 미리 채워진 상태) + 위쪽 요약용 예약 정보
+  // 마감 카드 값 (예정 시술로 미리 채워진 상태)
   useEffect(() => {
     if (!validId) return;
     let cancelled = false;
@@ -111,9 +118,6 @@ export default function ClosingPage() {
         const code = err instanceof ApiError ? err.code : '';
         setLoaded({ id, error: code === 'not_found' ? 'notfound' : code === 'conflict' ? 'conflict' : 'error', message: err instanceof ApiError ? err.message : undefined });
       });
-    api<Summary>(`/api/reservations/${id}`, { silent: true })
-      .then((d) => !cancelled && setSummary(d))
-      .catch(() => {});
     return () => {
       cancelled = true;
     };
@@ -301,6 +305,16 @@ export default function ClosingPage() {
             </div>
           ) : (
             <form className="detail" onSubmit={submit}>
+              {(choicesFailed || industries === null) && (
+                <div className="box warn" role="alert">
+                  <p>
+                    {t('common.partialLoadFailed')}{' '}
+                    <button type="button" className="btn btn-sm" onClick={() => setChoicesTry((n) => n + 1)}>
+                      {t('common.retry')}
+                    </button>
+                  </p>
+                </div>
+              )}
               <dl className="d-dl">
                 <dt>{t('common.customer')}</dt>
                 <dd className="strong">
