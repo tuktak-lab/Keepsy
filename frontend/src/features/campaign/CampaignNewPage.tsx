@@ -98,6 +98,9 @@ function SetupStep(props: { presetIds: number[]; presetCategory: string | null; 
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  // 「다시 시도」를 누를 때마다 늘려 다시 받는다
+  const [templatesTry, setTemplatesTry] = useState(0);
+  const [targetsTry, setTargetsTry] = useState(0);
 
   // 대상 조건 (POST /api/campaigns/targets · POST /api/campaigns 같은 칸). 빈 칸은 보내지 않는다
   const conditions: Record<string, unknown> = { category };
@@ -114,9 +117,9 @@ function SetupStep(props: { presetIds: number[]; presetCategory: string | null; 
 
   useEffect(() => {
     api<Page<Template>>('/api/message-templates?page=0&size=100', { silent: true })
-      .then((p) => setTemplates(p.items.filter((t) => t.messageKind === 'AD')))
+      .then((p) => (setTemplates(p.items.filter((t) => t.messageKind === 'AD')), setTemplateError('')))
       .catch((err) => setTemplateError(errorText(err)));
-  }, []);
+  }, [templatesTry]);
 
   // 조건을 바꿀 때마다 잠시 뒤 대상 수를 다시 센다 (저장하지 않음). 응답은 보낸 조건의 키와 함께 둔다
   useEffect(() => {
@@ -130,7 +133,7 @@ function SetupStep(props: { presetIds: number[]; presetCategory: string | null; 
       alive = false;
       clearTimeout(timer);
     };
-  }, [conditionKey]);
+  }, [conditionKey, targetsTry]);
 
   // 추천 템플릿: 상태로 고르면 그 상태의 용도, 고객을 받아 시작하면 주소의 purpose(인사이트 다음 액션). 직접 고른 템플릿(picked)이 늘 먼저다
   const recommendedPurpose = status ? RECOMMENDED_PURPOSE[status] : props.presetPurpose;
@@ -236,7 +239,10 @@ function SetupStep(props: { presetIds: number[]; presetCategory: string | null; 
 
         <div className="cp-box" aria-live="polite">
           {current?.error ? (
-            <span style={{ color: '#8F2F2F', fontSize: 13 }}>{current.error}</span>
+            <span style={{ color: '#8F2F2F', fontSize: 13 }}>
+              {current.error}{' '}
+              <button type="button" className="cp-lk" onClick={() => setTargetsTry((n) => n + 1)}>{tr('common.retry')}</button>
+            </span>
           ) : (
             <>
               <span style={{ fontWeight: 600 }} className="num">
@@ -258,7 +264,12 @@ function SetupStep(props: { presetIds: number[]; presetCategory: string | null; 
 
       <div className="cp-step">
         <h3><i>2</i>{tr('campaign.new.step2')}</h3>
-        {templateError && <div className="cp-warn">{templateError}</div>}
+        {templateError && (
+          <div className="cp-warn" role="alert">
+            {templateError}{' '}
+            <button type="button" className="cp-lk" onClick={() => setTemplatesTry((n) => n + 1)}>{tr('common.retry')}</button>
+          </div>
+        )}
         {templates?.length === 0 && (
           <div className="cp-warn">
             {tr('campaign.new.noAdTemplates')}<AppLink href="/campaigns/templates" style={{ color: '#8F2F2F', fontWeight: 600 }}>{tr('campaign.new.createTemplate')}</AppLink>
@@ -322,7 +333,9 @@ function SendStep({ id }: { id: number }) {
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [preview, setPreview] = useState<Preview | null>(null);
   const [loadError, setLoadError] = useState('');
+  const [notFound, setNotFound] = useState(false);
   const [previewError, setPreviewError] = useState('');
+  const [reload, setReload] = useState(0);
   const [previewNeedsShop, setPreviewNeedsShop] = useState(false);
   const [pv, setPv] = useState(0);
   const [reviewed, setReviewed] = useState(false);
@@ -341,7 +354,11 @@ function SendStep({ id }: { id: number }) {
         setCampaign(c);
         setReviewed(Boolean(c.reviewedAt));
       })
-      .catch((err) => alive && setLoadError(errorText(err)));
+      .catch((err) => {
+        if (!alive) return;
+        setNotFound(err instanceof ApiError && err.code === 'not_found');
+        setLoadError(errorText(err));
+      });
     api<Preview>(`/api/campaigns/${id}/preview?page=0&size=50`, { silent: true })
       .then((p) => alive && setPreview(p))
       .catch((err) => {
@@ -355,9 +372,31 @@ function SendStep({ id }: { id: number }) {
     return () => {
       alive = false;
     };
-  }, [id]);
+  }, [id, reload]);
 
-  if (loadError) return <div className="cp-warn" role="alert">{loadError}</div>;
+  function retry() {
+    setLoadError('');
+    setPreviewError('');
+    setReload((n) => n + 1);
+  }
+
+  // 없는 캠페인(404)은 다시 받아도 같으니 목록으로 안내한다
+  if (notFound) {
+    return (
+      <div className="cp-warn" role="alert">
+        {tr('campaign.detail.notFound')}{' '}
+        <AppLink href="/campaigns" style={{ color: '#8F2F2F', fontWeight: 600 }}>{tr('campaign.new.toListLink')}</AppLink>
+      </div>
+    );
+  }
+  if (loadError) {
+    return (
+      <div className="cp-warn" role="alert">
+        {loadError}{' '}
+        <button type="button" className="cp-lk" onClick={retry}>{tr('common.retry')}</button>
+      </div>
+    );
+  }
   if (!campaign) return <p className="cp-note">{tr('common.loading')}</p>;
   if (campaign.status !== 'DRAFT') {
     return (
@@ -436,6 +475,12 @@ function SendStep({ id }: { id: number }) {
               <>
                 {' '}
                 <AppLink href="/settings" style={{ color: '#8F2F2F', fontWeight: 600 }}>{tr('campaign.new.toSettings')}</AppLink>
+              </>
+            )}
+            {!previewNeedsShop && (
+              <>
+                {' '}
+                <button type="button" className="cp-lk" onClick={retry}>{tr('common.retry')}</button>
               </>
             )}
           </div>

@@ -48,6 +48,7 @@ export default function TemplatesPage() {
     try {
       const page = await api<Page<Template>>('/api/message-templates?page=0&size=100', { silent: true });
       setItems(page.items);
+      setLoadError('');
       const next = page.items.find((t) => t.id === select) ?? page.items[0];
       if (next) open(next);
       else startNew();
@@ -162,11 +163,16 @@ export default function TemplatesPage() {
           </div>
         </div>
 
-        {loadError ? (
+        {loadError && (
           <p className={styles.error} role="alert">
-            {loadError}
+            {loadError}{' '}
+            <button type="button" className="btn btn-sm" onClick={() => load(typeof selected === 'number' ? selected : undefined)}>
+              {tr('common.retry')}
+            </button>
           </p>
-        ) : (
+        )}
+        {/* 저장 · 삭제 뒤 재조회만 실패하면 받아 둔 목록 · 편집 중인 내용은 그대로 둔다 */}
+        {loadError && items === null ? null : (
           <div className={styles.layout}>
             <section className={styles.list} aria-label={tr('campaign.tpl.listLabel')}>
               {items === null ? (

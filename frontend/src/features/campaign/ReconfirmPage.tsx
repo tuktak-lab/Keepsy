@@ -45,6 +45,9 @@ function Body() {
   const [name, setName] = useState('');
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState('');
+  // 「다시 시도」를 누를 때마다 늘려 처음 불러오기를 다시 한다
+  const [rowsTry, setRowsTry] = useState(0);
+  const [templatesTry, setTemplatesTry] = useState(0);
   const today = seoulToday();
 
   async function load(count: number) {
@@ -66,15 +69,19 @@ function Body() {
       .then((page) => {
         setRows(page.items);
         setTotal(page.totalElements);
+        setError('');
         // 처음에는 기한이 됐거나 지난 고객을 골라 둔다 (목록은 기한이 이른 순)
         const opened = seoulToday();
         setPicked(new Set(page.items.filter((r) => dueText(r.dueDate, opened).overdue).map((r) => r.customerId)));
       })
       .catch((err) => setError(errorText(err)));
+  }, [rowsTry]);
+
+  useEffect(() => {
     api<Page<Template>>('/api/message-templates?page=0&size=100', { silent: true })
-      .then((p) => setTemplates(p.items.filter((t) => t.purpose === 'CONSENT_RECONFIRM')))
+      .then((p) => (setTemplates(p.items.filter((t) => t.purpose === 'CONSENT_RECONFIRM')), setTemplateError('')))
       .catch((err) => setTemplateError(errorText(err)));
-  }, []);
+  }, [templatesTry]);
 
   const template = templates?.find((t) => t.id === templateId) ?? templates?.[0] ?? null;
   const allPicked = Boolean(rows?.length) && rows!.every((r) => picked.has(r.customerId));
@@ -121,7 +128,18 @@ function Body() {
           <span className="cp-meta">{tr('campaign.reconf.sortNote')}</span>
         </div>
 
-        {error && <div className="cp-warn" role="alert">{error}</div>}
+        {error && (
+          <div className="cp-warn" role="alert">
+            {error}
+            {/* 더 보기 실패는 남은 「더 보기」 버튼으로 다시 받는다 */}
+            {rows === null && (
+              <>
+                {' '}
+                <button type="button" className="cp-lk" onClick={() => setRowsTry((n) => n + 1)}>{tr('common.retry')}</button>
+              </>
+            )}
+          </div>
+        )}
         {rows === null && !error && <p className="cp-note">{tr('common.loading')}</p>}
         {rows?.length === 0 && <div className="cp-ok">{tr('campaign.reconf.empty')}</div>}
 
@@ -185,7 +203,12 @@ function Body() {
         <div className="cp-main-in">
           <div className="cp-step">
             <h3><i>1</i>{tr('campaign.reconf.stepTemplate')}</h3>
-            {templateError && <div className="cp-warn">{templateError}</div>}
+            {templateError && (
+              <div className="cp-warn" role="alert">
+                {templateError}{' '}
+                <button type="button" className="cp-lk" onClick={() => setTemplatesTry((n) => n + 1)}>{tr('common.retry')}</button>
+              </div>
+            )}
             {templates?.length === 0 && (
               <div className="cp-warn">
                 {tr('campaign.reconf.noTemplate')}<AppLink href="/campaigns/templates" style={{ color: '#8F2F2F', fontWeight: 600 }}>{tr('campaign.new.createTemplate')}</AppLink>

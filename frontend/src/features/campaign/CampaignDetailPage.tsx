@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from 'react';
+import { Fragment, useEffect, useState, type ReactNode } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { AppLink } from '@/components/common/AppLink';
 import { useStyleSheet } from '@/hooks/useStyleSheet';
@@ -55,7 +55,9 @@ type Control = {
   controlCycleCount: number;
   controlCycleRevisitedCount: number;
 };
-type Loaded = { id: number; campaign?: Campaign; funnel?: Funnel; control?: Control; error?: string };
+type Loaded = { id: number; campaign?: Campaign; error?: string };
+/** funnel · 대조군 비교처럼 따로 받는 칸. 하나가 실패해도 나머지는 보인다 */
+type Part<T> = { id: number; value?: T; error?: string };
 
 const errorText = (err: unknown) => (err instanceof ApiError ? err.message : t('campaign.tryReopen'));
 
@@ -73,18 +75,17 @@ export default function CampaignDetailPage() {
   // 고객별 연결 매출 (FR-ANL-04). 받은 페이지만큼 쌓는다
   const [byCustomer, setByCustomer] = useState<{ id: number; won: Map<number, number> } | null>(null);
   const [reload, setReload] = useState(0);
+  const [funnel, setFunnel] = useState<Part<Funnel> | null>(null);
+  const [control, setControl] = useState<Part<Control> | null>(null);
+  const [partsTry, setPartsTry] = useState(0);
 
   useEffect(() => {
     if (!validId) return;
     let cancelled = false;
-    Promise.all([
-      api<Campaign>(`/api/campaigns/${id}?page=0&size=20`, { silent: true }),
-      api<Funnel>(`/api/campaigns/${id}/funnel`, { silent: true }),
-      api<Control>(`/api/campaigns/${id}/control-comparison`, { silent: true }),
-    ])
-      .then(([campaign, funnel, control]) => {
+    api<Campaign>(`/api/campaigns/${id}?page=0&size=20`, { silent: true })
+      .then((campaign) => {
         if (cancelled) return;
-        setLoaded({ id, campaign, funnel, control });
+        setLoaded({ id, campaign });
         setMessages(campaign.messages.items);
         // 연결 매출은 첫 페이지 고객의 값과 함께 받는다
         return api<Revenue>(revenuePath(id, campaign.messages.items.map((m) => m.customerId)), { silent: true })
@@ -101,7 +102,48 @@ export default function CampaignDetailPage() {
     };
   }, [id, validId, reload]);
 
+  // funnel · 대조군 비교는 캠페인 본문과 따로 받는다. 하나만 실패해도 캠페인 정보는 보인다 (#487)
+  useEffect(() => {
+    if (!validId) return;
+    let cancelled = false;
+    api<Funnel>(`/api/campaigns/${id}/funnel`, { silent: true })
+      .then((value) => !cancelled && setFunnel({ id, value }))
+      .catch((err) => !cancelled && setFunnel({ id, error: errorText(err) }));
+    api<Control>(`/api/campaigns/${id}/control-comparison`, { silent: true })
+      .then((value) => !cancelled && setControl({ id, value }))
+      .catch((err) => !cancelled && setControl({ id, error: errorText(err) }));
+    return () => {
+      cancelled = true;
+    };
+  }, [id, validId, partsTry]);
+
   const current = loaded?.id === id ? loaded : null;
+  const fn = funnel?.id === id ? funnel : null;
+  const ctl = control?.id === id ? control : null;
+  const retryParts = () => {
+    setFunnel(null);
+    setControl(null);
+    setPartsTry((n) => n + 1);
+  };
+  /** 따로 받는 칸: 불러오는 중 · 실패(다시 시도) · 내용 */
+  const part = <T,>(label: string, p: Part<T> | null, render: (v: T) => ReactNode) =>
+    p?.value !== undefined ? (
+      render(p.value)
+    ) : (
+      <div>
+        <span className="lbl">{label}</span>
+        {!p ? (
+          <p className="meta">{t('common.loading')}</p>
+        ) : (
+          <p className="meta">
+            {t('prediction.loadFailed', { reason: p.error ?? '' })}{' '}
+            <button type="button" className="btn btn-sm" onClick={retryParts}>
+              {t('common.retry')}
+            </button>
+          </p>
+        )}
+      </div>
+    );
   const c = current?.campaign;
   const rev = revenue?.id === id ? revenue : null;
   const won = byCustomer?.id === id ? byCustomer.won : null;
@@ -157,7 +199,7 @@ export default function CampaignDetailPage() {
                 {t('common.retry')}
               </button>
             </p>
-          ) : !c || !current?.funnel || !current.control ? (
+          ) : !c ? (
             <p className="meta">{t('common.loading')}</p>
           ) : (
             <div className="detail">
@@ -180,8 +222,8 @@ export default function CampaignDetailPage() {
                 <p>{t('campaign.detail.mockNote')}</p>
               </div>
 
-              <Funnel f={current.funnel} />
-              <ControlComparison k={current.control} />
+              {part(t('campaign.detail.funnel'), fn, (f) => <Funnel f={f} />)}
+              {part(t('campaign.detail.compare'), ctl, (k) => <ControlComparison k={k} />)}
 
               <div>
                 <span className="lbl">{t('campaign.detail.revenue')}</span>
