@@ -8,8 +8,9 @@ import { api, type Page } from '@/lib/api';
 import { PERIODS, type Period } from '@/lib/analytics';
 import { CHANNEL_LABEL, dowLabel, hmOf, type Channel } from '@/lib/calendar';
 import { rateText } from '@/lib/campaignResult';
-import { bookedCount, isActive, ratioText } from '@/lib/dashboard';
+import { bookedCount, closedDays, isActive, ratioText } from '@/lib/dashboard';
 import { nextActionLabel, STATUS_TABS } from '@/lib/insights';
+import { seoulToday } from '@/lib/customerDetail';
 import { CATEGORY_LABEL, type Category } from '@/lib/menus';
 import { useSession } from '@/lib/session';
 import { t } from '@/lib/i18n';
@@ -36,6 +37,11 @@ type Recent = { id: number; name: string; category: Category; sentAt: string; re
 type Channels = { from: string; to: string; total: number; channels: { channel: Channel; count: number; ratio: number }[] };
 
 const SEG_COLOR: Record<string, string> = { SCHEDULED: '#F0DAD6', DUE: '#7A4450', CHURN_SIGNAL: '#CC9A9E', LONG_ABSENT: '#C9BDB9' };
+/** 오늘 예약은 처음에 이만큼만 보이고 [모두 보기]로 펼친다 */
+const TODAY_FOLD = 6;
+/** 이번 주 예약 그래프 세로 눈금의 기본 최대 건수 */
+const WEEK_SCALE = 40;
+
 const SEGS: { status: string; label: MessageKey; rule: MessageKey }[] = [
   { status: 'SCHEDULED', label: 'dashboard.seg.scheduled', rule: 'dashboard.seg.ruleScheduled' },
   { status: 'DUE', label: 'prediction.status.due', rule: 'dashboard.seg.ruleDue' },
@@ -86,6 +92,9 @@ export default function DashboardPage() {
   const [segCounts, setSegCounts] = useState<Record<string, number> | null>(null);
   const [recent, setRecent] = useState<Recent[] | null>(null);
   const [period, setPeriod] = useState<Period>('THIS_MONTH');
+  const [todayOpen, setTodayOpen] = useState(false);
+  // 이번 주 휴무일 (정기 휴무 · 매장 임시 휴무). 못 읽으면 null로 두고 모든 날을 보여 준다
+  const [weekClosed, setWeekClosed] = useState<boolean[] | null>(null);
   const [channels, setChannels] = useState<{ period: Period; value: Channels } | null>(null);
   const [drawn, setDrawn] = useState(false);
   // 카드별 불러오기 실패 (#346). 실패를 삼키지 않고 그 카드에 「불러오지 못함」을 보인다
@@ -122,6 +131,23 @@ export default function DashboardPage() {
       cancelled = true;
     };
   }, [reload]);
+
+  // 이번 주 그래프에서 휴무일은 건수를 빼고 「휴무」로 보인다 (0건과 헷갈리지 않게)
+  const weekDates = today?.week.map((d) => d.date).join(',') ?? '';
+  useEffect(() => {
+    if (!weekDates) return;
+    const dates = weekDates.split(',');
+    let cancelled = false;
+    Promise.all([
+      api<{ openingHours: { dayOfWeek: string; open: string | null }[] }>('/api/shop', { silent: true }),
+      api<{ date: string; staffId: number | null }[]>(`/api/day-offs?from=${dates[0]}&to=${dates[dates.length - 1]}`, { silent: true }),
+    ])
+      .then(([shop, offs]) => !cancelled && setWeekClosed(closedDays(dates, shop.openingHours, offs)))
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [weekDates]);
 
   useEffect(() => {
     if (!customerOpen) return;
@@ -163,7 +189,18 @@ export default function DashboardPage() {
 
   const todayList = today?.today.filter((r) => isActive(r.status)) ?? null;
   const ch = channels?.period === period ? channels.value : null;
-  const weekMax = today ? Math.max(1, ...today.week.map((d) => bookedCount(d.counts))) : 1;
+  const weekOpen = (today?.week ?? []).filter((_, i) => !weekClosed?.[i]);
+  // 세로 눈금은 0~40건 고정 (10건 간격). 40건을 넘는 날이 있으면 그 위 10단위까지 늘린다
+  const weekScale = Math.max(WEEK_SCALE, Math.ceil(Math.max(0, ...weekOpen.map((d) => bookedCount(d.counts))) / 10) * 10);
+  const weekTicks = Array.from({ length: weekScale / 10 + 1 }, (_, k) => k * 10);
+  const weekY = (n: number) => 100 - (n / weekScale) * 90;
+  // 이번 주 예약 꺾은선: 날짜 칸 가운데(x)와 높이(y)를 0~100 비율로. 위쪽 18%는 값 글자 자리
+  const weekPts = (today?.week ?? []).map((d, i) => {
+    const n = bookedCount(d.counts);
+    return { date: d.date, n, x: ((i + 0.5) / 7) * 100, y: weekY(n), today: d.date === seoulToday(), closed: !!weekClosed?.[i] };
+  });
+  // 휴무일은 점을 찍지 않고, 선은 문 연 날끼리만 잇는다
+  const weekLine = weekPts.filter((p) => !p.closed).map((p, i) => `${i ? 'L' : 'M'}${p.x} ${p.y}`).join(' ');
   const latest = recent?.[0];
 
   // 도넛 (관리 상태별 고객 × 시술 행)
@@ -216,69 +253,203 @@ export default function DashboardPage() {
           )}
         </section>
 
-        <div className="kp-low">
+        {/* 줄마다 두 카드의 위아래 끝을 맞춘다 (벤토 그리드). 1줄 그래프, 2줄 오늘 할 일, 3줄 관리할 고객(가로 전체) */}
+        <div className="kp-grid">
+          <Card title={t('dashboard.week.title')} sub={t('dashboard.week.sub')}>
+            {!today ? (
+              <p className="kp-card-sub">{loadingText('today')}</p>
+            ) : (
+              <div className="kp-line" role="img" aria-label={weekPts.map((p, i) => `${dowLabel(i)} ${md(p.date)} ${p.closed ? t('reservation.dayOff') : p.n}`).join(', ')}>
+                <div className="kp-line-plot" aria-hidden="true">
+                  {weekTicks.map((v) => (
+                    <span key={v} className="kp-line-tick" style={{ top: `${weekY(v)}%` }}>
+                      <em className="num">{v}</em>
+                    </span>
+                  ))}
+                  <svg viewBox="0 0 100 100" preserveAspectRatio="none">
+                    <path className="kp-line-path" d={weekLine} />
+                  </svg>
+                  {weekPts.filter((p) => !p.closed).map((p) => (
+                    <span key={p.date} className={'kp-line-pt' + (p.today ? ' today' : '')} style={{ left: `${p.x}%`, top: `${p.y}%` }}>
+                      <b className="num">{p.n}</b>
+                    </span>
+                  ))}
+                </div>
+                <div className="kp-line-x" aria-hidden="true">
+                  {weekPts.map((p, i) => (
+                    <span key={p.date} className={p.today ? 'today' : p.closed ? 'closed' : undefined}>
+                      {dowLabel(i)} <span className="num">{md(p.date)}</span>
+                      {p.closed ? <em>{t('reservation.dayOff')}</em> : null}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </Card>
+
+          <section className="kp-card kp-rel" aria-label={t('dashboard.rel.label')}>
+            <div className="kp-card-head">
+              <div>
+                <h2 className="kp-card-title">{t('dashboard.rel.label')}</h2>
+                <p className="kp-card-sub">{t('dashboard.rel.sub')}</p>
+              </div>
+            </div>
+            {!insightOpen ? (
+              <Locked what={t('dashboard.locked.insights')} />
+            ) : !segCounts ? (
+              <p className="kp-card-sub">{loadingText('segments')}</p>
+            ) : (
+              <div className="kp-rel-body">
+                <div className="kp-donut">
+                  <svg width="224" height="224" viewBox="0 0 224 224" role="img" aria-label={t('dashboard.rel.donut', { list: SEGS.map((s) => `${t(s.label)} ${segCounts[s.status]}`).join(', ') })}>
+                    <g transform="rotate(-90 112 112)" fill="none" strokeWidth="30">
+                      {arcs.map((a, i) => (
+                        <circle cx="112" cy="112" r={R} stroke={a.color} strokeDasharray={drawn ? a.dash : `0 ${C}`} strokeDashoffset={a.off} className="kp-arc" style={{ transitionDelay: `${i * 90}ms` }} key={i}></circle>
+                      ))}
+                    </g>
+                  </svg>
+                  <div className="kp-donut-center">
+                    <b className="num">
+                      <CountUp value={segTotal} />
+                    </b>
+                    <span>{t('dashboard.rel.center')}</span>
+                  </div>
+                </div>
+                <div className="kp-seglist">
+                  {SEGS.map((s) => (
+                    <AppLink href="/insights" className="kp-segrow" key={s.status}>
+                      <span className="kp-dot" style={{ background: SEG_COLOR[s.status] }}></span>
+                      <span className="name">{t(s.label)}</span>
+                      <span className="rule">{t(s.rule)}</span>
+                      <span className="n num">{t('common.persons', { n: segCounts[s.status] })}</span>
+                    </AppLink>
+                  ))}
+                </div>
+              </div>
+            )}
+          </section>
+
           <Card title={t('dashboard.kpi.today')} sub={t('dashboard.today.sub')} guide="dashboard-today">
             {!todayList ? (
               <p className="kp-card-sub">{loadingText('today')}</p>
             ) : todayList.length === 0 ? (
               <p className="kp-card-sub">{t('dashboard.today.empty')}</p>
             ) : (
-              todayList.map((r) => (
-                <div className="kp-care-row" key={r.id}>
-                  <span className="num" style={{ fontWeight: 600, color: '#8A6F66', fontSize: '13px', width: 44 }}>{hmOf(r.startAt)}</span>
-                  <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-                    <AppLink href={r.customer ? `/customers/detail?id=${r.customer.id}` : `/reservations/detail?id=${r.id}`} style={{ fontWeight: 600, fontSize: '15px' }}>
-                      {r.customer?.hasCaution ? (
-                        <span title={t('dashboard.today.cautionTitle')} aria-label={t('dashboard.today.cautionLabel')} role="img" style={{ display: 'inline-flex', verticalAlign: '-2px', marginRight: 4, color: '#8F2F2F' }}>
-                          {/* 경고 삼각형 (Lucide triangle-alert, ISC) */}
-                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                            <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" />
-                            <path d="M12 9v4" />
-                            <path d="M12 17h.01" />
-                          </svg>
-                        </span>
-                      ) : null}
-                      {resvName(r)}
-                    </AppLink>
-                    <span style={{ fontSize: '12.5px', color: '#6B605B' }}>
-                      {r.services.map((s) => s.name).join(' · ')} · {r.staff.name}
-                      {r.consultFirst ? ` · ${t('dashboard.today.consult')}` : ''}
-                    </span>
+              <>
+                {(todayOpen ? todayList : todayList.slice(0, TODAY_FOLD)).map((r) => (
+                  <div className="kp-care-row" key={r.id}>
+                    <span className="num" style={{ fontWeight: 600, color: '#8A6F66', fontSize: '13px', width: 44 }}>{hmOf(r.startAt)}</span>
+                    <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+                      <AppLink href={r.customer ? `/customers/detail?id=${r.customer.id}` : `/reservations/detail?id=${r.id}`} style={{ fontWeight: 600, fontSize: '15px' }}>
+                        {r.customer?.hasCaution ? (
+                          <span title={t('dashboard.today.cautionTitle')} aria-label={t('dashboard.today.cautionLabel')} role="img" style={{ display: 'inline-flex', verticalAlign: '-2px', marginRight: 4, color: '#8F2F2F' }}>
+                            {/* 경고 삼각형 (Lucide triangle-alert, ISC) */}
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                              <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" />
+                              <path d="M12 9v4" />
+                              <path d="M12 17h.01" />
+                            </svg>
+                          </span>
+                        ) : null}
+                        {resvName(r)}
+                      </AppLink>
+                      <span style={{ fontSize: '12.5px', color: '#6B605B' }}>
+                        {r.services.map((s) => s.name).join(' · ')} · {r.staff.name}
+                        {r.consultFirst ? ` · ${t('dashboard.today.consult')}` : ''}
+                      </span>
+                    </div>
+                    {r.status === 'COMPLETED' ? <span className="kp-tag" style={{ background: '#ECE6E1', color: '#4A3F3B' }}>{t('dashboard.today.done')}</span> : null}
+                    {!r.customer ? (
+                      <AppLink href={`/reservations/detail?id=${r.id}`} className="kp-btn">
+                        {t('dashboard.today.link')}
+                      </AppLink>
+                    ) : null}
                   </div>
-                  {r.status === 'COMPLETED' ? <span className="kp-tag" style={{ background: '#ECE6E1', color: '#4A3F3B' }}>{t('dashboard.today.done')}</span> : null}
-                  {!r.customer ? (
-                    <AppLink href={`/reservations/detail?id=${r.id}`} className="kp-btn">
-                      {t('dashboard.today.link')}
-                    </AppLink>
-                  ) : null}
-                </div>
-              ))
+                ))}
+                {todayList.length > TODAY_FOLD ? (
+                  <button type="button" className="kp-fold" aria-expanded={todayOpen} onClick={() => setTodayOpen((o) => !o)}>
+                    {todayOpen ? t('dashboard.today.collapse') : t('dashboard.today.expand', { n: todayList.length })}
+                  </button>
+                ) : null}
+              </>
             )}
           </Card>
 
-          <Card title={t('dashboard.kpi.unclosed')} sub={t('dashboard.unclosed.sub')} className="kp-act" guide="dashboard-unclosed">
-            {!today ? (
-              <p className="kp-card-sub">{loadingText('today')}</p>
-            ) : today.unclosed.length === 0 ? (
-              <p className="kp-card-sub">{t('dashboard.unclosed.empty')}</p>
-            ) : (
-              today.unclosed.map((r) => (
-                <AppLink href={`/reservations/closing?id=${r.id}`} className="kp-act-row" key={r.id} style={{ color: 'inherit' }}>
-                  <span className="num" style={{ fontWeight: 600, color: '#8A6F66', fontSize: '13px' }}>{md(r.startAt)}</span>
-                  <span style={{ display: 'flex', flexDirection: 'column' }}>
-                    <strong style={{ fontSize: '14px' }}>{resvName(r)}</strong>
-                    <span style={{ fontSize: '13px', color: '#4A3F3B' }}>
-                      {r.services.map((s) => s.name).join(' · ')} · {hmOf(r.startAt)} · {t('dashboard.kpi.unclosedNote')}
+          <div className="kp-stack">
+            <Card title={t('dashboard.kpi.unclosed')} sub={t('dashboard.unclosed.sub')} className="kp-act" guide="dashboard-unclosed">
+              {!today ? (
+                <p className="kp-card-sub">{loadingText('today')}</p>
+              ) : today.unclosed.length === 0 ? (
+                <p className="kp-card-sub">{t('dashboard.unclosed.empty')}</p>
+              ) : (
+                today.unclosed.map((r) => (
+                  <AppLink href={`/reservations/closing?id=${r.id}`} className="kp-act-row" key={r.id} style={{ color: 'inherit' }}>
+                    <span className="num" style={{ fontWeight: 600, color: '#8A6F66', fontSize: '13px' }}>{md(r.startAt)}</span>
+                    <span style={{ display: 'flex', flexDirection: 'column' }}>
+                      <strong style={{ fontSize: '14px' }}>{resvName(r)}</strong>
+                      <span style={{ fontSize: '13px', color: '#4A3F3B' }}>
+                        {r.services.map((s) => s.name).join(' · ')} · {hmOf(r.startAt)} · {t('dashboard.kpi.unclosedNote')}
+                      </span>
                     </span>
-                  </span>
-                </AppLink>
-              ))
-            )}
-          </Card>
-        </div>
+                  </AppLink>
+                ))
+              )}
+            </Card>
 
-        <div className="kp-low">
+            <Card title={t('dashboard.recent.title')} sub={t('dashboard.recent.sub')} className="kp-act">
+              {!campaignOpen ? (
+                <Locked what={t('dashboard.locked.campaigns')} />
+              ) : !recent ? (
+                <p className="kp-card-sub">{loadingText('recent')}</p>
+              ) : recent.length === 0 ? (
+                <p className="kp-card-sub">{t('dashboard.recent.empty')}</p>
+              ) : (
+                recent.map((c) => (
+                  <AppLink href={`/campaigns/detail?id=${c.id}`} className="kp-act-row" key={c.id} style={{ color: 'inherit', gridTemplateColumns: '1fr auto' }}>
+                    <span style={{ display: 'flex', flexDirection: 'column' }}>
+                      <strong style={{ fontSize: '14px' }}>{c.name}</strong>
+                      <span style={{ fontSize: '13px', color: '#4A3F3B' }}>
+                        {t('dashboard.recent.row', { date: md(c.sentAt), category: CATEGORY_LABEL[c.category] ?? c.category, rebooked: c.rebookedCount, reached: c.reachedCount })}
+                      </span>
+                    </span>
+                    <b className="num" style={{ fontSize: '20px', color: '#7A4450' }}>{rateText(c.rebookedCount, c.reachedCount) ?? '-'}</b>
+                  </AppLink>
+                ))
+              )}
+            </Card>
+
+            <Card
+              title={t('dashboard.channels.title')}
+              sub={ch ? t('dashboard.channels.sub', { from: ch.from, to: ch.to, total: ch.total }) : t('dashboard.channels.subEmpty')}
+              className="kp-act"
+              head={
+                <div className="kp-seg" role="group" aria-label={t('dashboard.channels.period')}>
+                  {PERIODS.filter(([p]) => p !== 'CUSTOM').map(([p, label]) => (
+                    <button type="button" key={p} aria-pressed={period === p} onClick={() => setPeriod(p)}>
+                      {t(label)}
+                    </button>
+                  ))}
+                </div>
+              }
+            >
+              {!ch ? (
+                <p className="kp-card-sub">{loadingText(`channels-${period}`)}</p>
+              ) : (
+                ch.channels.map((c) => (
+                  <div key={c.channel} style={{ display: 'grid', gridTemplateColumns: '84px 1fr 56px', gap: 10, alignItems: 'center', padding: '8px 0' }}>
+                    <span style={{ fontSize: 13 }}>{CHANNEL_LABEL[c.channel] ?? c.channel}</span>
+                    <span style={{ height: 8, borderRadius: 99, background: '#EFE8E2', overflow: 'hidden' }}>
+                      <span style={{ display: 'block', height: '100%', width: `${c.ratio * 100}%`, background: '#7A4450' }} />
+                    </span>
+                    <span className="num" style={{ fontSize: 13, textAlign: 'right' }}>{ratioText(c.ratio)}</span>
+                  </div>
+                ))
+              )}
+            </Card>
+          </div>
+
           <Card
+            className="kp-care kp-span"
             title={t('dashboard.care.title')}
             sub={t('dashboard.care.sub')}
             guide="dashboard-care"
@@ -291,146 +462,32 @@ export default function DashboardPage() {
             ) : care.length === 0 ? (
               <p className="kp-card-sub">{t('dashboard.care.empty')}</p>
             ) : (
-              care.map((c) => {
-                const tab = STATUS_TABS.find((x) => x.status === c.status);
-                return (
-                  <div className="kp-care-row" key={`${c.customerId}-${c.category}`}>
-                    <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-                      <AppLink href={`/customers/detail?id=${c.customerId}`} style={{ fontWeight: 600, fontSize: '15px' }}>
-                        {c.name}
-                      </AppLink>
-                      <span style={{ fontSize: '12.5px', color: '#6B605B' }}>
-                        {CATEGORY_LABEL[c.category]} · {t('common.elapsedDays', { days: c.elapsedDays })} · {c.marketingConsent ? t('common.consent') : t('common.noConsent')}
-                      </span>
-                    </div>
-                    {tab ? <span className="kp-tag" style={{ background: c.status === 'DUE' ? '#F5EBD3' : '#F4E0DC', color: c.status === 'DUE' ? '#6B4509' : '#8F2F2F' }}>{t(tab.labelKey)}</span> : null}
-                    {c.nextAction && c.nextAction !== 'REQUEST_CONSENT' ? (
-                      <AppLink href="/campaigns" className="kp-btn p">{nextActionLabel(c.nextAction)}</AppLink>
-                    ) : (
-                      <span style={{ fontSize: '12.5px', color: '#6B605B' }}>{c.nextAction ? nextActionLabel('REQUEST_CONSENT') : t('dashboard.care.noAction')}</span>
-                    )}
-                  </div>
-                );
-              })
-            )}
-          </Card>
-
-          <Card title={t('dashboard.recent.title')} sub={t('dashboard.recent.sub')} className="kp-act">
-            {!campaignOpen ? (
-              <Locked what={t('dashboard.locked.campaigns')} />
-            ) : !recent ? (
-              <p className="kp-card-sub">{loadingText('recent')}</p>
-            ) : recent.length === 0 ? (
-              <p className="kp-card-sub">{t('dashboard.recent.empty')}</p>
-            ) : (
-              recent.map((c) => (
-                <AppLink href={`/campaigns/detail?id=${c.id}`} className="kp-act-row" key={c.id} style={{ color: 'inherit', gridTemplateColumns: '1fr auto' }}>
-                  <span style={{ display: 'flex', flexDirection: 'column' }}>
-                    <strong style={{ fontSize: '14px' }}>{c.name}</strong>
-                    <span style={{ fontSize: '13px', color: '#4A3F3B' }}>
-                      {t('dashboard.recent.row', { date: md(c.sentAt), category: CATEGORY_LABEL[c.category] ?? c.category, rebooked: c.rebookedCount, reached: c.reachedCount })}
-                    </span>
-                  </span>
-                  <b className="num" style={{ fontSize: '20px', color: '#7A4450' }}>{rateText(c.rebookedCount, c.reachedCount) ?? '-'}</b>
-                </AppLink>
-              ))
-            )}
-          </Card>
-        </div>
-
-        <div className="kp-low">
-          <Card title={t('dashboard.week.title')} sub={t('dashboard.week.sub')}>
-            {!today ? (
-              <p className="kp-card-sub">{loadingText('today')}</p>
-            ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 10, alignItems: 'end', height: 150, marginTop: 14 }}>
-                {today.week.map((d, i) => {
-                  const n = bookedCount(d.counts);
+              <div className="kp-care-grid">
+                {care.map((c) => {
+                  const tab = STATUS_TABS.find((x) => x.status === c.status);
                   return (
-                    <div key={d.date} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, height: '100%', justifyContent: 'flex-end' }}>
-                      <b className="num" style={{ fontSize: 14 }}>{n}</b>
-                      <span style={{ width: '60%', height: `${(n / weekMax) * 90}px`, minHeight: 3, borderRadius: 6, background: '#7A4450' }} aria-hidden="true" />
-                      <span style={{ fontSize: 12.5, color: '#6B605B' }}>
-                        {dowLabel(i)} <span className="num">{md(d.date)}</span>
-                      </span>
+                    <div className="kp-care-row" key={`${c.customerId}-${c.category}`}>
+                      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+                        <AppLink href={`/customers/detail?id=${c.customerId}`} style={{ fontWeight: 600, fontSize: '15px' }}>
+                          {c.name}
+                        </AppLink>
+                        <span style={{ fontSize: '12.5px', color: '#6B605B' }}>
+                          {CATEGORY_LABEL[c.category]} · {t('common.elapsedDays', { days: c.elapsedDays })} · {c.marketingConsent ? t('common.consent') : t('common.noConsent')}
+                        </span>
+                      </div>
+                      {tab ? <span className="kp-tag" style={{ background: c.status === 'DUE' ? '#F5EBD3' : '#F4E0DC', color: c.status === 'DUE' ? '#6B4509' : '#8F2F2F' }}>{t(tab.labelKey)}</span> : null}
+                      {c.nextAction && c.nextAction !== 'REQUEST_CONSENT' ? (
+                        <AppLink href="/campaigns" className="kp-btn p">{nextActionLabel(c.nextAction)}</AppLink>
+                      ) : (
+                        <span style={{ fontSize: '12.5px', color: '#6B605B' }}>{c.nextAction ? nextActionLabel('REQUEST_CONSENT') : t('dashboard.care.noAction')}</span>
+                      )}
                     </div>
                   );
                 })}
               </div>
             )}
           </Card>
-
-          <Card
-            title={t('dashboard.channels.title')}
-            sub={ch ? t('dashboard.channels.sub', { from: ch.from, to: ch.to, total: ch.total }) : t('dashboard.channels.subEmpty')}
-            className="kp-act"
-            head={
-              <div className="kp-seg" role="group" aria-label={t('dashboard.channels.period')}>
-                {PERIODS.filter(([p]) => p !== 'CUSTOM').map(([p, label]) => (
-                  <button type="button" key={p} aria-pressed={period === p} onClick={() => setPeriod(p)}>
-                    {t(label)}
-                  </button>
-                ))}
-              </div>
-            }
-          >
-            {!ch ? (
-              <p className="kp-card-sub">{loadingText(`channels-${period}`)}</p>
-            ) : (
-              ch.channels.map((c) => (
-                <div key={c.channel} style={{ display: 'grid', gridTemplateColumns: '84px 1fr 56px', gap: 10, alignItems: 'center', padding: '8px 0' }}>
-                  <span style={{ fontSize: 13 }}>{CHANNEL_LABEL[c.channel] ?? c.channel}</span>
-                  <span style={{ height: 8, borderRadius: 99, background: '#EFE8E2', overflow: 'hidden' }}>
-                    <span style={{ display: 'block', height: '100%', width: `${c.ratio * 100}%`, background: '#7A4450' }} />
-                  </span>
-                  <span className="num" style={{ fontSize: 13, textAlign: 'right' }}>{ratioText(c.ratio)}</span>
-                </div>
-              ))
-            )}
-          </Card>
         </div>
-
-        <section className="kp-card kp-rel" aria-label={t('dashboard.rel.label')}>
-          <div className="kp-card-head">
-            <div>
-              <h2 className="kp-card-title">{t('dashboard.rel.label')}</h2>
-              <p className="kp-card-sub">{t('dashboard.rel.sub')}</p>
-            </div>
-          </div>
-          {!insightOpen ? (
-            <Locked what={t('dashboard.locked.insights')} />
-          ) : !segCounts ? (
-            <p className="kp-card-sub">{loadingText('segments')}</p>
-          ) : (
-            <div className="kp-rel-body">
-              <div className="kp-donut">
-                <svg width="224" height="224" viewBox="0 0 224 224" role="img" aria-label={t('dashboard.rel.donut', { list: SEGS.map((s) => `${t(s.label)} ${segCounts[s.status]}`).join(', ') })}>
-                  <g transform="rotate(-90 112 112)" fill="none" strokeWidth="30">
-                    {arcs.map((a, i) => (
-                      <circle cx="112" cy="112" r={R} stroke={a.color} strokeDasharray={drawn ? a.dash : `0 ${C}`} strokeDashoffset={a.off} className="kp-arc" style={{ transitionDelay: `${i * 90}ms` }} key={i}></circle>
-                    ))}
-                  </g>
-                </svg>
-                <div className="kp-donut-center">
-                  <b className="num">
-                    <CountUp value={segTotal} />
-                  </b>
-                  <span>{t('dashboard.rel.center')}</span>
-                </div>
-              </div>
-              <div className="kp-seglist">
-                {SEGS.map((s) => (
-                  <AppLink href="/insights" className="kp-segrow" key={s.status}>
-                    <span className="kp-dot" style={{ background: SEG_COLOR[s.status] }}></span>
-                    <span className="name">{t(s.label)}</span>
-                    <span className="rule">{t(s.rule)}</span>
-                    <span className="n num">{t('common.persons', { n: segCounts[s.status] })}</span>
-                  </AppLink>
-                ))}
-              </div>
-            </div>
-          )}
-        </section>
 
         <p className="kp-foot">{t('dashboard.foot')}</p>
       </div>

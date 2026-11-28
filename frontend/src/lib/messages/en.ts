@@ -196,6 +196,8 @@ export const en: Record<MessageKey, string> = {
   'dashboard.today.consult': 'Consult first',
   'dashboard.today.done': 'Completed',
   'dashboard.today.link': 'Link customer',
+  'dashboard.today.expand': 'Show all {n}',
+  'dashboard.today.collapse': 'Show less',
   'dashboard.unclosed.sub': 'Start time has passed but the booking is not closed, canceled or marked no-show',
   'dashboard.unclosed.empty': 'No bookings to close.',
   'dashboard.care.title': 'Customers to manage today',

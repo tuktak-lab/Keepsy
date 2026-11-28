@@ -196,6 +196,8 @@ export const ko = {
   'dashboard.today.consult': '상담 후 진행',
   'dashboard.today.done': '완료',
   'dashboard.today.link': '고객 연결',
+  'dashboard.today.expand': '{n}건 모두 보기',
+  'dashboard.today.collapse': '접기',
   'dashboard.unclosed.sub': '시작 시각이 지났는데 마감 · 취소 · 노쇼 처리가 안 됐어요',
   'dashboard.unclosed.empty': '마감할 예약이 없어요.',
   'dashboard.care.title': '오늘 관리할 고객',

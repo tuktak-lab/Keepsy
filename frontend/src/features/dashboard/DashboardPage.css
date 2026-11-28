@@ -5,7 +5,7 @@ a{color:inherit;text-decoration:none}a:hover{text-decoration:none}
 .num{font-variant-numeric:tabular-nums}
 .serif{font-family:'Playfair Display','Noto Serif KR',serif}
 
-.kp-wrap{padding:28px 32px 56px 50px;box-sizing:border-box;width:100%;display:flex;flex-direction:column;gap:20px}
+.kp-wrap{padding:28px 32px 56px 50px;box-sizing:border-box;width:100%;max-width:1480px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
 .kp-hero{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:8px}
 .kp-hello{font-family:'Noto Serif KR','Playfair Display',serif;font-weight:500;font-size:34px;line-height:1.45;color:#221D1B;letter-spacing:-0.03em;word-break:keep-all}
 /* 슬로건 둘째 줄은 와인색 기울임으로 강조, 위에는 작은 영문 라벨 */
@@ -39,12 +39,13 @@ a{color:inherit;text-decoration:none}a:hover{text-decoration:none}
 .kp-seg button{border:0;background:transparent;height:38px;padding:0 20px;border-radius:999px;font:400 13px 'Noto Sans KR',sans-serif;color:#4A3F3B;cursor:pointer}
 .kp-seg button[aria-pressed="true"]{background:#7A4450;color:#fff;font-weight:500}
 .kp-rel-body{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:24px;margin-top:18px}
-.kp-donut{position:relative;width:224px;height:224px;flex:none}
+.kp-donut{position:relative;width:184px;height:184px;flex:none}
+.kp-donut svg{width:100%;height:100%}
 .kp-donut-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
-.kp-donut-center b{font-size:42px;font-weight:700;line-height:1.1}
+.kp-donut-center b{font-size:36px;font-weight:700;line-height:1.1}
 .kp-donut-center span{font-size:14px;color:#4A3F3B}
 .kp-seglist{flex:1 1 300px;display:flex;flex-direction:column}
-.kp-segrow{display:grid;grid-template-columns:12px 96px 1fr auto;gap:12px;align-items:center;height:56px;border-top:1px solid #EFE8E2;color:#221D1B}
+.kp-segrow{display:grid;grid-template-columns:12px 96px 1fr auto;gap:12px;align-items:center;height:48px;border-top:1px solid #EFE8E2;color:#221D1B}
 .kp-segrow:first-child{border-top:0}
 .kp-dot{width:12px;height:12px;border-radius:50%}
 .kp-segrow .name{white-space:nowrap;font-size:15px;font-weight:600;letter-spacing:-0.02em}
@@ -66,8 +67,36 @@ a{color:inherit;text-decoration:none}a:hover{text-decoration:none}
 .kp-legend i{width:10px;height:10px;border-radius:50%}
 .kp-chart{width:100%;height:auto;display:block;margin-top:6px}
 
-.kp-low{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(280px,1fr);gap:16px}
-@media (max-width:980px){.kp-low{grid-template-columns:1fr}}
+/* 대시보드 본문: 줄마다 두 카드의 위아래 끝을 맞추는 그리드 (왼쪽 1.5 : 오른쪽 1). 카드 사이는 페이지 간격과 같은 20px */
+.kp-grid{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(300px,1fr);gap:20px;align-items:stretch}
+.kp-grid>.kp-card{display:flex;flex-direction:column;min-width:0}
+.kp-stack{display:flex;flex-direction:column;gap:20px;min-width:0;align-self:start}
+.kp-span{grid-column:1/-1}
+@media (max-width:980px){.kp-grid{grid-template-columns:1fr}}
+/* 이번 주 예약 꺾은선: 카드 높이를 채운다. 선은 SVG(비율 좌표), 점 · 값 · 날짜는 HTML이라 늘어나도 찌그러지지 않는다 */
+.kp-line{flex:1;min-height:180px;display:flex;flex-direction:column;margin-top:auto;padding-top:14px}
+.kp-line-plot{position:relative;flex:1;min-height:150px;margin-left:30px}
+/* 가로 눈금선 (10건 간격)과 왼쪽 건수. 0은 바닥선 */
+.kp-line-tick{position:absolute;left:0;right:0;border-top:1px dashed #CDBDB6}
+.kp-line-tick:first-child{border-top:1px solid #B9A8A1}
+.kp-line-tick em{position:absolute;right:calc(100% + 8px);top:-8px;font-style:normal;font-size:12px;line-height:16px;color:#6B605B}
+.kp-line-plot svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.kp-line-path{fill:none;stroke:#7A4450;stroke-width:2.5;stroke-linejoin:round;stroke-linecap:round;vector-effect:non-scaling-stroke}
+.kp-line-pt{position:absolute;width:10px;height:10px;margin:-5px 0 0 -5px;border-radius:50%;background:#fff;border:2px solid #7A4450;box-sizing:border-box}
+.kp-line-pt.today{width:14px;height:14px;margin:-7px 0 0 -7px;background:#7A4450;box-shadow:0 0 0 4px rgba(122,68,80,.15)}
+.kp-line-pt b{position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);font-size:13px;font-weight:600;color:#3B302C;white-space:nowrap}
+.kp-line-pt.today b{color:#7A4450}
+.kp-line-x{display:grid;grid-template-columns:repeat(7,1fr);text-align:center;margin-left:30px;padding:8px 0 4px;font-size:12.5px;color:#6B605B}
+.kp-line-x .today{color:#7A4450;font-weight:600}
+.kp-line-x .closed{color:#A0938D}
+.kp-line-x em{display:block;font-style:normal;font-size:11.5px;color:#A0938D}
+/* 오늘 관리할 고객: 가로 전체 카드 안에서 두 열 */
+.kp-care-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(460px,100%),1fr));column-gap:40px}
+.kp-care-grid .kp-care-row{border-top:0;border-bottom:1px solid #F1E4E0}
+/* 오늘 예약 [n건 모두 보기 · 접기]: 카드 맨 아래에 붙는다 */
+.kp-fold{display:block;width:100%;margin-top:auto;padding:12px 0 2px;border:0;border-top:1px solid #F1E4E0;background:transparent;font:500 13px 'Noto Sans KR',sans-serif;color:#7A4450;cursor:pointer}
+.kp-fold:hover{color:#683945;text-decoration:underline;text-underline-offset:3px}
+.kp-fold:focus-visible{outline:2px solid #7A4450;outline-offset:2px;border-radius:6px}
 .kp-care{padding:20px 24px}
 .kp-care-row{display:flex;align-items:center;gap:14px;padding:14px 0;border-top:1px solid #F1E4E0}
 .kp-care-row:first-of-type{border-top:0}
