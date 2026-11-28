@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { useLoad } from '@/hooks/useLoad';
 import { toast } from '@/components/common/Toast';
-import { api, type Page } from '@/lib/api';
+import { api, apiFirst, type Page } from '@/lib/api';
 import { CATEGORY_LABEL, dotDate } from '@/lib/customerDetail';
 import { formatDateTime } from '@/lib/format';
 import { deleteVisitConfirm, visitRows } from '@/lib/visitEdit';
@@ -38,7 +38,7 @@ export function HistoryTab(props: { customerId: number; photoAgreed: boolean | n
   const pages = useRef(1);
 
   const history = useLoad(String(props.customerId), () =>
-    api<Page<HistoryVisit>>(`/api/customers/${props.customerId}/history?page=0&size=${pages.current * PAGE}`, { silent: true }),
+    apiFirst<HistoryVisit>(`/api/customers/${props.customerId}/history`, pages.current * PAGE),
   );
   const visits = history.data?.items ?? [];
   const total = history.data?.totalElements ?? 0;
