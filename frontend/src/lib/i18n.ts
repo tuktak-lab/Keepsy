@@ -6,8 +6,8 @@ import { ko, type MessageKey } from './messages/ko.ts';
 
 export type Locale = 'ko' | 'en';
 export const LOCALES: readonly Locale[] = ['ko', 'en'];
-/** 언어 선택 목록에 쓰는 이름. 고른 언어와 상관없이 그 언어로 쓴다 */
-export const LOCALE_NAMES: Record<Locale, string> = { ko: '한국어', en: 'English' };
+/** 언어 선택 목록에 쓰는 줄임 표기. 고른 언어와 상관없이 같다 */
+export const LOCALE_CODES: Record<Locale, string> = { ko: 'KOR', en: 'ENG' };
 export const LOCALE_STORAGE_KEY = 'keepsy.locale';
 /** 저장된 언어가 한국어가 아니면 적용 전까지 <html>에 붙는 표시. 한국어 HTML이 잠깐 보이는 것을 막는다 (app/layout.tsx) */
 export const LOCALE_PENDING_ATTR = 'data-locale-pending';

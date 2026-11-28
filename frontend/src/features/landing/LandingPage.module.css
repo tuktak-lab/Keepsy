@@ -53,6 +53,13 @@
   display: block;
 }
 
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-left: auto;
+}
+
 .tagline {
   display: flex;
   align-items: center;
@@ -816,6 +823,12 @@
   }
 }
 
+/* 좁은 화면에서는 배경의 유리 리본이 언어 선택 뒤를 지난다: 상자 없이 글자 · 화살표 둘레에만 밝은 번짐 */
+@media (max-width: 599px) {
+  .headerRight > span {
+    filter: drop-shadow(0 0 1px #fff) drop-shadow(0 0 2px #fff) drop-shadow(0 0 2px #fff) drop-shadow(0 0 5px #fff);
+  }
+}
 @media (max-width: 520px) {
   .screenNav {
     width: 50px;
