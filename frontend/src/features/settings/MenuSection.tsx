@@ -206,7 +206,7 @@ export function MenuSection({ industries }: { industries: string[] | null | unde
                 <MenuEditor editing={editing} onChange={change} onSave={() => void saveMenu()} onCancel={() => setEditing(null)} />
               ) : (
                 <div className="st-row">
-                  <button type="button" className="st-btn" disabled={editing !== null} onClick={() => startEdit(cat)}>
+                  <button type="button" className="st-btn add" disabled={editing !== null} onClick={() => startEdit(cat)}>
                     {t('settings.menu.addMenu', { category: CATEGORY_LABEL[cat] })}
                   </button>
                 </div>
