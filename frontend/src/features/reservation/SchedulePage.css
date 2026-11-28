@@ -65,7 +65,7 @@ a{color:#7A4450;text-decoration:none}
 .staffbox{padding:14px 16px}
 /* 스탭이 많아도 카드 안에서 줄바꿈되는 칩. 이름은 한 줄로 (#415) */
 .staff{display:flex;flex-wrap:wrap;gap:6px}
-.staff button{flex:0 0 auto;height:30px;padding:0 12px;white-space:nowrap;border-radius:999px;border:1px solid #D8CDC5;background:#fff;font:500 13px 'Noto Sans KR',sans-serif;color:#3B302C;cursor:pointer;transition:all .15s}
+.staff button{flex:0 0 auto;max-width:100%;overflow:hidden;text-overflow:ellipsis;height:30px;padding:0 12px;white-space:nowrap;border-radius:999px;border:1px solid #D8CDC5;background:#fff;font:500 13px 'Noto Sans KR',sans-serif;color:#3B302C;cursor:pointer;transition:all .15s}
 .staff button[aria-pressed="true"]{background:#7A4450;border-color:#7A4450;color:#fff}
 .pending{padding:14px 16px;display:flex;flex-direction:column;gap:6px}
 .pend{display:flex;flex-direction:column;align-items:flex-start;gap:1px;text-align:left;padding:9px 12px;border-radius:8px;border:1px dashed #C77A78;background:#FDF8F7;cursor:pointer;font-family:inherit;color:#221D1B;transition:background .15s,border-color .15s}
