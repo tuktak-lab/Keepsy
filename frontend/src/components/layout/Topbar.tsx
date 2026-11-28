@@ -92,15 +92,10 @@ export function Topbar() {
   };
 
   return (
+    // 간격 · 여백 · 높이 · 검색 폭은 좁은 화면에서 바뀌므로 base.css .kp-top에 둔다 (NFR-11, #493)
     <header
       className={'kp-top' + (scrolled ? ' scrolled' : '')}
       style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '20px',
-        padding: '0 32px 0 50px',
-        height: '92px',
-        boxSizing: 'border-box',
         fontFamily: "'Noto Sans KR', system-ui, sans-serif",
         fontSize: '14px',
         color: '#3E3532',
@@ -109,14 +104,12 @@ export function Topbar() {
       <form
         onSubmit={onSearch}
         role="search"
+        className="kp-top-search"
         style={{
-          // 경로 표시를 지운 자리(왼쪽 끝)에 검색을 두고, 나머지는 오른쪽으로 민다
-          marginRight: 'auto',
           display: 'flex',
           alignItems: 'center',
           gap: '8px',
           height: '42px',
-          width: 'min(300px, 28vw)',
           padding: '0 16px',
           boxSizing: 'border-box',
           borderRadius: '999px',
@@ -171,7 +164,9 @@ export function Topbar() {
             <path d="M15 16V13a2 2 0 0 1 3.9-.6" />
             <rect width="8" height="5" x="13" y="16" rx=".9" />
           </svg>
-          {t('shell.topbar.pinActive', { name: session.pinStaff.name })}
+          <span className="kp-top-name" title={session.pinStaff.name}>
+            {t('shell.topbar.pinActive', { name: session.pinStaff.name })}
+          </span>
           <button
             type="button"
             onClick={() => void lockPin()}
@@ -209,9 +204,11 @@ export function Topbar() {
         >
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#221D1B', fontWeight: 600, fontSize: '16px', whiteSpace: 'nowrap' }}>
             <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#7A4450' }} />
-            {session?.currentStaff
-              ? t('shell.topbar.worker', { name: session.currentStaff.name })
-              : t(sessionFailed ? 'shell.topbar.workerFailed' : 'shell.topbar.workerChecking')}
+            <span className="kp-top-name" title={session?.currentStaff?.name}>
+              {session?.currentStaff
+                ? t('shell.topbar.worker', { name: session.currentStaff.name })
+                : t(sessionFailed ? 'shell.topbar.workerFailed' : 'shell.topbar.workerChecking')}
+            </span>
           </span>
           <svg
             width="14"
@@ -289,17 +286,15 @@ export function Topbar() {
           </button>
         </>
       )}
-      <span style={{ width: '1px', height: '26px', background: '#D9CBC4' }} />
+      <span className="kp-top-avatar" style={{ width: '1px', height: '26px', background: '#D9CBC4' }} />
       <span
         aria-hidden="true"
+        className="kp-top-avatar"
         style={{
           width: '48px',
           height: '48px',
           borderRadius: '50%',
           background: '#D8CCC6',
-          display: 'flex',
-          alignItems: 'flex-end',
-          justifyContent: 'center',
           overflow: 'hidden',
         }}
       >
