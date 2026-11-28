@@ -172,79 +172,84 @@ export function MenuSection({ industries }: { industries: string[] | null | unde
         </p>
       ) : null}
 
-      {shown.map((cat) => {
-        const list = menus.filter((m) => m.category === cat);
-        const cycle = cycleOf(cat);
-        const newHere = editing !== null && editing.menuId === null && editing.category === cat;
-        return (
-          <div key={cat}>
-            <div className="st-cat">
-              {CATEGORY_LABEL[cat]} <span className="st-meta num">{t('settings.menu.catDefault', { range: cycle ? t('settings.menu.daysRange', { min: cycle.minDays, max: cycle.maxDays }) : '-' })}</span>
-            </div>
-            {list.length === 0 && !newHere ? <p className="st-meta">{t('settings.menu.noMenus')}</p> : null}
-            {list.map((m) =>
-              editing?.menuId === m.id ? (
-                <MenuEditor key={m.id} editing={editing} onChange={change} onSave={() => void saveMenu()} onCancel={() => setEditing(null)} />
+      {/* 카테고리별 메뉴 묶음은 넓은 화면에서 두 열 (SettingsPage.css .st-catgrid) */}
+      <div className="st-catgrid">
+        {shown.map((cat) => {
+          const list = menus.filter((m) => m.category === cat);
+          const cycle = cycleOf(cat);
+          const newHere = editing !== null && editing.menuId === null && editing.category === cat;
+          return (
+            <div key={cat} className="st-catbox">
+              <div className="st-cat">
+                {CATEGORY_LABEL[cat]} <span className="st-meta num">{t('settings.menu.catDefault', { range: cycle ? t('settings.menu.daysRange', { min: cycle.minDays, max: cycle.maxDays }) : '-' })}</span>
+              </div>
+              {list.length === 0 && !newHere ? <p className="st-meta">{t('settings.menu.noMenus')}</p> : null}
+              {list.map((m) =>
+                editing?.menuId === m.id ? (
+                  <MenuEditor key={m.id} editing={editing} onChange={change} onSave={() => void saveMenu()} onCancel={() => setEditing(null)} />
+                ) : (
+                  <div className="st-row" key={m.id}>
+                    <span className="grow nm">{m.name}</span>
+                    <span className="num">{formatWon(m.price)}</span>
+                    <span className="num st-meta">{formatDuration(m.durationMinutes)}</span>
+                    <span className="num st-meta">
+                      {t('settings.menu.cycleOf', { min: m.cycleMinDays, max: m.cycleMaxDays })}
+                    </span>
+                    <span className={m.predictionAttribute === 'NORMAL' ? 'st-tag' : 'st-tag w'}>{ATTRIBUTE_LABEL[m.predictionAttribute]}</span>
+                    <button type="button" className="st-btn" disabled={editing !== null} onClick={() => startEdit(cat, m)}>
+                      {t('customer.edit')}
+                    </button>
+                  </div>
+                ),
+              )}
+              {newHere && editing ? (
+                <MenuEditor editing={editing} onChange={change} onSave={() => void saveMenu()} onCancel={() => setEditing(null)} />
               ) : (
-                <div className="st-row" key={m.id}>
-                  <span className="grow nm">{m.name}</span>
-                  <span className="num">{formatWon(m.price)}</span>
-                  <span className="num st-meta">{formatDuration(m.durationMinutes)}</span>
-                  <span className="num st-meta">
-                    {t('settings.menu.cycleOf', { min: m.cycleMinDays, max: m.cycleMaxDays })}
-                  </span>
-                  <span className={m.predictionAttribute === 'NORMAL' ? 'st-tag' : 'st-tag w'}>{ATTRIBUTE_LABEL[m.predictionAttribute]}</span>
-                  <button type="button" className="st-btn" disabled={editing !== null} onClick={() => startEdit(cat, m)}>
-                    {t('customer.edit')}
+                <div className="st-row">
+                  <button type="button" className="st-btn" disabled={editing !== null} onClick={() => startEdit(cat)}>
+                    {t('settings.menu.addMenu', { category: CATEGORY_LABEL[cat] })}
                   </button>
                 </div>
-              ),
-            )}
-            {newHere && editing ? (
-              <MenuEditor editing={editing} onChange={change} onSave={() => void saveMenu()} onCancel={() => setEditing(null)} />
-            ) : (
-              <div className="st-row">
-                <button type="button" className="st-btn" disabled={editing !== null} onClick={() => startEdit(cat)}>
-                  {t('settings.menu.addMenu', { category: CATEGORY_LABEL[cat] })}
-                </button>
-              </div>
-            )}
-          </div>
-        );
-      })}
+              )}
+            </div>
+          );
+        })}
+      </div>
 
       <div>
         <div className="st-lbl">{t('settings.menu.catCycles')}</div>
         <p className="st-meta">{t('settings.menu.catCyclesNote')}</p>
-        {shown.map((cat) => (
-          <div className="st-row" key={cat}>
-            <span className="nm" style={{ width: 64, fontWeight: 600 }}>
-              {CATEGORY_LABEL[cat]}
-            </span>
-            <input
-              className="st-time num"
-              inputMode="numeric"
-              aria-label={t('settings.menu.catMinAria', { category: CATEGORY_LABEL[cat] })}
-              value={cycleValues[cat].minDays}
-              onChange={(e) => {
-                setCycleError('');
-                setCycleValues({ ...cycleValues, [cat]: { ...cycleValues[cat], minDays: e.target.value } });
-              }}
-            />
-            <span>~</span>
-            <input
-              className="st-time num"
-              inputMode="numeric"
-              aria-label={t('settings.menu.catMaxAria', { category: CATEGORY_LABEL[cat] })}
-              value={cycleValues[cat].maxDays}
-              onChange={(e) => {
-                setCycleError('');
-                setCycleValues({ ...cycleValues, [cat]: { ...cycleValues[cat], maxDays: e.target.value } });
-              }}
-            />
-            <span className="st-meta">{t('settings.menu.dayUnit')}</span>
-          </div>
-        ))}
+        <div className="st-rowgrid">
+          {shown.map((cat) => (
+            <div className="st-row" key={cat}>
+              <span className="nm" style={{ width: 64, fontWeight: 600 }}>
+                {CATEGORY_LABEL[cat]}
+              </span>
+              <input
+                className="st-time num"
+                inputMode="numeric"
+                aria-label={t('settings.menu.catMinAria', { category: CATEGORY_LABEL[cat] })}
+                value={cycleValues[cat].minDays}
+                onChange={(e) => {
+                  setCycleError('');
+                  setCycleValues({ ...cycleValues, [cat]: { ...cycleValues[cat], minDays: e.target.value } });
+                }}
+              />
+              <span>~</span>
+              <input
+                className="st-time num"
+                inputMode="numeric"
+                aria-label={t('settings.menu.catMaxAria', { category: CATEGORY_LABEL[cat] })}
+                value={cycleValues[cat].maxDays}
+                onChange={(e) => {
+                  setCycleError('');
+                  setCycleValues({ ...cycleValues, [cat]: { ...cycleValues[cat], maxDays: e.target.value } });
+                }}
+              />
+              <span className="st-meta">{t('settings.menu.dayUnit')}</span>
+            </div>
+          ))}
+        </div>
         {cycleError ? (
           <p className="st-err" role="alert">
             {cycleError}

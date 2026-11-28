@@ -41,12 +41,15 @@ export default function SettingsPage() {
           </nav>
           <div className="st-note">{t('settings.pinNote')}</div>
 
-          <ShopSection onIndustries={setIndustries} />
-          <MenuSection industries={industries} />
-          <DayOffSection />
-          <SettingsSections />
-          <StaffSection />
-          <FeatureLockSection />
+          {/* 구역 배치 (SettingsPage.css .st-sections): 매장 정보 · 시술 메뉴는 가로 전체, 나머지는 두 열로 짝지어 빈 폭을 줄인다 */}
+          <div className="st-sections">
+            <ShopSection onIndustries={setIndustries} />
+            <MenuSection industries={industries} />
+            <DayOffSection />
+            <SettingsSections />
+            <StaffSection />
+            <FeatureLockSection />
+          </div>
         </div>
       </PinGate>
       <div className="st-wrap" style={{ paddingTop: 0 }}>
