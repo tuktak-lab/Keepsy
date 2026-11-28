@@ -126,6 +126,7 @@ export const en: Record<MessageKey, string> = {
 
   // 대시보드 · 재방문 관리(prediction)
   'common.loading': 'Loading…',
+  'common.pleaseWait': 'Please wait a moment',
   'common.persons': '{n} customers',
   'common.consent': 'Opted in',
   'common.noConsent': 'Not opted in',
