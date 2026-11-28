@@ -17,11 +17,13 @@ import {
   validateClosing,
   type ClosingService,
   type PaymentMethod,
+  type PaymentRecord,
 } from '@/lib/closing';
 import { formatWon } from '@/lib/format';
 import { pickableMenus } from '@/lib/menus';
 import { detailsText } from '@/lib/reservationForm';
 import { ConsentRequests, PhotoPicker, uploadPhotos } from './ClosingExtras';
+import { PaymentList } from './PaymentList';
 import { CustomerSearch, type CustomerPick } from './CustomerSearch';
 import styleText from './SchedulePage.css?inline';
 
@@ -44,6 +46,8 @@ type Closing = {
   services: { serviceMenuId: number; name: string; price: number; predictionAttribute: string; staff: StaffRef; cycleExcluded: boolean }[];
   photoAllowed: boolean;
   consentsToRequest: string[];
+  /** 이 예약으로 등록한 결제 (F76). 확정 예약은 빈 목록 */
+  payments: PaymentRecord[];
 };
 /** 마감은 저장됐는데 사진 일부를 못 올린 상태 */
 type PhotoRetry = { visitId: number; failed: { file: File; reason: string }[]; busy: boolean };
@@ -333,7 +337,20 @@ export default function ClosingPage() {
                   ) : null}
                   {completed ? (
                     <div className="box" role="note">
-                      <p>{t('reservation.closing.alreadyClosed')}</p>
+                      <p>
+                        {t('reservation.closing.alreadyClosed')}{' '}
+                        {closing.customer ? (
+                          <>
+                            {t('reservation.closing.fixInHistoryBefore')}{' '}
+                            <AppLink href={`/customers/detail?id=${closing.customer.id}`} className="lk">
+                              {t('reservation.closing.fixInHistoryLink')}
+                            </AppLink>
+                            {t('reservation.closing.fixInHistoryAfter')}
+                          </>
+                        ) : (
+                          t('reservation.closing.noCustomerNoFix')
+                        )}
+                      </p>
                     </div>
                   ) : closing.servicesConfirmRequired ? (
                     <div className="box warn" role="note">
@@ -391,6 +408,13 @@ export default function ClosingPage() {
                       </div>
                     ) : null}
                   </div>
+
+                  {completed ? (
+                    <div>
+                      <span className="lbl">{t('reservation.closing.payments')}</span>
+                      <PaymentList payments={closing.payments} onChanged={() => setReload((n) => n + 1)} empty={t('reservation.closing.paymentsEmpty')} />
+                    </div>
+                  ) : null}
 
                   <div>
                     <span className="lbl">{completed ? t('reservation.closing.extraAmount') : t('reservation.closing.amount')}</span>

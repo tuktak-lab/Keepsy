@@ -118,3 +118,25 @@ export function validatePhotos(files: { size: number; type: string }[]): string 
   }
   return null;
 }
+
+// ── 결제 정정 (FR-PAY-02, F76). 고객 상세 결제 이력과 완료 예약의 마감 카드가 같이 쓴다 ──
+
+/** 결제 한 건. 마감 카드 `payments`와 고객 결제 이력 항목의 공통 칸 (CONTRACTS 6장) */
+export type PaymentRecord = { paymentId: number; paidAt: string; amount: number; method: PaymentMethod; canceled: boolean };
+
+/** 결제 수단 이름. 모르는 값이면 그대로 */
+export const paymentMethodLabel = (method: string): string => {
+  const key = PAYMENT_METHODS.find(([v]) => v === method)?.[1];
+  return key ? t(key) : method;
+};
+
+/** 취소한 결제는 이력으로만 남고 다시 고치거나 취소할 수 없다 (서버도 409, F76) */
+export const paymentEditable = (p: Pick<PaymentRecord, 'canceled'>): boolean => !p.canceled;
+
+/** 결제 수정 입력 검사. 비어 있으면 통과 (PATCH /api/payments/{id}: 금액 0 이상의 정수 · 수단 필수) */
+export function validatePaymentEdit(amountText: string): string | null {
+  return parseAmount(amountText) === null ? t('payment.amountInvalid') : null;
+}
+
+/** 결제 취소 확인 문구. 취소는 매출에서만 빠지고 방문 · 예약은 그대로다 (F8). 언어가 정해진 뒤 부르도록 함수로 둔다 */
+export const cancelPaymentConfirm = (): string => t('payment.cancelConfirm');

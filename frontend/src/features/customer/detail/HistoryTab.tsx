@@ -4,12 +4,18 @@ import { toast } from '@/components/common/Toast';
 import { api, type Page } from '@/lib/api';
 import { CATEGORY_LABEL, dotDate } from '@/lib/customerDetail';
 import { formatDateTime } from '@/lib/format';
+import { deleteVisitConfirm, visitRows } from '@/lib/visitEdit';
+import type { PaymentRecord } from '@/lib/closing';
+import { PaymentList } from '../../reservation/PaymentList';
 import type { HistoryVisit } from '../types';
 import { AreaError, errorText } from './common';
 import { t } from '@/lib/i18n';
+import { VisitEditor } from './VisitEditor';
 
 // 시술 히스토리북 (FR-CUS-07 · 08, C6, A13). 방문별 시술 · 담당 · 사진 · 메모를 최신순으로, 사진만 모아 보는 갤러리 보기.
 // 사진은 사진 동의 고객만 올린다 (서버가 consent_required). JPG · PNG, 장당 10MB, 방문당 10장은 서버가 다시 검사한다.
+// 방문 수정 · 삭제(FR-VIS-03, CUSTOMER_EDIT)와 결제 이력 · 정정(FR-ANL-04 · FR-PAY-02, SALES_ANALYTICS · PAYMENT_EDIT)도 여기서 한다 (F76).
+// 결제 이력은 매출 정보라 「결제 이력 보기」를 누를 때만 불러온다 (잠겨 있으면 그때 PIN).
 
 const PAGE = 10;
 const MAX_BYTES = 10 * 1024 * 1024;
@@ -24,6 +30,10 @@ export function HistoryTab(props: { customerId: number; photoAgreed: boolean }) 
   const [actionError, setActionError] = useState('');
   const [gallery, setGallery] = useState(false);
   const [uploading, setUploading] = useState<number | null>(null);
+  const [editing, setEditing] = useState<number | null>(null);
+  const [deleting, setDeleting] = useState<number | null>(null);
+  const [payments, setPayments] = useState<PaymentRecord[] | null>(null);
+  const [paymentsError, setPaymentsError] = useState('');
   // 지금까지 펼친 페이지 수. 서명 URL이 5분 뒤 만료되므로 더 보기 · 올린 뒤에는 처음부터 그만큼 다시 받는다
   const pages = useRef(1);
 
@@ -64,9 +74,36 @@ export function HistoryTab(props: { customerId: number; photoAgreed: boolean }) 
     }
   }
 
+  async function loadPayments() {
+    setPaymentsError('');
+    try {
+      const page = await api<Page<PaymentRecord>>(`/api/customers/${props.customerId}/payments?size=100`, { silent: true });
+      setPayments(page.items);
+    } catch (err) {
+      setPaymentsError(errorText(err));
+    }
+  }
+
+  async function removeVisit(v: HistoryVisit) {
+    if (!window.confirm(deleteVisitConfirm(v.imported))) return;
+    setDeleting(v.visitId);
+    setActionError('');
+    try {
+      await api(`/api/visits/${v.visitId}`, { method: 'DELETE', silent: true });
+      toast(t('visit.delete.done'));
+      await load(Math.ceil(visits.length / PAGE) || 1);
+      if (payments !== null) await loadPayments();
+    } catch (err) {
+      setActionError(errorText(err));
+    } finally {
+      setDeleting(null);
+    }
+  }
+
   const photos = visits.flatMap((v) => v.photos.map((p) => ({ ...p, visitDate: v.visitDate })));
 
   return (
+    <>
     <section className="card col">
       <div className="row between" style={{ paddingBottom: 8 }}>
         <h2 className="h2">{t('customer.history.title', { n: total })}</h2>
@@ -127,6 +164,28 @@ export function HistoryTab(props: { customerId: number; photoAgreed: boolean }) 
                   ))}
                 </span>
               )}
+              {editing === v.visitId ? (
+                <VisitEditor
+                  visitId={v.visitId}
+                  initial={visitRows(v.services, v.imported) ?? []}
+                  onDone={(changed) => {
+                    setEditing(null);
+                    if (changed) load(Math.ceil(visits.length / PAGE) || 1);
+                  }}
+                />
+              ) : (
+                <span className="row" style={{ gap: 12 }}>
+                  {visitRows(v.services, v.imported) && (
+                    <button type="button" className="lk" disabled={deleting !== null} onClick={() => setEditing(v.visitId)}>
+                      {t('visit.edit.open')}
+                    </button>
+                  )}
+                  <button type="button" className="lk" disabled={deleting !== null} onClick={() => removeVisit(v)}>
+                    {deleting === v.visitId ? t('visit.delete.busy') : t('visit.delete.open')}
+                  </button>
+                  {v.imported && <span className="meta">{t('visit.edit.importedNote')}</span>}
+                </span>
+              )}
               {props.photoAgreed && (
                 <label className="lk" style={{ alignSelf: 'flex-start' }}>
                   {uploading === v.visitId ? t('customer.history.uploading') : t('customer.history.upload')}
@@ -153,5 +212,22 @@ export function HistoryTab(props: { customerId: number; photoAgreed: boolean }) 
         </button>
       )}
     </section>
+    <section className="card col">
+      <div className="row between" style={{ paddingBottom: 8 }}>
+        <h2 className="h2">{t('payment.history.title')}</h2>
+        {payments === null && (
+          <button type="button" className="lk" onClick={loadPayments}>
+            {t('payment.history.show')}
+          </button>
+        )}
+      </div>
+      <AreaError text={paymentsError} />
+      {payments === null ? (
+        <p className="meta">{t('payment.history.note')}</p>
+      ) : (
+        <PaymentList payments={payments} onChanged={loadPayments} empty={t('payment.history.emptyCustomer')} />
+      )}
+    </section>
+    </>
   );
 }
