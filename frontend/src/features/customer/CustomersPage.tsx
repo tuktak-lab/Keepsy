@@ -6,6 +6,7 @@ import type { StaffRef } from '@/lib/session';
 import type { Category, CustomerListFilter, CustomerListItem, PredictionStatus } from './types';
 import styleText from './CustomersPage.css?inline';
 import { useStyleSheet } from '@/hooks/useStyleSheet';
+import { useLoad } from '@/hooks/useLoad';
 import { t } from '@/lib/i18n';
 import type { MessageKey } from '@/lib/messages/ko';
 import { AreaError, errorText } from './detail/common';
@@ -62,17 +63,15 @@ export default function CustomersPage() {
   const [consent, setConsent] = useState('');
   const [page, setPage] = useState(0);
   const [result, setResult] = useState<Page<CustomerListItem> | null>(null);
-  const [staff, setStaff] = useState<StaffRef[]>([]);
   const [sel, setSel] = useState<number | null>(null);
   // 어느 조건에서 실패했는지 함께 둔다. 조건을 바꾸면 지난 오류는 보이지 않는다
   const [failed, setFailed] = useState<{ key: string; text: string } | null>(null);
   const [listTry, setListTry] = useState(0);
   const listKey = [query, cat, status, vis, staffId, consent, page].join('|');
 
-  // 담당 스탭 필터 목록. 목록의 「다시 시도」를 누르면 함께 다시 받는다
-  useEffect(() => {
-    api<StaffRef[]>('/api/staff').then(setStaff, () => {});
-  }, [listTry]);
+  // 담당 스탭 필터 목록. 고객 목록은 열렸는데 이것만 실패해도 다시 받을 수 있다
+  const staffList = useLoad('staff', () => api<StaffRef[]>('/api/staff', { silent: true }));
+  const staff = staffList.data ?? [];
 
   // 검색어는 입력이 0.3초 멈추면 반영
   useEffect(() => {
@@ -181,6 +180,11 @@ export default function CustomersPage() {
           </select>
         </div>
 
+        {/* 목록도 실패했으면 목록의 「다시 시도」가 함께 받으므로 하나만 보인다 */}
+        {!error && (
+          <AreaError text={staffList.error ? `${t('common.staff')}: ${errorText(staffList.error)}` : ''} onRetry={staffList.reload} />
+        )}
+
         <section className="card" style={{ padding: '10px 0 6px', overflowX: 'auto' }}>
           <div className="crow head" data-guide="customers-list">
             <span>{t('common.customer')}</span>
@@ -214,6 +218,7 @@ export default function CustomersPage() {
                 onRetry={() => {
                   setFailed(null);
                   setListTry((n) => n + 1);
+                  if (staffList.error) void staffList.reload();
                 }}
               />
             </div>

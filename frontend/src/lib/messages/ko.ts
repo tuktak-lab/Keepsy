@@ -238,6 +238,7 @@ export const ko = {
   'common.minutes': '{n}분',
   'common.memoMax': '메모는 1,000자 이하입니다',
   'common.loadFailed': '불러오지 못했어요.',
+  'common.partialLoadFailed': '일부 정보를 불러오지 못했어요.',
   'common.memo': '메모',
   'common.customer': '고객',
   'common.staff': '담당 스탭',

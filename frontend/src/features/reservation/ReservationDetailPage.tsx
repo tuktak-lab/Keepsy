@@ -60,16 +60,23 @@ export default function ReservationDetailPage() {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
-  // 일정 변경 창이 스탭 목록을 쓴다
+  // 일정 변경 창이 스탭 목록을 쓴다. 못 받으면 「일정 변경」이 꺼져 있어 「다시 시도」를 보인다
+  const [staffFailed, setStaffFailed] = useState(false);
+  const [staffTry, setStaffTry] = useState(0);
   useEffect(() => {
     let cancelled = false;
-    api<StaffRef[]>('/api/staff')
-      .then((list) => !cancelled && setStaff(list))
-      .catch(() => {});
+    api<StaffRef[]>('/api/staff', { silent: true }).then(
+      (list) => {
+        if (cancelled) return;
+        setStaff(list);
+        setStaffFailed(false);
+      },
+      () => !cancelled && setStaffFailed(true),
+    );
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [staffTry]);
 
   useEffect(() => {
     if (!validId) return;
@@ -164,7 +171,14 @@ export default function ReservationDetailPage() {
             ) : current?.error === 'error' ? (
               <p className="meta">
                 {t('reservation.loadFailed')}{' '}
-                <button type="button" className="btn btn-sm" onClick={() => setReload((n) => n + 1)}>
+                <button
+                  type="button"
+                  className="btn btn-sm"
+                  onClick={() => {
+                    setReload((n) => n + 1);
+                    if (staffFailed) setStaffTry((n) => n + 1); // 한 번 눌러 전부 다시 받는다
+                  }}
+                >
                   {t('common.retry')}
                 </button>
               </p>
@@ -287,6 +301,16 @@ export default function ReservationDetailPage() {
                           {at ? <p className="meta">{closeTooEarly(at.date)}</p> : null}
                         </>
                       )}
+                      {staffFailed ? (
+                        <div className="box warn" role="alert">
+                          <p>
+                            {t('common.partialLoadFailed')}{' '}
+                            <button type="button" className="btn btn-sm" onClick={() => setStaffTry((n) => n + 1)}>
+                              {t('common.retry')}
+                            </button>
+                          </p>
+                        </div>
+                      ) : null}
                       <div className="act-2">
                         <button type="button" className="btn btn-w" onClick={() => setEditing(true)} disabled={staff.length === 0}>
                           {t('reservation.detail.reschedule')}

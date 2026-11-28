@@ -56,15 +56,18 @@ export function ReservationForm(props: {
   const [minutesTouched, setMinutesTouched] = useState(false); // 소요 시간을 직접 고르기 전에는 시술 합계를 따른다
   const [ready, setReady] = useState(!editing);
   const [menus, setMenus] = useState<Menu[] | null>(null);
-  const industries = useIndustries(); // 꺼 둔 업종의 메뉴는 새로 고르는 선택지에서 뺀다 (이미 고른 메뉴는 남긴다)
+  const [menusFailed, setMenusFailed] = useState(false);
+  const [choicesTry, setChoicesTry] = useState(0); // 「다시 시도」: 메뉴 · 업종을 다시 받는다
+  const industries = useIndustries(choicesTry); // 꺼 둔 업종의 메뉴는 새로 고르는 선택지에서 뺀다 (이미 고른 메뉴는 남긴다)
   const [own, setOwn] = useState<{ date: DateStr; staffId: number; hm: string; startMs: number } | null>(null); // 수정 중인 예약의 원래 자리
   const [confirming, setConfirming] = useState<StatusAction | null>(null); // 취소 · 노쇼 확인 중
   const [openedAt] = useState(() => Date.now()); // 노쇼 가능 여부를 가르는 "지금" (창을 연 시각)
   const [hadCustomer, setHadCustomer] = useState(false);
   const [customerName, setCustomerName] = useState('');
   const [noShow, setNoShow] = useState<number | null>(null);
+  const [noShowFailed, setNoShowFailed] = useState(false);
   const pickedId = useRef<number | null>(null); // 마지막으로 고른 고객. 늦게 도착한 앞 고객의 응답으로 노쇼 횟수를 바꾸지 않으려고 둔다
-  const [timesFor, setTimesFor] = useState<{ key: string; list: string[] } | null>(null);
+  const [timesFor, setTimesFor] = useState<{ key: string; list: string[]; failed?: boolean } | null>(null);
   const [tick, setTick] = useState(0); // 겹침으로 거절되면 가능 시각을 다시 읽는다
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -72,13 +75,18 @@ export function ReservationForm(props: {
   // 시술 메뉴 (소요 시간 합계가 기본값, FR-RSV-01)
   useEffect(() => {
     let cancelled = false;
-    api<Menu[]>('/api/service-menus')
-      .then((list) => !cancelled && setMenus(list))
-      .catch(() => !cancelled && setMenus([]));
+    api<Menu[]>('/api/service-menus', { silent: true }).then(
+      (list) => {
+        if (cancelled) return;
+        setMenus(list);
+        setMenusFailed(false);
+      },
+      () => !cancelled && setMenusFailed(true), // 메뉴를 비워 두지 않는다: 「등록된 메뉴가 없어요」로 보이면 안 된다
+    );
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [choicesTry]);
 
   // 수정: 예약 상세로 폼을 채운다
   useEffect(() => {
@@ -123,7 +131,7 @@ export function ReservationForm(props: {
     let cancelled = false;
     api<{ startTimes: string[] }>(`/api/reservations/available-times?staffId=${v.staffId}&date=${v.date}&minutes=${minutes}`, { silent: true })
       .then((r) => !cancelled && setTimesFor({ key: timesKey, list: r.startTimes.map(hmOf) }))
-      .catch(() => !cancelled && setTimesFor({ key: timesKey, list: [] }));
+      .catch(() => !cancelled && setTimesFor({ key: timesKey, list: [], failed: true }));
     return () => {
       cancelled = true;
     };
@@ -134,6 +142,7 @@ export function ReservationForm(props: {
   const keepOwn = own !== null && own.date === v.date && own.staffId === v.staffId;
   const options = loaded ? [...new Set([...loaded, ...(keepOwn ? [own.hm] : [])])].sort() : [];
   const startTime = options.includes(v.startTime) ? v.startTime : '';
+  const timesFailed = timesFor?.key === timesKey && timesFor.failed === true;
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && !busy && onClose();
@@ -146,18 +155,30 @@ export function ReservationForm(props: {
     setV((cur) => ({ ...cur, ...patch }));
   };
 
+  // 응답이 올 때 마지막으로 고른 고객이 그대로일 때만 반영한다 (빠르게 다른 고객으로 바꾼 경우 앞 고객 응답은 버린다)
+  const loadNoShow = (id: number) => {
+    setNoShowFailed(false);
+    api<{ noShowCount: number }>(`/api/customers/${id}`, { silent: true })
+      .then((d) => pickedId.current === id && setNoShow(d.noShowCount))
+      .catch(() => pickedId.current === id && setNoShowFailed(true));
+  };
+
   const pickCustomer = (c: CustomerPick, created: boolean) => {
     set({ customerId: c.id });
     setCustomerName(c.name);
     pickedId.current = c.id;
     // 고객을 고르면 그 고객의 노쇼 횟수를 함께 보여 준다 (C8). 방금 등록한 고객은 노쇼가 없다
     setNoShow(created ? 0 : null);
-    if (!created) {
-      // 응답이 올 때 마지막으로 고른 고객이 그대로일 때만 반영한다 (빠르게 다른 고객으로 바꾼 경우 앞 고객 응답은 버린다)
-      api<{ noShowCount: number }>(`/api/customers/${c.id}`, { silent: true })
-        .then((d) => pickedId.current === c.id && setNoShow(d.noShowCount))
-        .catch(() => pickedId.current === c.id && setNoShow(null));
-    }
+    setNoShowFailed(false);
+    if (!created) loadNoShow(c.id);
+  };
+
+  const noShowMissing = noShowFailed && v.customerId !== null; // 고객을 빼면 안내도 사라진다
+  // 입력하던 값은 그대로 두고 못 받은 값만 다시 받는다
+  const retryChoices = () => {
+    setChoicesTry((n) => n + 1);
+    setTick((n) => n + 1);
+    if (noShowMissing && v.customerId !== null) loadNoShow(v.customerId);
   };
 
   const hasCustomer = editing ? hadCustomer : v.customerMode === 'pick';
@@ -221,6 +242,17 @@ export function ReservationForm(props: {
           <p className="meta">{t('common.loading')}</p>
         ) : (
           <>
+            {menusFailed || industries === null || timesFailed || noShowMissing ? (
+              <div className="box warn" role="alert">
+                <p>
+                  {t('common.partialLoadFailed')}{' '}
+                  <button type="button" className="btn btn-sm" onClick={retryChoices}>
+                    {t('common.retry')}
+                  </button>
+                </p>
+              </div>
+            ) : null}
+
             <div>
               <span className="lbl">{t('reservation.form.channel')}</span>
               <div className="pills">
@@ -306,7 +338,7 @@ export function ReservationForm(props: {
                   </option>
                 ))}
               </select>
-              {loaded !== null && options.length === 0 ? (
+              {loaded !== null && options.length === 0 && !timesFailed ? (
                 <p className="hint" style={{ marginTop: 8 }}>
                   {t('reservation.form.noSlots')}
                 </p>

@@ -238,6 +238,7 @@ export const en: Record<MessageKey, string> = {
   'common.minutes': '{n} min',
   'common.memoMax': 'The memo must be 1,000 characters or fewer',
   'common.loadFailed': 'Could not load.',
+  'common.partialLoadFailed': 'Some information could not be loaded.',
   'common.memo': 'Memo',
   'common.customer': 'Customer',
   'common.staff': 'Staff',

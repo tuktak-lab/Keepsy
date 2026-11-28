@@ -98,19 +98,24 @@ export default function SchedulePage() {
     typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('view') === 'day' ? 'day' : 'week',
   );
 
-  // 스탭 · 영업시간은 한 번만 읽는다. 실패하면 api()가 오류 안내를 띄우고, 이 화면은 기본값(스탭 필터 없음, 9~20시)으로 그린다.
+  // 스탭 · 영업시간. 실패하면 기본값(스탭 필터 없음, 9~20시)으로 그리고 「다시 시도」를 보인다
+  const [choicesFailed, setChoicesFailed] = useState(false);
+  const [choicesTry, setChoicesTry] = useState(0);
   useEffect(() => {
     let cancelled = false;
-    api<StaffRef[]>('/api/staff')
-      .then((list) => !cancelled && setStaff(list))
-      .catch(() => {});
-    api<{ openingHours: OpeningHour[] }>('/api/shop')
-      .then((shop) => !cancelled && setHours(shop.openingHours))
-      .catch(() => {});
+    Promise.allSettled([
+      api<StaffRef[]>('/api/staff', { silent: true }),
+      api<{ openingHours: OpeningHour[] }>('/api/shop', { silent: true }),
+    ]).then(([list, shop]) => {
+      if (cancelled) return;
+      if (list.status === 'fulfilled') setStaff(list.value);
+      if (shop.status === 'fulfilled') setHours(shop.value.openingHours);
+      setChoicesFailed(list.status === 'rejected' || shop.status === 'rejected');
+    });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [choicesTry]);
 
   // 보이는 주의 예약과 휴무일 (주간은 월요일부터 7일, 기간은 최대 7일)
   const from = anchor ? weekStart(anchor) : '';
@@ -139,6 +144,7 @@ export default function SchedulePage() {
   const retry = () => {
     setFailed(null);
     setReload((n) => n + 1);
+    if (choicesFailed) setChoicesTry((n) => n + 1); // 한 번 눌러 전부 다시 받는다
   };
   // 보기 단위를 바꾼다. 새로고침 · 링크 공유에도 유지되도록 주소의 `view`를 맞춘다 (페이지 이동은 하지 않음)
   const changeView = (next: View, date?: DateStr) => {
@@ -265,6 +271,18 @@ export default function SchedulePage() {
             {t('reservation.schedule.new')}
           </button>
         </header>
+
+        {/* 예약도 실패했으면 달력의 「다시 시도」가 함께 받으므로 하나만 보인다 */}
+        {choicesFailed && !loadFailed ? (
+          <div className="box warn" role="alert">
+            <p>
+              {t('common.partialLoadFailed')}{' '}
+              <button type="button" className="btn btn-sm" onClick={() => setChoicesTry((n) => n + 1)}>
+                {t('common.retry')}
+              </button>
+            </p>
+          </div>
+        ) : null}
 
         {anchor ? (
           <div className="layout">
