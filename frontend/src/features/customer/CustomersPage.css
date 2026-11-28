@@ -23,6 +23,7 @@ a{color:#7A4450;text-decoration:none}a:hover{text-decoration:underline}
 .tabs{display:inline-flex;flex-wrap:wrap;padding:4px;border-radius:999px;background:#F8EDEA;align-self:flex-start}
 .tabs button{border:0;background:transparent;min-height:38px;padding:0 18px;border-radius:999px;font:400 13px 'Noto Sans KR',sans-serif;color:#4A3F3B;cursor:pointer}
 .tabs button[aria-selected="true"]{background:#7A4450;color:#fff;font-weight:500}
+.sel{max-width:14em}
 .sel,.fld{min-height:40px;box-sizing:border-box;padding:0 12px;border:1px solid #EBD9D5;border-radius:12px;background:#fff;font:400 13px 'Noto Sans KR',sans-serif;color:#221D1B}
 .fld{width:100%}.fld:focus{outline:2px solid #7A4450;outline-offset:1px}
 textarea.fld{padding:10px 12px;resize:vertical;line-height:1.65}
