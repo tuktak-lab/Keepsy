@@ -104,7 +104,8 @@ function Body() {
   const [listError, setListError] = useState('');
   const [sel, setSel] = useState<number | null>(null);
   const [detail, setDetail] = useState<Detail | null>(null);
-  const [detailError, setDetailError] = useState('');
+  // 어느 캠페인의 오류인지 같이 둬서, 다른 캠페인을 고르면 이전 오류를 보이지 않는다
+  const [detailError, setDetailError] = useState<{ id: number; message: string } | null>(null);
   // 예약 취소 뒤 목록 · 요약을 다시 받는다
   const [version, setVersion] = useState(0);
 
@@ -116,6 +117,7 @@ function Body() {
         if (!alive) return;
         setItems(p.items);
         setTotal(p.totalElements);
+        setListError('');
         setSel((cur) => cur ?? p.items[0]?.id ?? null);
       })
       .catch((err) => alive && setListError(errorText(err)));
@@ -128,8 +130,8 @@ function Body() {
     if (sel === null) return;
     let alive = true;
     api<Detail>(`/api/campaigns/${sel}?page=0&size=${RESULT_SIZE}`, { silent: true })
-      .then((d) => alive && (setDetail(d), setDetailError('')))
-      .catch((err) => alive && setDetailError(errorText(err)));
+      .then((d) => alive && (setDetail(d), setDetailError(null)))
+      .catch((err) => alive && setDetailError({ id: sel, message: errorText(err) }));
     return () => {
       alive = false;
     };
@@ -148,6 +150,10 @@ function Body() {
   const scheduled = items?.filter((c) => c.status === 'SCHEDULED').length ?? 0;
   const sentThisMonth = items?.filter((c) => c.sentAt && seoulMonth(new Date(c.sentAt)) === thisMonth).length ?? 0;
   const shown = detail && detail.id === sel ? detail : null;
+  const shownError = detailError && detailError.id === sel ? detailError.message : '';
+  const retry = () => setVersion((v) => v + 1);
+  // 목록을 아직 못 받았으면 0건 대신 「-」
+  const kpi = (n: number) => (items === null ? '-' : <CountUp value={n} format={unit(t('campaign.unit.cases'))} />);
 
   return (
     <div className="cp-wrap">
@@ -165,15 +171,20 @@ function Body() {
       </div>
 
       <section className="cp-kpis cp-card" aria-label={t('campaign.list.kpiLabel')} data-guide="campaigns-kpis">
-        <div className="cp-kpi"><span>{t('campaign.status.scheduled')}</span><b className="num"><CountUp value={scheduled} format={unit(t('campaign.unit.cases'))} /></b><em>{t('campaign.list.kpiCancelable')}</em></div>
-        <div className="cp-kpi"><span>{t('campaign.list.kpiMonth')}</span><b className="num"><CountUp value={sentThisMonth} format={unit(t('campaign.unit.cases'))} /></b><em>{t('campaign.list.kpiMonthNote')}</em></div>
-        <div className="cp-kpi"><span>{t('campaign.list.kpiTotal')}</span><b className="num"><CountUp value={total} format={unit(t('campaign.unit.cases'))} /></b><em>{t('campaign.list.kpiTotalNote')}</em></div>
+        <div className="cp-kpi"><span>{t('campaign.status.scheduled')}</span><b className="num">{kpi(scheduled)}</b><em>{t('campaign.list.kpiCancelable')}</em></div>
+        <div className="cp-kpi"><span>{t('campaign.list.kpiMonth')}</span><b className="num">{kpi(sentThisMonth)}</b><em>{t('campaign.list.kpiMonthNote')}</em></div>
+        <div className="cp-kpi"><span>{t('campaign.list.kpiTotal')}</span><b className="num">{kpi(total)}</b><em>{t('campaign.list.kpiTotalNote')}</em></div>
         <div className="cp-kpi"><span>{t('campaign.list.kpiResult')}</span><b style={{ fontSize: 16, paddingTop: 8 }}><AppLink href="/analytics" style={{ color: '#7A4450' }}>{t('campaign.list.kpiResultLink')}</AppLink></b><em>{t('campaign.list.kpiResultNote')}</em></div>
       </section>
 
-      {listError ? (
-        <div className="cp-warn" role="alert">{listError}</div>
-      ) : (
+      {listError && (
+        <div className="cp-warn" role="alert">
+          {listError}{' '}
+          <button type="button" className="cp-lk" onClick={retry}>{t('common.retry')}</button>
+        </div>
+      )}
+      {/* 한 번이라도 받은 목록은 오류 중에도 남겨 두고, 자동 새로고침이 성공하면 오류를 지운다 */}
+      {listError && items === null ? null : (
         <div className="cp-grid">
           <section className="cp-card cp-list" aria-label={t('campaign.list.listTitle')} data-guide="campaigns-list">
             <h2>{t('campaign.list.listTitle')}</h2>
@@ -200,8 +211,11 @@ function Body() {
                 {t('campaign.list.stepHint')}{' '}
                 <AppLink href="/campaigns/new" style={{ color: '#7A4450', fontWeight: 600 }}>{t('campaign.list.newLink')}</AppLink>
               </div>
-            ) : detailError ? (
-              <div className="cp-warn" role="alert">{detailError}</div>
+            ) : shownError ? (
+              <div className="cp-warn" role="alert">
+                {shownError}{' '}
+                <button type="button" className="cp-lk" onClick={retry}>{t('common.retry')}</button>
+              </div>
             ) : shown ? (
               <div className="kp-slide cp-main-in" key={shown.id} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
                 <Summary campaign={shown} onChanged={() => setVersion((v) => v + 1)} />
