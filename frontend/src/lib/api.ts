@@ -2,6 +2,7 @@
 // 오류 code별 화면 동작은 docs ARCHITECTURE 4장 「API 호출 규칙」, 오류 모양은 CONTRACTS 2장을 따른다.
 
 import { errorText } from './i18n.ts';
+import { trackLoading } from './loading.ts';
 
 // CSRF: Spring Security SPA 방식(csrf.spa()) 기본값으로 가정한다. 백엔드 #3에서 확정되면 이 두 값만 맞춘다.
 export const CSRF_COOKIE = 'XSRF-TOKEN';
@@ -69,7 +70,8 @@ export type ApiOptions = { method?: Method; body?: unknown; silent?: boolean };
  * - `csrf_invalid`는 한 번만 다시 보낸다: 처음 접속해 CSRF 쿠키가 없으면 첫 POST가 거부되고, 그 응답에 쿠키가 내려온다 (서버가 처리 전에 거부한 요청이라 다시 보내도 안전)
  */
 export function api<T>(path: string, options: ApiOptions = {}): Promise<T> {
-  return request<T>(path, options, false);
+  const result = request<T>(path, options, false);
+  return (options.method ?? 'GET') === 'GET' ? trackLoading(result) : result; // 로딩 화면이 조회 수를 읽는다
 }
 
 /** 목록의 앞에서부터 count건 (silent). size는 최대 100이라 넘으면 다음 페이지를 이어 받는다. 「더 보기」 · 다시 받기용 */

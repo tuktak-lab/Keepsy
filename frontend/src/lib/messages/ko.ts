@@ -126,6 +126,7 @@ export const ko = {
 
   // 대시보드 · 재방문 관리(prediction)
   'common.loading': '불러오는 중…',
+  'common.pleaseWait': '잠시만 기다려주세요',
   'common.persons': '{n}명',
   'common.consent': '수신 동의',
   'common.noConsent': '수신 미동의',

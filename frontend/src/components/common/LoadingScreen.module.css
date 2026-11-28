@@ -1,0 +1,180 @@
+/* 매장 화면 첫 로딩 (LoadingScreen.tsx). 색은 소개 화면과 같은 로즈 · 와인 계열. */
+.screen {
+  position: fixed;
+  inset: 0;
+  z-index: 950; /* 모달(900) 위, PIN 입력 창(1000) 아래 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background:
+    radial-gradient(70% 55% at 50% 50%, rgba(255, 253, 249, 0.9), transparent 75%),
+    linear-gradient(160deg, #fdf9f3 0%, #fcefed 50%, #f7e0e4 100%);
+  /* 0.7초 안에 걷히면 보이지 않는다. 숨은 동안은 누르기를 막지 않는다. 20초가 지나면 스크립트 없이도 걷는다 */
+  animation:
+    appear 300ms ease 700ms both,
+    giveup 300ms ease 20s forwards;
+}
+
+.leaving {
+  animation: leave 500ms ease forwards;
+  pointer-events: none;
+}
+
+@keyframes appear {
+  from {
+    opacity: 0;
+    visibility: hidden;
+  }
+  to {
+    opacity: 1;
+    visibility: visible;
+  }
+}
+@keyframes giveup {
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+@keyframes leave {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
+/* ── 위 · 아래 유리 리본 ── */
+.ribbon {
+  position: absolute;
+  left: -4%;
+  width: 108%;
+  height: clamp(130px, 28%, 270px);
+  pointer-events: none;
+}
+.top {
+  top: 0;
+}
+.bottom {
+  bottom: 0;
+  transform: rotate(180deg);
+}
+.ribbon svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  animation: drift 13s ease-in-out infinite;
+}
+.bottom svg {
+  animation-duration: 15s;
+}
+
+/* ── 중앙 ── */
+.center {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: min(380px, 76%);
+  text-align: center;
+}
+
+.title {
+  margin: 0;
+  padding-left: 0.34em; /* 마지막 글자 뒤 자간만큼 가운데를 맞춘다 */
+  font: 500 clamp(24px, 6vw, 34px) / 1.2 'Playfair Display', 'Noto Serif KR', serif;
+  letter-spacing: 0.34em;
+  white-space: nowrap;
+  color: #6a2b3b;
+  animation: breathe 2.8s ease-in-out infinite;
+}
+
+.sub {
+  margin: 0;
+  font: 400 14px / 1.6 'Noto Sans KR', sans-serif;
+  letter-spacing: 0.04em;
+  word-break: keep-all;
+  color: #85606a;
+}
+
+/* ── 진행 막대 ── */
+.track {
+  position: relative;
+  width: 100%;
+  height: 4px;
+  margin-top: 18px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #f5d9de;
+}
+
+.fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #6f2f40 0%, #a65b6c 60%, #dc9dab 100%);
+  transition: width 400ms ease;
+}
+
+.spark {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 48px;
+  height: 100%;
+  background: radial-gradient(closest-side, #fff, rgba(255, 255, 255, 0));
+  animation: sweep 2.2s ease-in-out infinite alternate;
+}
+
+@keyframes drift {
+  0%,
+  100% {
+    transform: translate3d(-1.4%, 0, 0) scaleY(1);
+  }
+  50% {
+    transform: translate3d(1.4%, 6px, 0) scaleY(1.07);
+  }
+}
+
+@keyframes breathe {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.66;
+  }
+}
+
+@keyframes sweep {
+  from {
+    left: -12px;
+  }
+  to {
+    left: calc(100% - 36px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ribbon svg,
+  .title,
+  .spark {
+    animation: none;
+  }
+  .spark {
+    display: none;
+  }
+  .fill {
+    transition: none;
+  }
+  /* 공통 규칙(styles/base.css)이 지연을 0으로 만들어, 보이기 전 지연은 되돌린다 */
+  :root .screen {
+    animation-delay: 700ms, 20s !important;
+  }
+  :root .screen.leaving {
+    animation-delay: 0ms !important;
+  }
+}

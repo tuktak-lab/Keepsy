@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import '@/styles/base.css';
 import { ClientEffects } from '@/components/common/ClientEffects';
+import { LoadingScreen } from '@/components/common/LoadingScreen';
 import { LocaleRoot } from '@/components/common/LocaleRoot';
 import { LOCALE_PENDING_ATTR, LOCALE_STORAGE_KEY, LOCALES } from '@/lib/i18n';
 
@@ -33,6 +34,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <body>
         {/* 맨 위로 버튼 · 토스트 · PIN 창도 저장된 언어로 다시 그려지도록 LocaleRoot 안에 둔다 */}
         <LocaleRoot>
+          {/* children보다 앞에 둔다: 화면의 조회가 시작되기 전에 세기 시작한다 */}
+          <LoadingScreen />
           {children}
           <ClientEffects />
         </LocaleRoot>
