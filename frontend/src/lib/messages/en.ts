@@ -170,7 +170,7 @@ export const en: Record<MessageKey, string> = {
   'dashboard.locked.button': 'Enter PIN',
   'dashboard.locked.insights': 'Insights',
   'dashboard.locked.campaigns': 'Campaign list · results',
-  'dashboard.failed': 'Could not load. Please refresh in a moment.',
+  'dashboard.failed': 'Could not load.',
   'dashboard.hero.line1': 'Turn every customer\'s record into a chance to come back,',
   'dashboard.hero.line2': 'and every return into results for your shop.',
   'dashboard.hero.lead': 'May today bring you closer to your customers.',

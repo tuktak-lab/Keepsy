@@ -91,7 +91,23 @@ export default function DashboardPage() {
   // 카드별 불러오기 실패 (#346). 실패를 삼키지 않고 그 카드에 「불러오지 못함」을 보인다
   const [failed, setFailed] = useState<Record<string, boolean>>({});
   const markFailed = (key: string) => setFailed((f) => ({ ...f, [key]: true }));
-  const loadingText = (key: string) => (failed[key] ? t('dashboard.failed') : t('common.loading'));
+  // 「다시 시도」를 누르면 실패 표시를 지우고 카드를 모두 다시 받는다 (#487)
+  const [reload, setReload] = useState(0);
+  const retry = () => {
+    setFailed({});
+    setReload((n) => n + 1);
+  };
+  const loadingText = (key: string) =>
+    failed[key] ? (
+      <>
+        {t('dashboard.failed')}{' '}
+        <button type="button" className="btn btn-sm" onClick={retry}>
+          {t('common.retry')}
+        </button>
+      </>
+    ) : (
+      t('common.loading')
+    );
 
   // 첫 진입 시 도넛이 0에서 채워지도록 다음 프레임에 켭니다
   useEffect(() => {
@@ -105,7 +121,7 @@ export default function DashboardPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [reload]);
 
   useEffect(() => {
     if (!customerOpen) return;
@@ -114,7 +130,7 @@ export default function DashboardPage() {
     return () => {
       cancelled = true;
     };
-  }, [customerOpen]);
+  }, [customerOpen, reload]);
 
   useEffect(() => {
     if (!insightOpen) return;
@@ -126,7 +142,7 @@ export default function DashboardPage() {
     return () => {
       cancelled = true;
     };
-  }, [insightOpen]);
+  }, [insightOpen, reload]);
 
   useEffect(() => {
     if (!campaignOpen) return;
@@ -135,7 +151,7 @@ export default function DashboardPage() {
     return () => {
       cancelled = true;
     };
-  }, [campaignOpen]);
+  }, [campaignOpen, reload]);
 
   useEffect(() => {
     let cancelled = false;
@@ -143,7 +159,7 @@ export default function DashboardPage() {
     return () => {
       cancelled = true;
     };
-  }, [period]);
+  }, [period, reload]);
 
   const todayList = today?.today.filter((r) => isActive(r.status)) ?? null;
   const ch = channels?.period === period ? channels.value : null;
