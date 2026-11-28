@@ -2,6 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { errorText, intlLocale, isLocale, setLocale, t } from './i18n.ts';
+import { ko } from './messages/ko.ts';
 import { formatWon } from './format.ts';
 import { ApiError } from './api.ts';
 
@@ -33,6 +34,14 @@ test('formatWon · intlLocale: 언어별 금액 표기', () => {
   assert.equal(formatWon(58000), '58,000원');
   setLocale('en');
   assert.equal(formatWon(58000), '₩58,000');
+  setLocale('ko');
+});
+
+test('소개 화면의 영어 문구에는 한글이 남지 않는다', () => {
+  const keys = (Object.keys(ko) as (keyof typeof ko)[]).filter((k) => k.startsWith('landing.'));
+  assert.ok(keys.length > 90);
+  setLocale('en');
+  assert.deepEqual(keys.filter((k) => /[가-힣]/.test(t(k))), []);
   setLocale('ko');
 });
 
