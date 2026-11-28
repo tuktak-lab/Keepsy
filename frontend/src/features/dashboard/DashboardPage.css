@@ -100,6 +100,8 @@ a{color:inherit;text-decoration:none}a:hover{text-decoration:none}
 .kp-care{padding:20px 24px}
 .kp-care-row{display:flex;align-items:center;gap:14px;padding:14px 0;border-top:1px solid #F1E4E0}
 .kp-care-row:first-of-type{border-top:0}
+/* 오늘 관리할 고객: 버튼 · 문구 폭이 달라도 상태 태그가 한 줄로 서도록 오른쪽 칸 폭을 고정 */
+.kp-care-act{flex:0 0 150px;display:flex;justify-content:center;text-align:center}
 .kp-tag{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:500;padding:3px 10px;border-radius:999px;white-space:nowrap}
 .kp-btn{display:inline-flex;align-items:center;justify-content:center;height:36px;padding:0 16px;border-radius:999px;background:#FFFDFB;border:1px solid #EBD9D5;font-size:13px;color:#221D1B;white-space:nowrap}
 .kp-btn.p{background:#7A4450;border-color:#7A4450;color:#fff}

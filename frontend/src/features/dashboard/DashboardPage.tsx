@@ -476,11 +476,13 @@ export default function DashboardPage() {
                         </span>
                       </div>
                       {tab ? <span className="kp-tag" style={{ background: c.status === 'DUE' ? '#F5EBD3' : '#F4E0DC', color: c.status === 'DUE' ? '#6B4509' : '#8F2F2F' }}>{t(tab.labelKey)}</span> : null}
-                      {c.nextAction && c.nextAction !== 'REQUEST_CONSENT' ? (
-                        <AppLink href="/campaigns" className="kp-btn p">{nextActionLabel(c.nextAction)}</AppLink>
-                      ) : (
-                        <span style={{ fontSize: '12.5px', color: '#6B605B' }}>{c.nextAction ? nextActionLabel('REQUEST_CONSENT') : t('dashboard.care.noAction')}</span>
-                      )}
+                      <div className="kp-care-act">
+                        {c.nextAction && c.nextAction !== 'REQUEST_CONSENT' ? (
+                          <AppLink href="/campaigns" className="kp-btn p">{nextActionLabel(c.nextAction)}</AppLink>
+                        ) : (
+                          <span style={{ fontSize: '12.5px', color: '#6B605B' }}>{c.nextAction ? nextActionLabel('REQUEST_CONSENT') : t('dashboard.care.noAction')}</span>
+                        )}
+                      </div>
                     </div>
                   );
                 })}
