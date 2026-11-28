@@ -958,6 +958,7 @@ export const ko = {
   'campaign.new.metaLine': '{category} · 대상 {n}명 · 대조군 {control}명 ({percent}%)',
   'campaign.new.step4': '미리보기',
   'campaign.new.toSettings': '매장 설정으로 →',
+  'campaign.new.previewShopInfo': '광고 표기에 필요한 매장 전화번호와 수신 거부 번호를 매장 정보에 먼저 등록해 주세요.',
   'campaign.new.statSend': '발송',
   'campaign.new.statControl': '대조군 (보내지 않음)',
   'campaign.new.statCost': '예상 비용 (가상 단가)',

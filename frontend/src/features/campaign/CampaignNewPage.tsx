@@ -323,6 +323,7 @@ function SendStep({ id }: { id: number }) {
   const [preview, setPreview] = useState<Preview | null>(null);
   const [loadError, setLoadError] = useState('');
   const [previewError, setPreviewError] = useState('');
+  const [previewNeedsShop, setPreviewNeedsShop] = useState(false);
   const [pv, setPv] = useState(0);
   const [reviewed, setReviewed] = useState(false);
   const [mode, setMode] = useState<'now' | 'schedule'>('now');
@@ -343,7 +344,14 @@ function SendStep({ id }: { id: number }) {
       .catch((err) => alive && setLoadError(errorText(err)));
     api<Preview>(`/api/campaigns/${id}/preview?page=0&size=50`, { silent: true })
       .then((p) => alive && setPreview(p))
-      .catch((err) => alive && setPreviewError(errorText(err)));
+      .catch((err) => {
+        if (!alive) return;
+        // 미리보기의 409는 광고 표기에 필요한 매장 연락처가 비었을 때뿐이다 (CONTRACTS 6장 preview, F47).
+        // 서버 문구가 아니라 코드로 가른다: 영어 화면에서는 문구가 바뀌어 「매장 설정으로」 링크가 사라졌다
+        const needsShop = err instanceof ApiError && err.code === 'conflict';
+        setPreviewNeedsShop(needsShop);
+        setPreviewError(needsShop ? tr('campaign.new.previewShopInfo') : errorText(err));
+      });
     return () => {
       alive = false;
     };
@@ -424,7 +432,7 @@ function SendStep({ id }: { id: number }) {
         {previewError ? (
           <div className="cp-warn" role="alert">
             {previewError}
-            {previewError.includes('매장 정보') && (
+            {previewNeedsShop && (
               <>
                 {' '}
                 <AppLink href="/settings" style={{ color: '#8F2F2F', fontWeight: 600 }}>{tr('campaign.new.toSettings')}</AppLink>

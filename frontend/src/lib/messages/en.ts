@@ -958,6 +958,7 @@ export const en: Record<MessageKey, string> = {
   'campaign.new.metaLine': '{category} · {n} targets · {control} in control group ({percent}%)',
   'campaign.new.step4': 'Preview',
   'campaign.new.toSettings': 'Go to shop settings →',
+  'campaign.new.previewShopInfo': 'Add the shop phone number and opt-out number in shop settings first. They are required for the ad notice.',
   'campaign.new.statSend': 'To send',
   'campaign.new.statControl': 'Control group (not sent)',
   'campaign.new.statCost': 'Estimated cost (virtual unit price)',
