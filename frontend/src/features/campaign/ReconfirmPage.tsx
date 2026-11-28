@@ -3,7 +3,7 @@ import { useRouter } from 'next/navigation';
 import { AppLink } from '@/components/common/AppLink';
 import { PinGate } from '@/components/common/PinGate';
 import { toast } from '@/components/common/Toast';
-import { ApiError, api, type Page } from '@/lib/api';
+import { ApiError, api, apiFirst, type Page } from '@/lib/api';
 import { dueText } from '@/lib/consentReconfirm';
 import { intlLocale } from '@/lib/i18n';
 import { dotDate, seoulToday } from '@/lib/customerDetail';
@@ -53,7 +53,7 @@ function Body() {
   async function load(count: number) {
     setLoading(true);
     try {
-      const page = await api<Page<Row>>(`/api/consent-reconfirm-targets?page=0&size=${Math.min(count, 100)}`, { silent: true });
+      const page = await apiFirst<Row>('/api/consent-reconfirm-targets', count);
       setRows(page.items);
       setTotal(page.totalElements);
       setError('');
