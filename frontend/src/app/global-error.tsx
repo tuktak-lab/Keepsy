@@ -20,7 +20,7 @@ export default function GlobalError(props: { error: unknown; retry: () => void }
         />
       </head>
       <body>
-        <ErrorView error={props.error} retry={props.retry} />
+        <ErrorView error={props.error} />
       </body>
     </html>
   );
