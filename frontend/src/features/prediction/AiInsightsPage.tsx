@@ -39,17 +39,21 @@ export default function AiInsightsPage() {
   const [moreTab, setMoreTab] = useState<InsightStatus | null>(null); // 어느 탭이 더 불러오는 중인지 (탭을 바꿔도 다른 탭의 버튼은 막지 않는다)
   const [busyKey, setBusyKey] = useState('');
   const [showRule, setShowRule] = useState(false);
+  // 인원 · 목록 「다시 시도」를 누를 때마다 늘려 다시 받는다
+  const [countsError, setCountsError] = useState('');
+  const [countsTry, setCountsTry] = useState(0);
+  const [listTry, setListTry] = useState(0);
 
   // 탭마다 인원 (요약 카드 · 탭 숫자)
   useEffect(() => {
     let cancelled = false;
     Promise.all(STATUS_TABS.map((tb) => api<Page<Row>>(`/api/insights?status=${tb.status}&page=0&size=1`, { silent: true }).then((p) => [tb.status, p.totalElements] as const)))
-      .then((pairs) => !cancelled && setCounts(Object.fromEntries(pairs) as Record<InsightStatus, number>))
-      .catch(() => {});
+      .then((pairs) => !cancelled && (setCounts(Object.fromEntries(pairs) as Record<InsightStatus, number>), setCountsError('')))
+      .catch((err) => !cancelled && setCountsError(errorText(err)));
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [countsTry]);
 
   useEffect(() => {
     let cancelled = false;
@@ -59,7 +63,7 @@ export default function AiInsightsPage() {
     return () => {
       cancelled = true;
     };
-  }, [tab]);
+  }, [tab, listTry]);
 
   const cur = list?.tab === tab ? list : null;
   const total = counts ? STATUS_TABS.reduce((a, tb) => a + counts[tb.status], 0) : null;
@@ -127,6 +131,14 @@ export default function AiInsightsPage() {
             </div>
           ))}
         </section>
+        {countsError && (
+          <p className="meta" role="alert">
+            {t('prediction.loadFailed', { reason: countsError })}{' '}
+            <button type="button" className="btn btn-sm" onClick={() => setCountsTry((n) => n + 1)}>
+              {t('common.retry')}
+            </button>
+          </p>
+        )}
 
         <div className="col" style={{ gap: 12, minWidth: 0 }}>
           <div className="toolbar" data-guide="insights-tabs">
@@ -165,7 +177,12 @@ export default function AiInsightsPage() {
             {!cur ? (
               <p className="meta list-foot">{t('common.loading')}</p>
             ) : cur.error ? (
-              <p className="meta list-foot">{t('prediction.loadFailed', { reason: cur.error })}</p>
+              <p className="meta list-foot" role="alert">
+                {t('prediction.loadFailed', { reason: cur.error })}{' '}
+                <button type="button" className="btn btn-sm" onClick={() => (setList(null), setListTry((n) => n + 1))}>
+                  {t('common.retry')}
+                </button>
+              </p>
             ) : cur.rows.length === 0 ? (
               <p className="meta list-foot">{t('prediction.empty')}</p>
             ) : (

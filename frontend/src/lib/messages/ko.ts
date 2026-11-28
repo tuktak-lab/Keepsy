@@ -170,7 +170,7 @@ export const ko = {
   'dashboard.locked.button': 'PIN 입력',
   'dashboard.locked.insights': '인사이트',
   'dashboard.locked.campaigns': '캠페인 목록 · 결과 조회',
-  'dashboard.failed': '불러오지 못했어요. 잠시 후 새로고침해 주세요.',
+  'dashboard.failed': '불러오지 못했어요.',
   'dashboard.hero.line1': '고객의 기록을 재방문의 기회로,',
   'dashboard.hero.line2': '재방문의 기회를 매장의 성과로.',
   'dashboard.hero.lead': '오늘도 고객과 더 가까워지는 하루가 되길 바라요.',

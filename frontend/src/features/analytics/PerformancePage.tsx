@@ -63,7 +63,12 @@ function Body() {
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const query = periodQuery(period, from, to);
-  const [stats, setStats] = useState<{ q: string; summary?: Summary; accuracy?: Accuracy; error?: string } | null>(null);
+  // 요약 · 예측 정확도는 따로 받는다. 정확도만 실패해도 매출 · 방문 · 신규 고객은 보인다 (#487)
+  const [summaryRes, setSummaryRes] = useState<{ q: string; value?: Summary; error?: string } | null>(null);
+  const [accuracyRes, setAccuracyRes] = useState<{ q: string; value?: Accuracy; error?: string } | null>(null);
+  // 「다시 시도」나 같은 기간을 다시 누를 때마다 늘려 기간 지표 · 캠페인을 다시 받는다
+  const [reload, setReload] = useState(0);
+  const [controlTry, setControlTry] = useState(0);
   const [campRes, setCampRes] = useState<{ q: string; data?: Campaigns; error?: string } | null>(null);
   const [sel, setSel] = useState<number | 'all'>('all');
   const [control, setControl] = useState<{ id: number; value?: Control; error?: string } | null>(null);
@@ -80,11 +85,14 @@ function Body() {
   useEffect(() => {
     if (!query) return;
     let cancelled = false;
-    Promise.all([api<Summary>(`/api/analytics/summary?${query}`, { silent: true }), api<Accuracy>(`/api/analytics/prediction-accuracy?${query}`, { silent: true })])
-      .then(([summary, accuracy]) => !cancelled && setStats({ q: query, summary, accuracy }))
-      .catch((err) => !cancelled && setStats({ q: query, error: errorText(err) }));
+    api<Summary>(`/api/analytics/summary?${query}`, { silent: true })
+      .then((value) => !cancelled && setSummaryRes({ q: query, value }))
+      .catch((err) => !cancelled && setSummaryRes({ q: query, error: errorText(err) }));
+    api<Accuracy>(`/api/analytics/prediction-accuracy?${query}`, { silent: true })
+      .then((value) => !cancelled && setAccuracyRes({ q: query, value }))
+      .catch((err) => !cancelled && setAccuracyRes({ q: query, error: errorText(err) }));
     return () => { cancelled = true; };
-  }, [query]);
+  }, [query, reload]);
 
   // 기간 안에 발송한 캠페인의 퍼널 · 연결 매출과 전체 합계 (FR-ANL-01 · 02)
   useEffect(() => {
@@ -94,7 +102,7 @@ function Body() {
       .then((data) => !cancelled && setCampRes({ q: query, data }))
       .catch((err) => !cancelled && setCampRes({ q: query, error: errorText(err) }));
     return () => { cancelled = true; };
-  }, [query]);
+  }, [query, reload]);
 
   // 고른 캠페인의 대조군 비교 (FR-ANL-09)
   useEffect(() => {
@@ -104,9 +112,19 @@ function Body() {
       .then((value) => !cancelled && setControl({ id: sel, value }))
       .catch((err) => !cancelled && setControl({ id: sel, error: errorText(err) }));
     return () => { cancelled = true; };
-  }, [sel]);
+  }, [sel, controlTry]);
 
-  const cur = stats && stats.q === query ? stats : null;
+  const sum = summaryRes && summaryRes.q === query ? summaryRes : null;
+  const acc = accuracyRes && accuracyRes.q === query ? accuracyRes : null;
+  function retry() {
+    setSummaryRes(null);
+    setAccuracyRes(null);
+    setCampRes(null);
+    setReload((n) => n + 1);
+  }
+  const retryBtn = (onClick: () => void) => (
+    <button type="button" className="btn btn-sm" onClick={onClick}>{t('common.retry')}</button>
+  );
   const campCur = campRes && campRes.q === query ? campRes : null;
   const camps = campCur?.data?.items;
   // 기간을 바꿔 고른 캠페인이 목록에서 빠졌으면 「전체」로 본다
@@ -127,7 +145,7 @@ function Body() {
         <h1 className="pf-h1">{t('shell.nav.performance')}</h1>
         <div className="pf-seg" role="group" aria-label={t('dashboard.channels.period')}>
           {PERIODS.map(([p, label]) => (
-            <button type="button" key={p} aria-pressed={period === p} onClick={() => setPeriod(p)}>{t(label)}</button>
+            <button type="button" key={p} aria-pressed={period === p} onClick={() => (p === period ? retry() : setPeriod(p))}>{t(label)}</button>
           ))}
         </div>
         <p className="pf-sub">{t('analytics.sub')}</p>
@@ -144,21 +162,30 @@ function Body() {
       <section className="pf-kpis pf-card" aria-label={t('analytics.kpiLabel')} data-guide="analytics-kpis">
         {!query ? (
           <p className="pf-note" style={{ padding: '12px 24px' }}>{t('analytics.pickDates')}</p>
-        ) : cur?.error ? (
-          <p className="pf-note" style={{ padding: '12px 24px' }}>{t('prediction.loadFailed', { reason: cur.error })}</p>
-        ) : !cur?.summary || !cur.accuracy ? (
+        ) : sum?.error ? (
+          <p className="pf-note" role="alert" style={{ padding: '12px 24px' }}>{t('prediction.loadFailed', { reason: sum.error })} {retryBtn(retry)}</p>
+        ) : !sum?.value || !acc ? (
           <p className="pf-note" style={{ padding: '12px 24px' }}>{t('common.loading')}</p>
         ) : (
           <>
-            <div className="pf-kpi"><span>{t('analytics.revenue')}</span><b className="num"><CountUp value={cur.summary.revenue} format={formatWon} /></b><em className="num">{cur.summary.from} ~ {cur.summary.to}</em></div>
-            <div className="pf-kpi"><span>{t('analytics.visits')}</span><b className="num"><CountUp value={cur.summary.visitCount} format={unit(t('campaign.unit.cases'))} /></b><em>{t('analytics.excludeImported')}</em></div>
-            <div className="pf-kpi"><span>{t('analytics.newCustomers')}</span><b className="num"><CountUp value={cur.summary.newCustomerCount} format={unit(t('campaign.unit.persons'))} /></b><em>{t('analytics.byFirstVisit')}</em></div>
+            <div className="pf-kpi"><span>{t('analytics.revenue')}</span><b className="num"><CountUp value={sum.value.revenue} format={formatWon} /></b><em className="num">{sum.value.from} ~ {sum.value.to}</em></div>
+            <div className="pf-kpi"><span>{t('analytics.visits')}</span><b className="num"><CountUp value={sum.value.visitCount} format={unit(t('campaign.unit.cases'))} /></b><em>{t('analytics.excludeImported')}</em></div>
+            <div className="pf-kpi"><span>{t('analytics.newCustomers')}</span><b className="num"><CountUp value={sum.value.newCustomerCount} format={unit(t('campaign.unit.persons'))} /></b><em>{t('analytics.byFirstVisit')}</em></div>
             <div className="pf-kpi">
               <span>{t('analytics.hitRate')}</span>
-              <b className="num">{rateText(cur.accuracy.hitCount, cur.accuracy.evaluatedCount) ?? '-'}</b>
-              <em className="num">
-                {t('analytics.accuracyLine', { n: cur.accuracy.evaluatedCount, err: cur.accuracy.averageErrorDays === null ? '-' : t('customer.summary.days', { n: cur.accuracy.averageErrorDays }) })}
-              </em>
+              {acc.value ? (
+                <>
+                  <b className="num">{rateText(acc.value.hitCount, acc.value.evaluatedCount) ?? '-'}</b>
+                  <em className="num">
+                    {t('analytics.accuracyLine', { n: acc.value.evaluatedCount, err: acc.value.averageErrorDays === null ? '-' : t('customer.summary.days', { n: acc.value.averageErrorDays }) })}
+                  </em>
+                </>
+              ) : (
+                <>
+                  <b className="num">-</b>
+                  <em role="alert">{t('prediction.loadFailed', { reason: acc.error ?? '' })} {retryBtn(retry)}</em>
+                </>
+              )}
             </div>
           </>
         )}
@@ -169,13 +196,15 @@ function Body() {
           <h2>{t('analytics.cycleTitle')}</h2>
           <span className="pf-note">{t('analytics.cycleNote')}</span>
         </div>
-        {!cur?.summary ? (
+        {sum?.error ? (
+          <p className="pf-note">{t('prediction.loadFailed', { reason: sum.error })} {retryBtn(retry)}</p>
+        ) : !sum?.value ? (
           <p className="pf-note">{t('common.loading')}</p>
-        ) : !cur.summary.cycleRevisits ? (
+        ) : !sum.value.cycleRevisits ? (
           <p className="pf-note">{t('analytics.cyclePreparing')}</p>
         ) : (
           <div>
-            {cur.summary.cycleRevisits.map((r) => {
+            {sum.value.cycleRevisits.map((r) => {
               const rate = rateText(r.revisitedCount, r.endedCount);
               return (
                 <div className="pf-frow" key={r.category} style={{ gridTemplateColumns: '110px 1fr 60px 84px' }} onMouseEnter={() => setHover('r' + r.category)} onMouseLeave={() => setHover('')}>
@@ -205,7 +234,7 @@ function Body() {
       {!query ? (
         <p className="pf-note">{t('analytics.pickPeriod')}</p>
       ) : campCur?.error ? (
-        <p className="pf-note">{t('analytics.campFailed', { reason: campCur.error })}</p>
+        <p className="pf-note" role="alert">{t('analytics.campFailed', { reason: campCur.error })} {retryBtn(retry)}</p>
       ) : !camps || !campCur?.data ? (
         <p className="pf-note">{t('common.loading')}</p>
       ) : camps.length === 0 ? (
@@ -241,7 +270,7 @@ function Body() {
               ) : !ctrl ? (
                 <p className="pf-note">{t('common.loading')}</p>
               ) : ctrl.error || !ctrl.value ? (
-                <p className="pf-note">{t('prediction.loadFailed', { reason: ctrl.error ?? '' })}</p>
+                <p className="pf-note">{t('prediction.loadFailed', { reason: ctrl.error ?? '' })} {retryBtn(() => (setControl(null), setControlTry((n) => n + 1)))}</p>
               ) : ctrl.value.controlCount === 0 ? (
                 <p className="pf-note">{t('campaign.detail.noControl')}</p>
               ) : (
