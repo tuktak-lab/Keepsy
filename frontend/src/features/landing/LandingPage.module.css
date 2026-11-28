@@ -114,11 +114,15 @@
   padding: 0 30px;
   font-size: 16px;
   color: var(--wine);
-  background: transparent;
-  border: 1px solid var(--wine);
+  background: rgba(255, 255, 255, 0.36);
+  border: 1px solid rgba(122, 68, 80, 0.26);
+  box-shadow:
+    inset 0 1px 0 #fff,
+    0 10px 24px -14px rgba(122, 68, 80, 0.45);
+  backdrop-filter: blur(14px); /* -webkit- 은 빌드가 붙인다. 같이 적으면 표준 속성이 빠진다 */
 }
 .secondary:hover {
-  background: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.62);
 }
 
 .primary:active,
@@ -159,7 +163,7 @@
 .heroTitle .heroLogo {
   display: block;
   height: clamp(72px, 8.6vw, 124px);
-  margin: 2px 0 0 -6px;
+  margin: clamp(20px, 2.4vw, 34px) 0 0 -6px; /* 제목 글자와 큰 로고 사이 */
 }
 
 .heroSub {
@@ -417,6 +421,9 @@
 
 /* ── 기능 탭 ── */
 .tabs {
+  --tab-on:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0) 40%),
+    linear-gradient(180deg, rgba(137, 79, 94, 0.88), rgba(126, 70, 86, 0.9));
   display: inline-flex;
   flex-wrap: wrap;
   justify-content: center;
@@ -449,8 +456,20 @@
   color: var(--wine);
 }
 .tabOn {
-  background: var(--wine-grad);
+  background: var(--tab-on);
   color: #fff;
+}
+/* 미끄러지는 선택 배경(motion.ts의 .kp-ind): 반투명 와인 유리. 흰 글자 대비(4.5:1)를 지키는 선에서 연하게 한다 */
+:root .tabs > :global(.kp-ind) {
+  box-sizing: border-box;
+  background: var(--tab-on);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.22),
+    0 0 0 1px rgba(122, 68, 80, 0.16),
+    0 10px 20px -10px rgba(122, 68, 80, 0.6);
+  backdrop-filter: blur(12px) saturate(1.4);
 }
 
 .feature {
@@ -460,6 +479,21 @@
   gap: 80px;
   margin-top: 64px;
   text-align: left;
+}
+
+/* 탭을 바꾸면 설명 → 미리보기 순서로 아래에서 살짝 올라오며 나타난다.
+   backwards: 끝난 뒤에는 값을 붙잡지 않아 미리보기의 hover 이동이 그대로 먹는다. 움직임 줄이기는 base.css가 즉시 끝낸다 */
+.feature > * {
+  animation: featureIn 0.42s var(--ease) backwards;
+}
+.feature > * + * {
+  animation-delay: 90ms;
+}
+@keyframes featureIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
 }
 
 .featureText h3 {
@@ -532,7 +566,6 @@
     0 1px 2px rgba(150, 90, 100, 0.06),
     0 26px 50px -22px rgba(150, 90, 100, 0.38);
   backdrop-filter: blur(30px) saturate(1.6);
-  -webkit-backdrop-filter: blur(30px) saturate(1.6);
   transition:
     transform 0.35s var(--ease),
     box-shadow 0.35s var(--ease);
@@ -611,6 +644,20 @@
   opacity: 1;
   transform: none;
 }
+/* 같은 등장을 FAQ 밖의 요소에: animation(backwards)이라 끝난 뒤 값을 붙잡지 않아 카드의 hover 이동과 전환이 그대로다 */
+.rise {
+  opacity: 0;
+}
+.revealOn .rise {
+  opacity: 1;
+  animation: rise 0.6s ease-out calc(var(--i, 0) * 90ms) backwards;
+}
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+}
 
 .faqItem {
   border-radius: 20px;
@@ -624,7 +671,6 @@
     inset 0 -1px 0 rgba(255, 255, 255, 0.25),
     0 20px 40px -24px rgba(150, 90, 100, 0.36);
   backdrop-filter: blur(30px) saturate(1.6);
-  -webkit-backdrop-filter: blur(30px) saturate(1.6);
   overflow: hidden;
   transition:
     opacity 0.6s ease-out calc(var(--i, 0) * 90ms),
@@ -722,6 +768,11 @@
     opacity: 1;
     transform: none;
     transition: none;
+  }
+  .rise,
+  .revealOn .rise {
+    opacity: 1;
+    animation: none;
   }
   .faqBody,
   .faqItem[data-open='true'] .faqBody,
