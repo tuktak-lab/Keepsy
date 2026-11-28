@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { AppLink } from '@/components/common/AppLink';
 import { toast } from '@/components/common/Toast';
-import { api, ApiError, type Page } from '@/lib/api';
+import { api, ApiError, apiFirst, type Page } from '@/lib/api';
 import { dotDate, seoulToday } from '@/lib/customerDetail';
 import { BASE_KIND_LABEL, elapsedText, type RetentionBaseKind } from '@/lib/retention';
 import styles from './RetentionPage.module.css';
@@ -30,7 +30,7 @@ export default function RetentionPage() {
   async function load(count: number) {
     setLoading(true);
     try {
-      const page = await api<Page<Row>>(`/api/customers/retention-expired?page=0&size=${Math.min(count, 100)}`, { silent: true });
+      const page = await apiFirst<Row>('/api/customers/retention-expired', count);
       setRows(page.items);
       setTotal(page.totalElements);
       setError('');

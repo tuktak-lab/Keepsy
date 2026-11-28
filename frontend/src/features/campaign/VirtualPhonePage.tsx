@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { AppLink } from "@/components/common/AppLink";
 import { toast } from "@/components/common/Toast";
-import { api, ApiError, type Page } from "@/lib/api";
+import { api, ApiError, apiFirst } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
 import { MESSAGE_KIND_LABEL, normalizePhone } from "@/lib/virtualPhone";
 import styles from "./VirtualPhonePage.module.css";
@@ -48,9 +48,9 @@ export default function VirtualPhonePage() {
     setLoading(true);
     setError("");
     try {
-      const page = await api<Page<InboxItem>>(
-        `/api/virtual-phone/messages?phone=${encodeURIComponent(target)}&page=0&size=${Math.min(count, 100)}`,
-        { silent: true },
+      const page = await apiFirst<InboxItem>(
+        `/api/virtual-phone/messages?phone=${encodeURIComponent(target)}`,
+        count,
       );
       setPhone(target);
       setItems(page.items);

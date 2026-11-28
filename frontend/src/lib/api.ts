@@ -72,6 +72,19 @@ export function api<T>(path: string, options: ApiOptions = {}): Promise<T> {
   return request<T>(path, options, false);
 }
 
+/** 목록의 앞에서부터 count건 (silent). size는 최대 100이라 넘으면 다음 페이지를 이어 받는다. 「더 보기」 · 다시 받기용 */
+export async function apiFirst<T>(path: string, count: number): Promise<Page<T>> {
+  const size = Math.min(count, 100);
+  const sep = path.includes('?') ? '&' : '?';
+  const items: T[] = [];
+  // shortcut: 페이지를 받는 사이 목록이 바뀌면 경계에서 한 건이 겹치거나 빠질 수 있다. 서버에 커서 페이징이 생기면 바꾼다
+  for (let page = 0; ; page++) {
+    const res = await api<Page<T>>(`${path}${sep}page=${page}&size=${size}`, { silent: true });
+    items.push(...res.items);
+    if (res.items.length === 0 || items.length >= Math.min(count, res.totalElements)) return { ...res, items: items.slice(0, count) };
+  }
+}
+
 async function request<T>(path: string, options: ApiOptions, csrfRetried: boolean): Promise<T> {
   const method = options.method ?? 'GET';
   let res: Response;

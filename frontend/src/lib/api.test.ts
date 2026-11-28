@@ -1,7 +1,7 @@
 // 실행: npm test (Node 내장 테스트 러너, Node 24가 .ts를 바로 실행)
 import { test, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { api, ApiError, configureApi, CSRF_HEADER, type PinPrompt } from './api.ts';
+import { api, ApiError, apiFirst, configureApi, CSRF_HEADER, type PinPrompt } from './api.ts';
 import { formatDateTime } from './format.ts';
 
 type Call = { url: string; init: RequestInit };
@@ -49,6 +49,26 @@ test('성공 응답은 JSON으로 돌려주고, 빈 응답은 undefined', async 
   assert.deepEqual(await api('/api/customers?page=0&size=20'), { items: [], page: 0, size: 20, totalElements: 0 });
   responses.push(new Response(null, { status: 204 }));
   assert.equal(await api('/api/session', { method: 'DELETE' }), undefined);
+});
+
+test('apiFirst는 100건을 넘으면 다음 페이지를 이어 받는다', async () => {
+  const page = (from: number, n: number) =>
+    new Response(JSON.stringify({ items: Array.from({ length: n }, (_, i) => from + i), page: 0, size: 100, totalElements: 150 }));
+  responses.push(page(0, 100), page(100, 50));
+  const got = await apiFirst<number>('/api/x?phone=1', 170);
+  assert.deepEqual(calls.map((c) => c.url), ['/api/x?phone=1&page=0&size=100', '/api/x?phone=1&page=1&size=100']);
+  assert.equal(got.items.length, 150);
+  assert.equal(got.items[149], 149);
+
+  calls = [];
+  responses.push(page(0, 100), page(100, 50));
+  assert.equal((await apiFirst<number>('/api/x', 120)).items.length, 120);
+  assert.equal(calls[1].url, '/api/x?page=1&size=100');
+
+  calls = [];
+  responses.push(page(0, 40));
+  assert.equal((await apiFirst<number>('/api/x', 40)).items.length, 40);
+  assert.deepEqual(calls.map((c) => c.url), ['/api/x?page=0&size=40']);
 });
 
 test('같은 출처 /api 호출, 세션 쿠키 포함', async () => {
