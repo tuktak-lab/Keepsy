@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import Link from 'next/link';
 import logoImg from '@/assets/images/keepsy-logo-thin.png';
 import { ChevronIcon } from '@/features/account/AuthFields';
 import auth from '@/features/account/AuthPage.module.css';
@@ -10,7 +11,7 @@ import { t } from '@/lib/i18n';
 // 화면 오류(error boundary) 공통 화면 (#407). app/error.tsx · app/(shop)/error.tsx · app/global-error.tsx가 쓴다.
 // 로그인 · 404 화면과 같은 유리 카드 + 와인 패널. 오류 내용(메시지 · 스택)은 화면에 보여 주지 않는다.
 // inShell: 매장 화면 안(사이드바 · 상단바는 그대로)에서는 로고 없이 카드만 본문 자리에 그린다.
-// 버튼 · 링크 모두 페이지를 새로 불러온다. 화면 안 이동(Link)이나 같은 코드로 다시 그리기(retry)로는
+// [다시 시도] · [대시보드로 가기]는 페이지를 새로 불러온다 (로고는 다른 주소인 소개 화면으로 가서 Link로 충분). 화면 안 이동(Link)이나 같은 코드로 다시 그리기(retry)로는
 // 레이아웃 · 모듈에서 난 오류가 그대로 남거나, 같은 주소(예: 대시보드)에서 난 오류면 아무 일도 일어나지 않는다.
 export function ErrorView(props: { error: unknown; inShell?: boolean }) {
   const { error } = props;
@@ -61,9 +62,9 @@ export function ErrorView(props: { error: unknown; inShell?: boolean }) {
 
   return (
     <main className={auth.page}>
-      <a href="/" className={`${auth.logo} ${styles.plain}`} aria-label={t('common.logoLabel')}>
+      <Link href="/" className={`${auth.logo} ${styles.plain}`} aria-label={t('common.logoLabel')}>
         <img src={logoImg.src} alt="Keepsy" />
-      </a>
+      </Link>
       {card}
     </main>
   );
