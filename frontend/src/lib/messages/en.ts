@@ -383,7 +383,7 @@ export const en: Record<MessageKey, string> = {
   'reservation.closing.toDetail': '‹ Back to booking',
   'reservation.closing.cardLabel': 'Treatment closing card',
   'reservation.closing.cannotClose': 'Canceled and no-show bookings cannot be closed.',
-  'reservation.closing.cardFailed': 'Could not load the closing card. Please reopen it in a moment.',
+  'reservation.closing.cardFailed': 'Could not load the closing card.',
   'reservation.closing.extraPaymentIs': 'The extra payment',
   'reservation.closing.closingIs': 'The closing',
   'reservation.closing.savedBold': '{what} was saved.',

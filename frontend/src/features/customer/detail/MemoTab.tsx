@@ -20,7 +20,6 @@ export function MemoTab(props: { customerId: number }) {
     api<Page<ConsultNote>>(`/api/customers/${props.customerId}/consult-notes?size=100`, { silent: true }),
   );
   const notes = list.data?.items ?? null;
-  const error = actionError || (list.error ? errorText(list.error) : '');
   const load = list.reload;
 
   async function run(action: () => Promise<unknown>, done: string) {
@@ -69,7 +68,8 @@ export function MemoTab(props: { customerId: number }) {
           {t('customer.memo.saveBtn')}
         </button>
       </div>
-      <AreaError text={error} />
+      <AreaError text={actionError} />
+      <AreaError text={list.error ? errorText(list.error) : ''} onRetry={load} />
       {notes?.length === 0 && <p className="meta">{t('customer.memo.empty')}</p>}
       {notes?.map((n) => (
         <div className="consent col" key={n.noteId} style={{ gap: 6 }}>

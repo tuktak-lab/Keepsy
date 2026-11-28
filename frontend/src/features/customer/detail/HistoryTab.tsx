@@ -26,7 +26,7 @@ const MAX_BYTES = 10 * 1024 * 1024;
  */
 const shown = (e: React.SyntheticEvent<HTMLImageElement>) => e.currentTarget.classList.remove('kp-img-wait');
 
-export function HistoryTab(props: { customerId: number; photoAgreed: boolean }) {
+export function HistoryTab(props: { customerId: number; photoAgreed: boolean | null }) {
   const [actionError, setActionError] = useState('');
   const [gallery, setGallery] = useState(false);
   const [uploading, setUploading] = useState<number | null>(null);
@@ -42,8 +42,6 @@ export function HistoryTab(props: { customerId: number; photoAgreed: boolean }) 
   );
   const visits = history.data?.items ?? [];
   const total = history.data?.totalElements ?? 0;
-  const loaded = history.data !== null || history.error !== null;
-  const error = actionError || (history.error ? errorText(history.error) : '');
 
   function load(nextPages: number) {
     pages.current = nextPages;
@@ -116,13 +114,14 @@ export function HistoryTab(props: { customerId: number; photoAgreed: boolean }) 
           </button>
         </div>
       </div>
-      {!props.photoAgreed && <p className="meta">{t('customer.history.noPhotoConsent')}</p>}
-      <AreaError text={error} />
-      {loaded && visits.length === 0 && !error && <p className="meta">{t('customer.history.noVisits')}</p>}
+      {props.photoAgreed === false && <p className="meta">{t('customer.history.noPhotoConsent')}</p>}
+      <AreaError text={actionError} />
+      <AreaError text={history.error ? errorText(history.error) : ''} onRetry={history.reload} />
+      {history.data && visits.length === 0 && <p className="meta">{t('customer.history.noVisits')}</p>}
 
       {gallery ? (
         photos.length === 0 ? (
-          loaded && <p className="meta">{t('customer.history.noPhotos')}</p>
+          history.data && <p className="meta">{t('customer.history.noPhotos')}</p>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(140px,1fr))', gap: 12 }}>
             {photos.map((p) => (
@@ -221,7 +220,7 @@ export function HistoryTab(props: { customerId: number; photoAgreed: boolean }) 
           </button>
         )}
       </div>
-      <AreaError text={paymentsError} />
+      <AreaError text={paymentsError} onRetry={payments === null ? undefined : loadPayments} />
       {payments === null ? (
         <p className="meta">{t('payment.history.note')}</p>
       ) : (

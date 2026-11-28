@@ -20,7 +20,7 @@ export function MessagesTab(props: { customerId: number }) {
       <h2 className="h2" style={{ paddingBottom: 8 }}>
         {t('customer.messages.title')}
       </h2>
-      <AreaError text={error} />
+      <AreaError text={error} onRetry={messages.reload} />
       {items?.length === 0 && <p className="meta">{t('customer.messages.empty')}</p>}
       {items?.map((m) => (
         <div className="trow" key={m.messageId} style={{ gridTemplateColumns: '150px 1fr' }}>

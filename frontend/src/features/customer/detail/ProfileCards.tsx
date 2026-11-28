@@ -144,7 +144,7 @@ export function PreferenceCard(props: { customerId: number; detail: CustomerDeta
 }
 
 /** 시술 · 건강 주의사항. 건강 주의사항은 건강 정보 동의 고객만 쓸 수 있다 (서버가 consent_required) */
-export function CautionCard(props: { customerId: number; detail: CustomerDetail; healthAgreed: boolean; onSaved: () => Promise<void> }) {
+export function CautionCard(props: { customerId: number; detail: CustomerDetail; healthAgreed: boolean | null; onSaved: () => Promise<void> }) {
   const [editing, setEditing] = useState(false);
   const [service, setService] = useState('');
   const [health, setHealth] = useState('');
@@ -181,7 +181,8 @@ export function CautionCard(props: { customerId: number; detail: CustomerDetail;
     <section className="card col" style={{ gap: '10px' }}>
       <div className="row between">
         <h2 className="h2">{tr('customer.caution.title')}</h2>
-        {!editing && (
+        {/* 동의 상태를 모르면 고치지 못한다: 저장하면 건강 주의사항이 빈 값으로 덮인다 */}
+        {!editing && props.healthAgreed !== null && (
           <button type="button" className="lk" onClick={start}>
             {tr('customer.edit')}
           </button>
@@ -197,7 +198,7 @@ export function CautionCard(props: { customerId: number; detail: CustomerDetail;
       </div>
       <div className="pcard">
         <strong style={{ fontSize: '13px' }}>{tr('customer.caution.health')}</strong>
-        {!props.healthAgreed ? (
+        {props.healthAgreed === false ? (
           <span className="meta">{tr('customer.caution.needConsent')}</span>
         ) : editing ? (
           <textarea className="fld" rows={3} maxLength={1000} value={health} onChange={(e) => setHealth(e.target.value)} aria-label={tr('customer.caution.health')} />

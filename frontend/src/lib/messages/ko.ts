@@ -383,7 +383,7 @@ export const ko = {
   'reservation.closing.toDetail': '‹ 예약 상세로',
   'reservation.closing.cardLabel': '시술 마감 카드',
   'reservation.closing.cannotClose': '취소 · 노쇼한 예약은 시술 마감을 할 수 없어요.',
-  'reservation.closing.cardFailed': '시술 마감 카드를 불러오지 못했어요. 잠시 후 다시 열어 주세요.',
+  'reservation.closing.cardFailed': '시술 마감 카드를 불러오지 못했어요.',
   'reservation.closing.extraPaymentIs': '추가 결제는',
   'reservation.closing.closingIs': '시술 마감은',
   'reservation.closing.savedBold': '{what} 저장됐어요.',

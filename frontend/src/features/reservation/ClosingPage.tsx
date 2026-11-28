@@ -94,7 +94,7 @@ export default function ClosingPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [reload]); // 「다시 시도」를 누르면 스탭 · 메뉴 목록도 다시 받는다
 
   // 마감 카드 값 (예정 시술로 미리 채워진 상태) + 위쪽 요약용 예약 정보
   useEffect(() => {
@@ -261,7 +261,19 @@ export default function ClosingPage() {
           ) : current?.error === 'conflict' ? (
             <p className="meta">{current.message ?? t('reservation.closing.cannotClose')}</p>
           ) : current?.error === 'error' ? (
-            <p className="meta">{t('reservation.closing.cardFailed')}</p>
+            <p className="meta" role="alert">
+              {t('reservation.closing.cardFailed')}{' '}
+              <button
+                type="button"
+                className="btn btn-sm"
+                onClick={() => {
+                  setLoaded(null);
+                  setReload((n) => n + 1);
+                }}
+              >
+                {t('common.retry')}
+              </button>
+            </p>
           ) : !closing ? (
             <p className="meta">{t('common.loading')}</p>
           ) : retry ? (
