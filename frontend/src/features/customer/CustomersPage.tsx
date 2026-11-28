@@ -69,10 +69,10 @@ export default function CustomersPage() {
   const [listTry, setListTry] = useState(0);
   const listKey = [query, cat, status, vis, staffId, consent, page].join('|');
 
-  // 담당 스탭 필터 목록
+  // 담당 스탭 필터 목록. 목록의 「다시 시도」를 누르면 함께 다시 받는다
   useEffect(() => {
     api<StaffRef[]>('/api/staff').then(setStaff, () => {});
-  }, []);
+  }, [listTry]);
 
   // 검색어는 입력이 0.3초 멈추면 반영
   useEffect(() => {

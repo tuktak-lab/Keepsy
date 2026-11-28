@@ -111,6 +111,7 @@ export default function ConsentTabletPage() {
                   setError('');
                   setStep('loading');
                   setLoadTry((n) => n + 1);
+                  setShopTry((n) => n + 1); // 보관 기간(매장 정보)도 함께 다시 받는다 (한 번 눌러 전부 복구)
                 }}
               >
                 {t('common.retry')}
