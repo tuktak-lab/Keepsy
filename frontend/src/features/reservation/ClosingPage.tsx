@@ -66,7 +66,6 @@ export default function ClosingPage() {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [staff, setStaff] = useState<StaffRef[]>([]);
   const [menus, setMenus] = useState<Menu[]>([]);
-  const industries = useIndustries(); // 꺼 둔 업종의 메뉴는 시술 추가 선택지에서 뺀다 (이미 담긴 시술은 그대로 보인다)
   const [rows, setRows] = useState<ClosingService[]>([]);
   const [amount, setAmount] = useState('');
   const [amountTouched, setAmountTouched] = useState(false); // 금액을 직접 고치기 전에는 시술 가격 합계를 따른다
@@ -76,6 +75,7 @@ export default function ClosingPage() {
   const [busy, setBusy] = useState(false);
   const sending = useRef(false); // 같은 틱의 연속 제출 차단 (setBusy는 다음 렌더에야 버튼을 막는다). 서버 멱등성은 아님 (#352)
   const [reload, setReload] = useState(0);
+  const industries = useIndustries(reload); // 꺼 둔 업종의 메뉴는 시술 추가 선택지에서 뺀다 (이미 담긴 시술은 그대로 보인다)
   const [noCustomer, setNoCustomer] = useState(false); // 고객 없는 예약을 「고객 없음」으로 마감 (E3)
   const [ask, setAsk] = useState<{ menuId: number; error: string; busy: boolean } | null>(null); // 「앞으로 이 메뉴를 모두 제외할까요?」 (FR-VIS-05)
   const [agreed, setAgreed] = useState<string[]>([]); // 이 카드에서 방금 받은 동의 (목록에서 빼고, 사진 동의면 사진 칸을 연다)
