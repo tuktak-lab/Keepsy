@@ -40,16 +40,17 @@ export default function CustomerDetailPage() {
   const [phoneError, setPhoneError] = useState('');
   const [consentOpen, setConsentOpen] = useState(false);
 
-  // 고객 상세 + 동의를 함께 받는다. 다른 고객으로 바꾸면 지난 응답은 버린다 (useLoad, #344)
-  const load = useLoad(valid ? String(customerId) : null, () =>
-    Promise.all([
-      api<CustomerDetail>(`/api/customers/${customerId}`, { silent: true }),
-      api<CustomerConsents>(`/api/customers/${customerId}/consents`, { silent: true }),
-    ]),
-  );
-  const [detail, consents] = load.data ?? [null, null];
-  const error = valid ? (load.error ? errorText(load.error) : '') : t('customer.detail.noCustomer');
-  const reload = load.reload;
+  // 고객 상세와 동의는 따로 받는다: 동의만 실패해도 고객 정보 · 수정 · 삭제는 보인다 (#487). 다른 고객의 지난 응답은 버린다 (useLoad, #344)
+  const key = valid ? String(customerId) : null;
+  const info = useLoad(key, () => api<CustomerDetail>(`/api/customers/${customerId}`, { silent: true }));
+  const consentLoad = useLoad(key, () => api<CustomerConsents>(`/api/customers/${customerId}/consents`, { silent: true }));
+  const detail = info.data;
+  const consents = consentLoad.data;
+  const error = valid ? (info.error ? errorText(info.error) : '') : t('customer.detail.noCustomer');
+  const consentError = consentLoad.error ? `${t('customer.detail.consentItems')}: ${errorText(consentLoad.error)}` : '';
+  const reload = async () => {
+    await Promise.all([info.reload(), consentLoad.reload()]);
+  };
 
   async function showPhone() {
     setPhoneError('');
@@ -61,7 +62,8 @@ export default function CustomerDetailPage() {
     }
   }
 
-  const photoAgreed = Boolean(consents?.current.some((c) => c.item === 'PHOTO' && c.agreed));
+  // null은 동의 상태를 아직 모름
+  const photoAgreed = consents ? consents.current.some((c) => c.item === 'PHOTO' && c.agreed) : null;
 
   return (
     <>
@@ -78,9 +80,9 @@ export default function CustomerDetailPage() {
           )}
         </div>
 
-        {error && <AreaError text={error} />}
+        <AreaError text={error} onRetry={valid ? reload : undefined} />
 
-        {detail && consents && (
+        {detail && (
           <>
             <section className="card row" style={{ gap: '18px' }}>
               <Avatar who={detail.name} size="72" />
@@ -110,15 +112,19 @@ export default function CustomerDetailPage() {
                 </span>
                 {phoneError && <span className="meta" style={{ color: '#8A2F3F' }}>{phoneError}</span>}
               </div>
-              <button type="button" className="btn" style={{ marginLeft: 'auto', gap: 8 }} onClick={() => setConsentOpen(true)}>
-                {t('customer.detail.consentItems')}
-                <span className="chip" style={{ background: '#F9EBE8', color: '#7A4450' }}>
-                  {t('customer.detail.consentCount', { done: consents.current.filter((c) => c.agreed).length, total: consents.current.length })}
-                </span>
-              </button>
+              {consents && (
+                <button type="button" className="btn" style={{ marginLeft: 'auto', gap: 8 }} onClick={() => setConsentOpen(true)}>
+                  {t('customer.detail.consentItems')}
+                  <span className="chip" style={{ background: '#F9EBE8', color: '#7A4450' }}>
+                    {t('customer.detail.consentCount', { done: consents.current.filter((c) => c.agreed).length, total: consents.current.length })}
+                  </span>
+                </button>
+              )}
             </section>
 
-            {consentOpen && (
+            <AreaError text={consentError} onRetry={consentLoad.reload} />
+
+            {consentOpen && consents && (
               <div
                 role="dialog"
                 aria-modal="true"

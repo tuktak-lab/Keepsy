@@ -111,14 +111,25 @@ export default function RetentionPage() {
         <section className={styles.card} aria-label={t('customer.retention.listLabel')}>
           <div className={styles.cardHead}>
             <h2 className={styles.cardTitle}>
-              {t('customer.retention.targets')} <span className="num">{total}</span>{t('customer.retention.targetsUnit')}
+              {t('customer.retention.targets')} <span className="num">{rows ? total : '—'}</span>{t('customer.retention.targetsUnit')}
             </h2>
             <span className={styles.meta}>{t('customer.retention.sortNote')}</span>
           </div>
 
           {error && (
             <p className={styles.error} role="alert">
-              {error}
+              {error}{' '}
+              <button
+                type="button"
+                className={styles.secondary}
+                disabled={loading}
+                onClick={() => {
+                  setError('');
+                  void load(Math.max(rows?.length ?? SIZE, SIZE));
+                }}
+              >
+                {t('common.retry')}
+              </button>
             </p>
           )}
           {rows === null && !error && <p className={styles.empty}>{t('common.loading')}</p>}

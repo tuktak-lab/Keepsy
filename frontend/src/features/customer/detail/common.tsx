@@ -12,10 +12,19 @@ export function errorText(err: unknown): string {
   return t('common.pin.tryLater');
 }
 
-export function AreaError(props: { text: string }) {
+/** onRetry를 주면 그 영역만 다시 불러오는 버튼을 함께 보인다. 저장 · 삭제 같은 동작 오류에는 주지 않는다 */
+export function AreaError(props: { text: string; onRetry?: () => unknown }) {
   return props.text ? (
     <p className="note" role="alert" style={{ color: '#8A2F3F' }}>
       {props.text}
+      {props.onRetry && (
+        <>
+          {' '}
+          <button type="button" className="lk" onClick={() => void props.onRetry?.()}>
+            {t('common.retry')}
+          </button>
+        </>
+      )}
     </p>
   ) : null;
 }

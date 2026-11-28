@@ -8,6 +8,7 @@ import styleText from './CustomersPage.css?inline';
 import { useStyleSheet } from '@/hooks/useStyleSheet';
 import { t } from '@/lib/i18n';
 import type { MessageKey } from '@/lib/messages/ko';
+import { AreaError, errorText } from './detail/common';
 
 // 고객 목록 · 검색 · 필터 (FR-CUS-02). GET /api/customers, 20건씩.
 // 데모의 누적 결제액 · 시술 카테고리 · 예측 상태 칸은 목록 API 응답에 없어 뺐다 (필터로는 쓴다).
@@ -63,6 +64,10 @@ export default function CustomersPage() {
   const [result, setResult] = useState<Page<CustomerListItem> | null>(null);
   const [staff, setStaff] = useState<StaffRef[]>([]);
   const [sel, setSel] = useState<number | null>(null);
+  // 어느 조건에서 실패했는지 함께 둔다. 조건을 바꾸면 지난 오류는 보이지 않는다
+  const [failed, setFailed] = useState<{ key: string; text: string } | null>(null);
+  const [listTry, setListTry] = useState(0);
+  const listKey = [query, cat, status, vis, staffId, consent, page].join('|');
 
   // 담당 스탭 필터 목록
   useEffect(() => {
@@ -90,14 +95,23 @@ export default function CustomersPage() {
       marketingConsent: consent ? consent === 'true' : undefined,
     };
     let alive = true;
-    api<Page<CustomerListItem>>('/api/customers?' + toQuery(filter, page)).then(
-      (res) => alive && setResult(res),
-      () => {},
+    api<Page<CustomerListItem>>('/api/customers?' + toQuery(filter, page), { silent: true }).then(
+      (res) => {
+        if (!alive) return;
+        setResult(res);
+        setFailed(null);
+      },
+      (err) => {
+        if (!alive) return;
+        setResult(null); // 이전 조건의 결과를 남기지 않는다 (#487)
+        setFailed({ key: listKey, text: errorText(err) });
+      },
     );
     return () => {
       alive = false;
     };
-  }, [query, cat, status, vis, staffId, consent, page]);
+  }, [query, cat, status, vis, staffId, consent, page, listKey, listTry]);
+  const error = failed?.key === listKey ? failed.text : '';
 
   // 필터를 바꾸면 첫 페이지부터
   const pick =
@@ -174,7 +188,7 @@ export default function CustomersPage() {
             <span>{t('customer.list.colLast')}</span>
             <span>{t('customer.list.colMarketing')}</span>
           </div>
-          <div className="kp-fade" key={[query, cat, status, vis, staffId, consent, page].join('|')}>
+          <div className="kp-fade" key={listKey}>
           {rows.map((r) => (
             <div className={'crow' + (r.customerId === cur?.customerId ? ' on' : '')} key={r.customerId}>
               <button type="button" className="pick" onClick={() => setSel(r.customerId)} aria-pressed={r.customerId === cur?.customerId}>
@@ -193,8 +207,19 @@ export default function CustomersPage() {
             <div className="kp-empty"><b>{t('customer.list.emptyTitle')}</b>{t('customer.list.emptyHint')}</div>
           ) : null}
           </div>
+          {error && (
+            <div style={{ padding: '4px 18px 10px' }}>
+              <AreaError
+                text={error}
+                onRetry={() => {
+                  setFailed(null);
+                  setListTry((n) => n + 1);
+                }}
+              />
+            </div>
+          )}
           <div className="row between meta" style={{ padding: '10px 18px 8px', borderTop: '1px solid #F1E4E0' }}>
-            <span>{result ? t('customer.list.showing', { total, shown: rows.length }) : t('common.loading')}</span>
+            <span>{result ? t('customer.list.showing', { total, shown: rows.length }) : error ? '' : t('common.loading')}</span>
             <span className="row" style={{ gap: '8px' }}>
               <button type="button" className="btn" disabled={page === 0} onClick={() => setPage(page - 1)}>{t('customer.list.prev')}</button>
               <span className="num">{page + 1} / {pages}</span>

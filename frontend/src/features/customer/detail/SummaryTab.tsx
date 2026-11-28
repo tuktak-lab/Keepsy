@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useLoad } from '@/hooks/useLoad';
 import { api, type Page } from '@/lib/api';
 import {
   CATEGORY_LABEL,
@@ -23,31 +23,28 @@ const RHYTHM_COLOR = ['#7A4450', '#D9AFA6', '#B88A6A', '#8C9A86', '#9A8FB0'];
 export function SummaryTab(props: {
   customerId: number;
   detail: CustomerDetail;
-  consents: CustomerConsents;
+  /** null은 아직 모름 */
+  consents: CustomerConsents | null;
   reload: () => Promise<void>;
 }) {
   const { customerId, detail } = props;
-  const [predictions, setPredictions] = useState<CategoryPrediction[] | null>(null);
-  const [predError, setPredError] = useState('');
-  const [reservations, setReservations] = useState<CustomerReservation[] | null>(null);
-  const [resError, setResError] = useState('');
-  const [visits, setVisits] = useState<HistoryVisit[]>([]);
-
-  useEffect(() => {
-    api<{ predictions: CategoryPrediction[] }>(`/api/customers/${customerId}/predictions`, { silent: true })
-      .then((r) => setPredictions(r.predictions))
-      .catch((err) => setPredError(errorText(err)));
-    api<Page<CustomerReservation>>(`/api/customers/${customerId}/reservations?size=10`, { silent: true })
-      .then((r) => setReservations(r.items))
-      .catch((err) => setResError(errorText(err)));
-    api<Page<HistoryVisit>>(`/api/customers/${customerId}/history?size=20`, { silent: true })
-      .then((r) => setVisits(r.items))
-      .catch(() => setVisits([]));
-  }, [customerId]);
+  // 영역마다 따로 받아, 실패한 영역만 다시 시도한다 (#487)
+  const pred = useLoad(String(customerId), () =>
+    api<{ predictions: CategoryPrediction[] }>(`/api/customers/${customerId}/predictions`, { silent: true }),
+  );
+  const resv = useLoad(String(customerId), () =>
+    api<Page<CustomerReservation>>(`/api/customers/${customerId}/reservations?size=10`, { silent: true }),
+  );
+  const history = useLoad(String(customerId), () =>
+    api<Page<HistoryVisit>>(`/api/customers/${customerId}/history?size=20`, { silent: true }),
+  );
+  const predictions = pred.data?.predictions ?? null;
+  const reservations = resv.data?.items ?? null;
+  const visits = history.data?.items ?? [];
 
   const s = detail.visitSummary;
   const today = seoulToday();
-  const healthAgreed = props.consents.current.some((c) => c.item === 'HEALTH' && c.agreed);
+  const healthAgreed = props.consents ? props.consents.current.some((c) => c.item === 'HEALTH' && c.agreed) : null;
   const points = rhythmPoints(visits);
   // 완료된 예약 옆에 그날 방문 메모(시술 컬러 등)를 보인다. 예약 응답에 방문 ID가 없어 방문일로 짝짓는다
   const notesByDate = new Map(visits.map((v) => [v.visitDate, v.notes.map((n) => n.content)]));
@@ -99,7 +96,7 @@ export function SummaryTab(props: {
 
       <section className="col" style={{ gap: '12px' }}>
         <h2 className="h2">{t('customer.summary.predTitle')}</h2>
-        <AreaError text={predError} />
+        <AreaError text={pred.error ? errorText(pred.error) : ''} onRetry={pred.reload} />
         {predictions?.length === 0 && <p className="meta">{t('customer.summary.predEmpty')}</p>}
         <div className="cgrid">
           {predictions?.map((p) => {
@@ -132,6 +129,8 @@ export function SummaryTab(props: {
         </div>
         <p className="meta">{t('customer.summary.predNote')}</p>
       </section>
+
+      <AreaError text={history.error ? `${t('customer.summary.rhythm')}: ${errorText(history.error)}` : ''} onRetry={history.reload} />
 
       {points.length > 0 && (
         <section className="card col" style={{ gap: '14px' }}>
@@ -182,7 +181,7 @@ export function SummaryTab(props: {
         <h2 className="h2" style={{ paddingBottom: 6 }}>
           {t('customer.summary.bookings')}
         </h2>
-        <AreaError text={resError} />
+        <AreaError text={resv.error ? errorText(resv.error) : ''} onRetry={resv.reload} />
         {reservations?.length === 0 && <p className="meta">{t('customer.summary.noBookings')}</p>}
         {reservations?.map((r) => (
           <div className="trow" key={r.id} style={{ gridTemplateColumns: '150px 1fr auto' }}>

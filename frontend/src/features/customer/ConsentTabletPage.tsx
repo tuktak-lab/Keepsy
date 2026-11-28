@@ -26,6 +26,7 @@ export default function ConsentTabletPage() {
   const [current, setCurrent] = useState<ConsentState[]>([]);
   const [chosen, setChosen] = useState<Partial<Record<ConsentItem, boolean>>>({});
   const [saved, setSaved] = useState<ConsentChange[]>([]);
+  const [loadTry, setLoadTry] = useState(0);
 
   useEffect(() => {
     if (!valid) return;
@@ -39,11 +40,12 @@ export default function ConsentTabletPage() {
         setChosen(Object.fromEntries(consents.current.map((c) => [c.item, c.agreed])));
         setStep('form');
       })
-      .catch((err) => {
-        setError(err instanceof ApiError ? err.message : t('common.pin.tryLater'));
+      .catch(() => {
+        // 고객이 보는 화면이라 서버 문구는 보이지 않는다 (#487)
+        setError(t('common.loadFailed'));
         setStep('error');
       });
-  }, [customerId, valid]);
+  }, [customerId, valid, loadTry]);
 
   // 동의서의 보관 기간은 매장 설정값 (FR-SET-06). 모르는 동안은 개인정보 동의를 새로 받지 않는다 (선택 항목은 그대로 받는다)
   const [shopTry, setShopTry] = useState(0);
@@ -101,6 +103,19 @@ export default function ConsentTabletPage() {
             <p className={styles.error} role="alert">
               {error}
             </p>
+            {valid && (
+              <button
+                type="button"
+                className={styles.submit}
+                onClick={() => {
+                  setError('');
+                  setStep('loading');
+                  setLoadTry((n) => n + 1);
+                }}
+              >
+                {t('common.retry')}
+              </button>
+            )}
             <AppLink href="/customers" className={styles.staffLink}>
               {t('customer.tablet.staffToList')}
             </AppLink>
