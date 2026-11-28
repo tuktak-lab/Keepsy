@@ -2,7 +2,8 @@
 // 1) 탭·세그먼트: 선택 배경(인디케이터)이 선택된 버튼으로 부드럽게 이동
 // 2) 이미지: 실제로 다 불러온 뒤 자연스럽게 나타남(그동안은 자리의 배경색이 플레이스홀더)
 
-const TAB_GROUPS = '.tabs, .kp-seg, .cp-seg, .pf-seg, .st-seg';
+// [data-slide-tabs]: 공통 탭 모양(base.css)은 쓰지 않고 이동만 쓰는 탭 (소개 화면)
+const TAB_GROUPS = '.tabs, .kp-seg, .cp-seg, .pf-seg, .st-seg, [data-slide-tabs]';
 const ACTIVE = ':scope > button[aria-selected="true"], :scope > button[aria-pressed="true"]';
 
 function placeIndicators() {

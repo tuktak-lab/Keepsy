@@ -225,14 +225,13 @@ function Screen({ title, rows, nav }: { title: string; rows: Row[]; nav: number 
   );
 }
 
-// FAQ 한 줄: 버튼으로 열고 닫는다. 높이 · 투명도는 CSS로 움직이고, 항목마다 따로 열린다 (기존 details와 같은 동작)
-function FaqItem({ q, a, index }: { q: string; a: string; index: number }) {
-  const [open, setOpen] = useState(false);
+// FAQ 한 줄: 버튼으로 열고 닫는다. 높이 · 투명도는 CSS로 움직인다. 어느 항목을 열지는 FaqSection이 정한다
+function FaqItem({ q, a, index, open, onToggle }: { q: string; a: string; index: number; open: boolean; onToggle: () => void }) {
   const bodyId = `faq-body-${index}`;
   return (
     <div className={`${styles.faqItem} ${styles.reveal}`} style={{ '--i': index + 2 } as React.CSSProperties} data-open={open}>
       <h3 className={styles.faqQ}>
-        <button type="button" aria-expanded={open} aria-controls={bodyId} onClick={() => setOpen((v) => !v)}>
+        <button type="button" aria-expanded={open} aria-controls={bodyId} onClick={onToggle}>
           {q}
         </button>
       </h3>
@@ -245,8 +244,11 @@ function FaqItem({ q, a, index }: { q: string; a: string; index: number }) {
   );
 }
 
-// FAQ 섹션: 화면에 처음 들어올 때 한 번만 제목 → 카드 순서로 나타난다 (다시 스크롤해도 반복하지 않는다)
-function FaqSection() {
+/** --i × 90ms 간격으로 나타난다 (CSS .reveal · .rise) */
+const order = (i: number) => ({ '--i': i }) as React.CSSProperties;
+
+// 화면에 처음 들어올 때 한 번만 안의 요소가 순서대로 나타나는 섹션 (다시 스크롤해도 반복하지 않는다)
+function RevealSection({ labelledBy, children }: { labelledBy: string; children: React.ReactNode }) {
   const ref = useRef<HTMLElement>(null);
   const [shown, setShown] = useState(false);
   useEffect(() => {
@@ -259,23 +261,33 @@ function FaqSection() {
           io.disconnect();
         }
       },
-      { threshold: 0.12 },
+      // 아래 15%는 빼고 본다: 윗여백만 걸친 상태(첫 화면 끝)에서 미리 나타나 스크롤할 때는 이미 끝나 있지 않게
+      { threshold: 0.12, rootMargin: '0px 0px -15% 0px' },
     );
     io.observe(el);
     return () => io.disconnect();
   }, []);
   return (
-    <section ref={ref} className={`${styles.section} ${shown ? styles.revealOn : ''}`} aria-labelledby="faq-title">
+    <section ref={ref} className={`${styles.section} ${shown ? styles.revealOn : ''}`} aria-labelledby={labelledBy}>
+      {children}
+    </section>
+  );
+}
+
+function FaqSection() {
+  const [openIndex, setOpenIndex] = useState<number | null>(null); // 한 번에 하나만 연다
+  return (
+    <RevealSection labelledBy="faq-title">
       <p className={styles.eyebrow}>FAQ</p>
-      <h2 id="faq-title" className={`${styles.sectionTitle} ${styles.reveal}`} style={{ '--i': 1 } as React.CSSProperties}>
+      <h2 id="faq-title" className={`${styles.sectionTitle} ${styles.reveal}`} style={order(1)}>
         자주 묻는 질문
       </h2>
       <div className={styles.faq}>
         {FAQ.map((x, i) => (
-          <FaqItem key={x.q} q={x.q} a={x.a} index={i} />
+          <FaqItem key={x.q} q={x.q} a={x.a} index={i} open={openIndex === i} onToggle={() => setOpenIndex((v) => (v === i ? null : i))} />
         ))}
       </div>
-    </section>
+    </RevealSection>
   );
 }
 
@@ -339,13 +351,13 @@ export default function LandingPage() {
             <path d="M1520 650 C1270 630 1070 750 940 1010 C1100 810 1290 710 1520 740 Z" fill="url(#rib-b)" />
             <path d="M1520 650 C1270 630 1070 750 940 1010" fill="none" stroke="#fff" strokeOpacity="0.8" strokeWidth="1.5" />
           </svg>
-        <section className={styles.section} aria-labelledby="features-title">
+        <RevealSection labelledBy="features-title">
           <p className={styles.eyebrow}>FEATURES</p>
-          <h2 id="features-title" className={styles.sectionTitle}>
+          <h2 id="features-title" className={`${styles.sectionTitle} ${styles.rise}`} style={order(1)}>
             샵 운영에 필요한 일을 하나로
           </h2>
-          <p className={styles.sectionSub}>고객 기록부터 예약, 이탈 신호, 재방문 안내까지 Keepsy가 이어서 도와드려요.</p>
-          <div className={styles.tabs} role="tablist" aria-label="기능">
+          <p className={`${styles.sectionSub} ${styles.rise}`} style={order(2)}>고객 기록부터 예약, 이탈 신호, 재방문 안내까지 Keepsy가 이어서 도와드려요.</p>
+          <div className={`${styles.tabs} ${styles.rise}`} style={order(3)} role="tablist" aria-label="기능" data-slide-tabs>
             {FEATURES.map((x) => (
               <button
                 key={x.id}
@@ -361,36 +373,40 @@ export default function LandingPage() {
               </button>
             ))}
           </div>
-          <div className={styles.feature} role="tabpanel" id="feature-panel" aria-labelledby={`tab-${f.id}`}>
-            <div className={styles.featureText}>
-              <h3>{f.title}</h3>
-              <p>{f.desc}</p>
-              <ol className={styles.steps}>
-                {f.steps.map((s) => (
-                  <li key={s}>
-                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                      <circle cx="12" cy="12" r="10" />
-                      <path d="m8 12.5 3 3 5-6" />
-                    </svg>
-                    {s}
-                  </li>
-                ))}
-              </ol>
+          {/* 스크롤 등장은 바깥 칸이 맡는다: 탭을 바꿀 때 아래 칸만 새로 만들어도 다시 기다리지 않는다 */}
+          <div className={styles.rise} style={order(4)}>
+            {/* key: 탭을 바꾸면 새로 만들어 등장 효과(CSS)가 다시 돈다 */}
+            <div key={f.id} className={styles.feature} role="tabpanel" id="feature-panel" aria-labelledby={`tab-${f.id}`}>
+              <div className={styles.featureText}>
+                <h3>{f.title}</h3>
+                <p>{f.desc}</p>
+                <ol className={styles.steps}>
+                  {f.steps.map((s) => (
+                    <li key={s}>
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <circle cx="12" cy="12" r="10" />
+                        <path d="m8 12.5 3 3 5-6" />
+                      </svg>
+                      {s}
+                    </li>
+                  ))}
+                </ol>
+              </div>
+              <Screen title={f.screen} rows={f.rows} nav={f.nav} />
             </div>
-            <Screen title={f.screen} rows={f.rows} nav={f.nav} />
           </div>
-        </section>
+        </RevealSection>
 
-        <section className={styles.section} aria-labelledby="problem-title">
+        <RevealSection labelledBy="problem-title">
           <p className={styles.eyebrow}>PROBLEM</p>
-          <h2 id="problem-title" className={styles.sectionTitle}>
+          <h2 id="problem-title" className={`${styles.sectionTitle} ${styles.rise}`} style={order(1)}>
             아직도 고객 관리를
             <br />
             기억과 메모에 맡기고 계신가요?
           </h2>
           <ul className={styles.cards}>
-            {PROBLEMS.map((p) => (
-              <li key={p.title} className={styles.card}>
+            {PROBLEMS.map((p, i) => (
+              <li key={p.title} className={`${styles.card} ${styles.rise}`} style={order(i + 2)}>
                 <svg className={styles.cardIcon} viewBox="0 0 24 24" aria-hidden="true">
                   {p.icon.map((d) => (
                     <path key={d} d={d} />
@@ -401,13 +417,13 @@ export default function LandingPage() {
               </li>
             ))}
           </ul>
-          <p className={styles.answer}>
+          <p className={`${styles.answer} ${styles.rise}`} style={order(PROBLEMS.length + 2)}>
             원장님 시간을 소모하는 일,{' '}
             <strong>
               <img className={styles.heroLogo} src={logoImg.src} alt="Keepsy" />가 할게요.
             </strong>
           </p>
-        </section>
+        </RevealSection>
         </div>
 
         <FaqSection />
