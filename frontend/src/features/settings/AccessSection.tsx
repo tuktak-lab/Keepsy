@@ -17,26 +17,25 @@ const errorText = (err: unknown): string =>
 export function FeatureLockSection() {
   const session = useSession();
   const saved = session?.features ?? null;
-  const [edited, setEdited] = useState<Record<string, Access> | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [pending, setPending] = useState<{ key: string; access: Access } | null>(null); // 저장 중인 한 항목 (화면에는 먼저 보인다)
   const [error, setError] = useState('');
 
-  const values = edited ?? saved;
-  const changes = saved && values ? changedFeatures(saved, values) : {};
-  const dirty = Object.keys(changes).length > 0;
+  const values = saved && pending ? { ...saved, [pending.key]: pending.access } : saved;
 
-  async function save() {
-    setBusy(true);
+  // 누르면 그 항목 하나만 바로 저장한다 (따로 저장 버튼 없음)
+  async function choose(key: string, label: string, access: 'PUBLIC' | 'PIN') {
+    if (!saved || pending || saved[key] === access) return;
+    const changes = changedFeatures(saved, { ...saved, [key]: access });
+    setPending({ key, access });
     setError('');
     try {
       await api('/api/feature-locks', { method: 'PUT', body: { features: changes }, silent: true });
       await refreshSession();
-      setEdited(null);
-      toast(t('settings.lock.savedToast'));
+      toast(t('settings.lock.savedToast', { label, access: ACCESS_LABEL[access] }));
     } catch (err) {
       setError(errorText(err));
     } finally {
-      setBusy(false);
+      setPending(null);
     }
   }
 
@@ -60,15 +59,7 @@ export function FeatureLockSection() {
                 ) : (
                   <span className="st-seg" role="group" aria-label={t('settings.lock.groupAria', { label: f.label })}>
                     {(['PUBLIC', 'PIN'] as const).map((a) => (
-                      <button
-                        key={a}
-                        type="button"
-                        aria-pressed={v === a}
-                        onClick={() => {
-                          setError('');
-                          setEdited({ ...values, [f.key]: a });
-                        }}
-                      >
+                      <button key={a} type="button" aria-pressed={v === a} disabled={pending !== null} onClick={() => void choose(f.key, f.label, a)}>
                         {ACCESS_LABEL[a]}
                       </button>
                     ))}
@@ -84,17 +75,6 @@ export function FeatureLockSection() {
           {error}
         </p>
       ) : null}
-      <div className="st-savebar">
-        <span className="st-meta">{dirty ? t('settings.lock.changed', { n: Object.keys(changes).length }) : t('settings.noChange')}</span>
-        {dirty ? (
-          <button type="button" className="st-btn" disabled={busy} onClick={() => setEdited(null)}>
-            {t('settings.revert')}
-          </button>
-        ) : null}
-        <button type="button" className="st-btn p" disabled={!dirty || busy} onClick={() => void save()}>
-          {busy ? t('common.saving') : t('settings.lock.saveBtn')}
-        </button>
-      </div>
     </section>
   );
 }

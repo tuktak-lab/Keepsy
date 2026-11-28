@@ -30,6 +30,8 @@ html:has(.st-wrap){scroll-behavior:smooth}
 .st-btn:hover{background:#F8EDEA}
 .st-btn.p{background:#7A4450;border-color:#7A4450;color:#fff}
 .st-btn.p:hover{background:#683945}
+/* 시술 메뉴 「+ ○○ 메뉴 추가」: 커서를 올리면 진한 와인색 */
+:root .st-wrap .st-btn.add:hover:not([disabled]){background:#683945;border-color:#683945;color:#fff}
 .st-btn[disabled]{background:#F3EEEE;border-color:#F3EEEE;color:#6B605B;cursor:default}
 .st-row{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;padding:12px 0;border-top:1px solid #F1E4E0}
 .st-row:first-of-type{border-top:0}
@@ -183,8 +185,8 @@ html:has(.st-wrap){scroll-behavior:smooth}
 .st-lines{white-space:pre-line}
 /* 왼쪽 마지막 안내(업종)가 오른쪽 영업시간 안내와 같은 높이에서 끝나게: 두 열을 같은 높이로 늘리고 왼쪽 업종 묶음을 아래로 붙인다 */
 .st-shop-col:first-child>:nth-last-child(2){margin-top:auto}
-/* 카테고리 묶음 상자: 인사이트 카드와 같은 유리 테두리(그림자 없음). 제목 줄(카테고리 · 기본값)만 옅은 분홍, 아래 메뉴 줄은 흰 바탕 */
-.st-catbox{padding:0 0 10px;overflow:hidden;border-radius:18px;background:#fff;border:1px solid var(--glass-border);box-shadow:0 0 0 1px var(--glass-edge)}
+/* 카테고리 묶음 상자: 인사이트 카드와 같은 유리 테두리(그림자 없음). 제목 줄(카테고리 · 기본값)과 아래 메뉴 줄 모두 같은 옅은 분홍 */
+.st-catbox{padding:0 0 10px;overflow:hidden;border-radius:18px;background:#F5EAEA;border:1px solid var(--glass-border);box-shadow:0 0 0 1px var(--glass-edge)}
 .st-catbox .st-cat{padding:12px 14px 8px;background:linear-gradient(180deg,rgba(247,236,236,.95),rgba(243,230,231,.85));border-bottom:1px solid rgba(122,68,80,.14)}
 .st-catbox>:not(.st-cat){margin-left:14px;margin-right:14px}
 .st-catbox .st-row{gap:8px 12px}
